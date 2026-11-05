@@ -30,13 +30,12 @@
 erDiagram
   ORGANIZATIONS ||--o{ MEMBERSHIPS : has
   USERS ||--o{ MEMBERSHIPS : joins
-  ORGANIZATIONS ||--o{ GITHUB_INSTALLATIONS : installs
   ORGANIZATIONS ||--o{ REPOSITORIES : owns
-  GITHUB_INSTALLATIONS ||--o{ REPOSITORIES : grants
   ORGANIZATIONS ||--o{ API_KEYS : issues
   REPOSITORIES ||--o{ SCANS : scanned_by
   ORGANIZATIONS ||--o{ SCANS : owns
   USERS ||--o{ SCANS : requests
+  USERS ||--o{ SESSIONS : uses
   SCANS ||--o{ SCAN_EVENTS : emits
   SCANS ||--o{ SCANNER_FINDINGS : produces
   DPDPA_RULES ||--o{ RULE_MAPPINGS : mapped_by
@@ -109,6 +108,11 @@ erDiagram
     bigint id PK
     uuid org_id FK
     text action
+  }
+  SESSIONS {
+    uuid id PK
+    uuid user_id FK
+    timestamptz absolute_expires_at
   }
 ```
 
@@ -324,6 +328,8 @@ CREATE TABLE scans (
   error_code        text,
   error_message     text,
   idempotency_key   text,
+  job_name          text,
+  secret_name       text,
   queued_at         timestamptz NOT NULL DEFAULT now(),
   started_at        timestamptz,
   completed_at      timestamptz,
@@ -339,9 +345,12 @@ CREATE INDEX idx_scans_active
   ON scans (status, queued_at)
   WHERE status IN ('queued', 'cloning', 'scanning', 'mapping');
 CREATE INDEX idx_scans_org_status ON scans (org_id, status);
+CREATE UNIQUE INDEX uq_scans_active_ref
+  ON scans (repository_id, ref)
+  WHERE status IN ('queued', 'cloning', 'scanning', 'mapping');
 ```
 
-`commit_sha` accepts SHA-1 (40) or SHA-256 (64) repository object IDs. `idempotency_key` is nullable for UI scans that do not supply one; PostgreSQL treats `NULL` values as distinct, so multiple null keys are allowed.
+`commit_sha` accepts SHA-1 (40) or SHA-256 (64) repository object IDs. `idempotency_key` is nullable for UI scans that do not supply one; PostgreSQL treats `NULL` values as distinct, so multiple null keys are allowed. `job_name` and `secret_name` record the Kubernetes Job and Secret created for the scan — ephemeral operational fields, cleared when both are deleted. The partial unique index `uq_scans_active_ref` enforces one active scan per repository ref (org scoping derives from `repository_id`); a duplicate submission returns `409 SCAN_IN_PROGRESS` (architecture.md §5).
 
 ### 4.8 Scan events
 
@@ -510,7 +519,7 @@ One scan can have multiple reports (different template versions). The renderer s
 ```sql
 CREATE TABLE audit_logs (
   id            bigserial PRIMARY KEY,
-  org_id        uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  org_id        uuid REFERENCES organizations(id) ON DELETE SET NULL,
   actor_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
   actor_type    text NOT NULL CHECK (actor_type IN ('user', 'api_key', 'system')),
   action        text NOT NULL,
@@ -527,28 +536,51 @@ CREATE INDEX idx_audit_resource ON audit_logs (resource_type, resource_id);
 CREATE INDEX idx_audit_actor ON audit_logs (actor_user_id, created_at DESC);
 ```
 
-Audit actions include: `org.created`, `org.updated`, `member.invited`, `member.role_changed`, `repo.connected`, `repo.disconnected`, `scan.started`, `scan.cancelled`, `finding.triaged`, `report.downloaded`, `api_key.created`, `api_key.revoked`, `retention.updated`. `resource_id` is intentionally not a foreign key because the table is polymorphic.
+Audit actions include: `org.created`, `org.updated`, `member.invited`, `member.role_changed`, `repo.connected`, `repo.disconnected`, `scan.started`, `scan.cancelled`, `finding.triaged`, `report.downloaded`, `audit.exported`, `api_key.created`, `api_key.revoked`, `retention.updated`. `resource_id` is intentionally not a foreign key because the table is polymorphic. `org_id` uses `ON DELETE SET NULL` (not `CASCADE`) so audit rows — including the organisation-deletion receipt — survive the 30-day hard delete and meet the 365-day retention policy; `metadata` keeps an `orgSlug` snapshot for readability after the org is gone.
 
 ### 4.15 Usage events
 
 ```sql
 CREATE TABLE usage_events (
   id         bigserial PRIMARY KEY,
-  org_id     uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  org_id     uuid REFERENCES organizations(id) ON DELETE SET NULL,
   scan_id    uuid REFERENCES scans(id) ON DELETE SET NULL,
   event_type text NOT NULL CHECK (event_type IN (
                'scan_completed', 'scan_failed', 'report_rendered', 'storage_byte_hour'
              )),
+  event_id   uuid NOT NULL DEFAULT gen_random_uuid(),
   quantity   numeric(12,4) NOT NULL DEFAULT 1 CHECK (quantity >= 0),
   metadata   jsonb NOT NULL DEFAULT '{}'::jsonb,
-  created_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (org_id, event_id)
 );
 
 CREATE INDEX idx_usage_org_created ON usage_events (org_id, created_at DESC);
 CREATE INDEX idx_usage_type_created ON usage_events (event_type, created_at DESC);
 ```
 
-Usage is metered for billing and cost attribution. Events are immutable; corrections are new compensating events.
+Usage is metered for billing and cost attribution. Events are immutable; corrections are new compensating events. `org_id` uses `ON DELETE SET NULL` so billing records outlive organisations (multi-year tax/audit retention). `event_id` is the idempotency key: the orchestrator emits each metering event once and retries are deduplicated by `UNIQUE (org_id, event_id)` — a replayed `scan_completed` can never double-meter (api.md §10).
+
+### 4.16 Sessions
+
+```sql
+CREATE TABLE sessions (
+  id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id             uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  active_org_id       uuid REFERENCES organizations(id) ON DELETE SET NULL,
+  ip                  inet,
+  user_agent          text,
+  created_at          timestamptz NOT NULL DEFAULT now(),
+  last_seen_at        timestamptz NOT NULL DEFAULT now(),
+  absolute_expires_at timestamptz NOT NULL,
+  revoked_at          timestamptz
+);
+
+CREATE INDEX idx_sessions_user ON sessions (user_id, created_at DESC);
+CREATE INDEX idx_sessions_expiry ON sessions (absolute_expires_at) WHERE revoked_at IS NULL;
+```
+
+Backs the server-side session controls in `security.md` §3: the session cookie carries an opaque session ID, and the server validates it against this table for the 8-hour absolute lifetime (`absolute_expires_at`), the 30-minute idle timeout (checked against `last_seen_at`), and immediate revocation (`revoked_at`, set on logout, password/role change, or admin revoke). The hourly retention job deletes rows that are expired, idle beyond the limit, or revoked for more than 24 hours. `active_org_id` tracks the currently selected organisation for the session (org switching).
 
 ---
 
@@ -715,11 +747,13 @@ The migration role owns the tables and bypasses RLS. The runtime role does not. 
 | Data | Default | Maximum | Mechanism |
 |---|---|---|---|
 | Source code | 0 (deleted with pod) | 0 | `emptyDir` lifecycle; no persistence path |
-| Scans and findings | 90 days | 365 days per org | Nightly retention job |
+| Scans and findings | 90 days | 365 days per org | Hourly retention job (batched) |
 | Scan events | Same as scan | Same as scan | `ON DELETE CASCADE` |
+| Sessions | 8 h absolute + 30 min idle | 8 h | Hourly retention job deletes expired/idle/revoked rows |
+| Idempotency keys | 7 days | 7 days | Retention job nulls `scans.idempotency_key` after 7 days |
 | PDF reports | 30 days | 90 days | S3 lifecycle + `reports.expires_at` |
 | Raw SARIF (opt-in) | 24 hours | 24 hours | S3 lifecycle |
-| Audit logs | 365 days | 365 days | Append-only; annual archive |
+| Audit logs | 365 days | 365 days | Append-only; annual archive; survives org deletion (`org_id` SET NULL) |
 | Application logs | 30 days hot / 90 cold | 90 days | Log pipeline |
 | Deleted organisations | 30-day grace | 30 days | Hard-delete job |
 
@@ -755,7 +789,7 @@ Organisation deletion is a two-phase process: mark `deleted_at`, revoke GitHub i
 - **No destructive migration in the same release as the code change.** A rollback must remain possible for at least one release.
 - **Concurrent indexes.** Use `CREATE INDEX CONCURRENTLY` for tables above 100k rows; Prisma migrations that require it are authored manually.
 - **Enum changes.** Add values with `ALTER TYPE ... ADD VALUE` outside a transaction; never remove values in place.
-- **Backfills.** Batched at 5,000 rows with a sleep, idempotent, resumable, and tracked in `scan_events`? No — operational backfills use a dedicated `backfill_jobs` table or a migration log. They never write to tenant audit logs.
+- **Backfills.** Batched at 5,000 rows with a sleep, idempotent, resumable, and tracked in the migration log (each migration PR records backfill progress and row counts). They never write to tenant audit logs. A dedicated backfill-jobs table is deferred to post-MVP if backfill volume requires one.
 - **Verification.** Each migration has a `down` note in the PR description, even when Prisma does not generate one.
 
 ---
