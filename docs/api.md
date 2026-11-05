@@ -71,15 +71,20 @@ Every non-2xx response has this shape:
 | 201 | Created |
 | 202 | Accepted; work continues asynchronously |
 | 204 | No content |
-| 400 | Malformed request |
+| 400 | Malformed request — only for unparseable JSON or a syntactically invalid HTTP request; everything else that fails a check is `422` |
 | 401 | Not authenticated |
+| 402 | Payment required — plan quota or seat limit reached (`PLAN_LIMIT_EXCEEDED`) |
 | 403 | Authenticated but not permitted |
 | 404 | Not found, or not visible to this organisation |
 | 409 | Conflict (duplicate scan, invalid state transition) |
+| 410 | Gone — resource expired past retention (`REPORT_EXPIRED`) |
+| 413 | Payload too large (`PAYLOAD_TOO_LARGE`) |
 | 422 | Validation failed, or idempotency key reused with a different payload |
 | 429 | Rate limited |
 | 500 | Internal error |
 | 503 | Dependency unavailable; `Retry-After` present |
+
+**400 vs 422:** `400` is reserved for requests the server cannot parse at all (malformed JSON body, invalid header encoding); any request that parses but violates a schema or semantic rule — including unknown fields, bad enum values, or a failed idempotency-key format check — returns `422 VALIDATION_ERROR`.
 
 ### 1.6 Pagination
 
@@ -87,9 +92,11 @@ All list endpoints accept:
 
 | Parameter | Default | Maximum |
 |---|---|---|
-| `page` | 1 | 500 |
+| `page` | 1 | Validated against the offset budget: `page × pageSize ≤ 10,000` |
 | `pageSize` | 20 | 100 |
 | `sort` | `-createdAt` | See endpoint |
+
+All list sorts are made stable by appending the primary key as a tiebreaker (`-createdAt,id`); clients may pass the tiebreaker explicitly. Without it, rows with equal sort keys could shift between pages.
 
 Response:
 
@@ -111,6 +118,7 @@ Offsets above 10,000 are rejected with `422 PAGINATION_LIMIT`; clients must narr
 
 `POST /api/v1/scan` and `POST /api/v1/report/pdf` require `Idempotency-Key` for API-key clients and accept it for browser clients. The UI generates a UUID per user intent and reuses it on retry.
 
+- **Format:** `^[A-Za-z0-9_-]{16,64}$` — the UI sends a UUID v4 (36 chars) and CI sends a 40-char git SHA; both fit. A key outside the pattern → `422 VALIDATION_ERROR`.
 - Keys are scoped to `(org_id, key)` and retained for 7 days.
 - Same key + same payload → the original response, with `Idempotent-Replayed: true`.
 - Same key + different payload → `422 IDEMPOTENCY_CONFLICT`.
@@ -147,27 +155,28 @@ A `429` body uses `RATE_LIMITED` and states the window in `message`.
 | GET | `/api/v1/me` | Session/Key | Current user, orgs, role | `server/api/v1/me.get.ts` |
 | GET | `/api/v1/org` | Session/Key | Organisation profile and settings | `server/api/v1/org/index.get.ts` |
 | PATCH | `/api/v1/org` | Owner/Admin | Update org settings | `server/api/v1/org/index.patch.ts` |
-| GET | `/api/v1/org/members` | Member | List members | `server/api/v1/org/members/index.get.ts` |
+| GET | `/api/v1/org/members` | viewer+ | List members | `server/api/v1/org/members/index.get.ts` |
 | POST | `/api/v1/org/members` | Owner/Admin | Invite member | `server/api/v1/org/members/index.post.ts` |
 | PATCH | `/api/v1/org/members/:userId` | Owner/Admin | Change role | `server/api/v1/org/members/[userId].patch.ts` |
 | DELETE | `/api/v1/org/members/:userId` | Owner/Admin | Remove member | `server/api/v1/org/members/[userId].delete.ts` |
-| GET | `/api/v1/repos` | Member | List connected repositories | `server/api/v1/repos/index.get.ts` |
+| GET | `/api/v1/repos` | viewer+ | List connected repositories | `server/api/v1/repos/index.get.ts` |
 | POST | `/api/v1/repos` | Admin | Connect/resolve a repository | `server/api/v1/repos/index.post.ts` |
-| GET | `/api/v1/repos/:repoId` | Member | Repository detail | `server/api/v1/repos/[repoId].get.ts` |
+| GET | `/api/v1/repos/:repoId` | viewer+ | Repository detail | `server/api/v1/repos/[repoId].get.ts` |
 | DELETE | `/api/v1/repos/:repoId` | Admin | Disconnect repository | `server/api/v1/repos/[repoId].delete.ts` |
-| GET | `/api/v1/repos/:repoId/scans` | Member | Scans for a repository | `server/api/v1/repos/[repoId]/scans.get.ts` |
+| GET | `/api/v1/repos/:repoId/scans` | viewer+ | Scans for a repository | `server/api/v1/repos/[repoId]/scans.get.ts` |
 | POST | `/api/v1/scan` | Auditor+ | Start a scan | `server/api/v1/scan.post.ts` |
-| GET | `/api/v1/scan/:scanId` | Member | Scan status and score | `server/api/v1/scan/[scanId].get.ts` |
-| GET | `/api/v1/scans` | Member | List scans | `server/api/v1/scans.get.ts` |
+| GET | `/api/v1/scan/:scanId` | viewer+ | Scan status and score | `server/api/v1/scan/[scanId].get.ts` |
+| GET | `/api/v1/scans` | viewer+ | List scans | `server/api/v1/scans.get.ts` |
 | POST | `/api/v1/scan/:scanId/cancel` | Auditor+ | Cancel a queued/running scan | `server/api/v1/scan/[scanId]/cancel.post.ts` |
-| GET | `/api/v1/scan/:scanId/findings` | Member | List findings | `server/api/v1/scan/[scanId]/findings.get.ts` |
-| GET | `/api/v1/scan/:scanId/events` | Member | Scan timeline | `server/api/v1/scan/[scanId]/events.get.ts` |
+| GET | `/api/v1/scan/:scanId/findings` | viewer+ | List findings | `server/api/v1/scan/[scanId]/findings.get.ts` |
+| GET | `/api/v1/scan/:scanId/events` | viewer+ | Scan timeline | `server/api/v1/scan/[scanId]/events.get.ts` |
 | PATCH | `/api/v1/findings/:findingId` | Auditor+ | Triage a finding | `server/api/v1/findings/[findingId].patch.ts` |
 | POST | `/api/v1/report/pdf` | Auditor+ | Request a PDF | `server/api/v1/report/pdf.post.ts` |
-| GET | `/api/v1/report/pdf/:reportId` | Member | Report status and signed URL | `server/api/v1/report/pdf/[reportId].get.ts` |
-| GET | `/api/v1/report/pdf/:reportId/download` | Member | Redirect to signed URL | `server/api/v1/report/pdf/[reportId]/download.get.ts` |
-| GET | `/api/v1/rules` | Member | List DPDPA controls | `server/api/v1/rules/index.get.ts` |
-| GET | `/api/v1/rules/:code` | Member | Control detail and mappings | `server/api/v1/rules/[code].get.ts` |
+| GET | `/api/v1/report/pdf/:reportId` | viewer+ | Report status and signed URL | `server/api/v1/report/pdf/[reportId].get.ts` |
+| GET | `/api/v1/report/pdf/:reportId/download` | viewer+ | Redirect to signed URL | `server/api/v1/report/pdf/[reportId]/download.get.ts` |
+| GET | `/api/v1/rules` | viewer+ | List DPDPA controls | `server/api/v1/rules/index.get.ts` |
+| GET | `/api/v1/rules/:code` | viewer+ | Control detail and mappings | `server/api/v1/rules/[code].get.ts` |
+| GET | `/api/v1/openapi.json` | None | OpenAPI 3.1 document (non-production; see §12) | `server/api/v1/openapi.json.get.ts` |
 | GET | `/api/v1/audit-logs` | Admin | Audit trail | `server/api/v1/audit-logs.get.ts` |
 | GET | `/api/v1/api-keys` | Admin | List API keys | `server/api/v1/api-keys/index.get.ts` |
 | POST | `/api/v1/api-keys` | Owner | Create API key | `server/api/v1/api-keys/index.post.ts` |
@@ -287,7 +296,7 @@ Retry-After: 3
       "8(5)": 75.0,
       "9": 100.0,
       "10": 80.0,
-      "12": 100.0,
+      "12": null,
       "13": 55.0,
       "16": 88.0
     },
@@ -329,6 +338,8 @@ Retry-After: 3
 
 `coverage` is authoritative. A `completed` scan with a non-`completed` scanner is **partial**; the UI must show a coverage warning and must not display a "clean" message.
 
+A `null` section score means **not assessed** (`applicableWeight = 0`), never 100 — section 12 carries only a weight-0, non-scored control (rules.md §4/§9.2).
+
 **Errors:** `404 NOT_FOUND` for another tenant's scan (never `403`, to avoid existence leaks).
 
 ### 3.3 List scans
@@ -349,20 +360,22 @@ Retry-After: 3
 {
   "data": [
     {
-      "id": "scn_01J8Z4A1B2C3D4E5F6G7H8J9K0",
+      "id": "scn_01J8Z4A7B2C3D4E5F6G7H8J9K0",
       "repositoryId": "repo_01J8Z3K4M5N6P7Q8R9S0T1U2V3",
       "repositoryFullName": "acme/payments-service",
       "status": "completed",
-      "score": 72.4,
+      "score": 68.9,
       "grade": "C",
-      "counts": { "critical": 2, "high": 7, "medium": 14, "low": 9, "total": 32 },
-      "createdAt": "2026-11-04T09:31:22.481Z",
-      "completedAt": "2026-11-04T09:37:04.903Z"
+      "counts": { "critical": 2, "high": 7, "medium": 14, "low": 9, "info": 3, "total": 35 },
+      "createdAt": "2026-11-04T08:12:44.117Z",
+      "completedAt": "2026-11-04T08:18:02.664Z"
     }
   ],
   "pagination": { "page": 1, "pageSize": 20, "totalItems": 142, "totalPages": 8 }
 }
 ```
+
+This list example is a **different scan** from the §3.2 detail example (`scn_01J8Z4A7...` vs `scn_01J8Z4A1...`); counts in the two examples are independent.
 
 ### 3.4 Cancel a scan
 
@@ -968,6 +981,9 @@ Orchestrator recomputes coverage, maps findings, scores, and returns `200`.
 | `FORBIDDEN` | 403 | No | Insufficient role or scope |
 | `NOT_FOUND` | 404 | No | Resource absent or not visible to the org |
 | `CONFLICT` | 409 | No | Duplicate or invalid state transition |
+| `INVALID_STATE_TRANSITION` | 409 | No | Operation not allowed in the resource's current status (e.g. cancel a terminal scan) |
+| `LAST_OWNER` | 409 | No | Refused removal or demotion of the organisation's last owner |
+| `REPO_ALREADY_CONNECTED` | 409 | No | Repository URL already saved for this organisation |
 | `SCAN_IN_PROGRESS` | 409 | Yes, later | Active scan exists for repo/ref |
 | `SCAN_NOT_READY` | 409 | Yes, later | Report requested before scan completion |
 | `REPORT_NOT_READY` | 409 | Yes, later | PDF still rendering |
