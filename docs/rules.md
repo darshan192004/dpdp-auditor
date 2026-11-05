@@ -6,7 +6,7 @@
 | Date | 2026-11-04 |
 | Owner | Product + Legal |
 | Reviewers | DPO, external counsel, AppSec lead |
-| Related documents | `PRD.md`, `database.md`, `rules.md`, `security.md` |
+| Related documents | `PRD.md`, `database.md`, `api.md`, `security.md` |
 
 ---
 
@@ -77,29 +77,29 @@ A single scanner finding may map to multiple controls. The engine emits one pers
 
 Controls use the code format `DPDPA-<section>-<domain>-<sequence>`. Weights reflect legal significance and the reliability of code evidence.
 
-| Code | Section | Title | Severity | Weight | Evidence strength |
-|---|---|---|---|---|---|
-| `DPDPA-5-NOTICE-01` | 5 | Privacy notice is present and linked at collection | medium | 2 | Advisory |
-| `DPDPA-6-CONSENT-01` | 6 | Consent is captured before personal data processing | high | 5 | Inferred |
-| `DPDPA-6-MIN-01` | 6 | Only necessary personal data fields are collected | high | 4 | Inferred |
-| `DPDPA-6-WD-01` | 6 | Consent withdrawal is implemented | medium | 3 | Inferred |
-| `DPDPA-7-LAWFUL-01` | 7 | A lawful basis is recorded for processing | medium | 2 | Advisory |
-| `DPDPA-8.4-ENC-01` | 8(4) | Personal data is encrypted at rest | high | 5 | Direct |
-| `DPDPA-8.4-TLS-01` | 8(4) | Personal data is encrypted in transit | high | 5 | Direct |
-| `DPDPA-8.4-ACCESS-01` | 8(4) | Data stores and services are not publicly exposed | critical | 8 | Direct |
-| `DPDPA-8.4-SECRET-01` | 8(4) | No credentials or secrets are hardcoded | critical | 8 | Direct |
-| `DPDPA-8.4-LOG-01` | 8(4) | Personal data is not written to logs | critical | 7 | Direct |
-| `DPDPA-8.4-MON-01` | 8(4) | Access and audit logging is enabled | medium | 3 | Direct |
-| `DPDPA-8.4-BACKUP-01` | 8(4) | Backups and versioning protect availability | medium | 2 | Direct |
-| `DPDPA-8.4-RET-01` | 8(4) | Retention limits are enforced in code | high | 4 | Inferred |
-| `DPDPA-8.5-BREACH-01` | 8(5) | Breach detection and alerting hooks exist | medium | 3 | Inferred |
-| `DPDPA-9-CHILD-01` | 9 | Children's data processing includes verifiable consent | high | 4 | Advisory |
-| `DPDPA-10-SDF-01` | 10 | SDF governance artifacts are present | low | 1 | Advisory |
-| `DPDPA-12-ACCESS-01` | 12 | Data access/export endpoint exists | medium | 0 | Advisory (not scored) |
-| `DPDPA-13-ERASE-01` | 13 | Correction and erasure are implemented | high | 4 | Inferred |
-| `DPDPA-16-XBORDER-01` | 16 | Cross-border transfer is restricted or disclosed | high | 4 | Inferred |
+| Code | Section | Title | Severity | Weight | Evidence strength | Scored |
+|---|---|---|---|---|---|---|
+| `DPDPA-5-NOTICE-01` | 5 | Privacy notice is present and linked at collection | medium | 2 | Advisory | yes |
+| `DPDPA-6-CONSENT-01` | 6 | Consent is captured before personal data processing | high | 5 | Inferred | yes |
+| `DPDPA-6-MIN-01` | 6 | Only necessary personal data fields are collected | high | 4 | Inferred | yes |
+| `DPDPA-6-WD-01` | 6 | Consent withdrawal is implemented | medium | 3 | Inferred | yes |
+| `DPDPA-7-LAWFUL-01` | 7 | A lawful basis is recorded for processing | medium | 2 | Advisory | yes |
+| `DPDPA-8.4-ENC-01` | 8(4) | Personal data is encrypted at rest | high | 5 | Direct | yes |
+| `DPDPA-8.4-TLS-01` | 8(4) | Personal data is encrypted in transit | high | 5 | Direct | yes |
+| `DPDPA-8.4-ACCESS-01` | 8(4) | Data stores and services are not publicly exposed | critical | 8 | Direct | yes |
+| `DPDPA-8.4-SECRET-01` | 8(4) | No credentials or secrets are hardcoded | critical | 8 | Direct | yes |
+| `DPDPA-8.4-LOG-01` | 8(4) | Personal data is not written to logs | critical | 7 | Direct | yes |
+| `DPDPA-8.4-MON-01` | 8(4) | Access and audit logging is enabled | medium | 3 | Direct | yes |
+| `DPDPA-8.4-BACKUP-01` | 8(4) | Backups and versioning protect availability | medium | 2 | Direct | yes |
+| `DPDPA-8.4-RET-01` | 8(4) | Retention limits are enforced in code | high | 4 | Inferred | yes |
+| `DPDPA-8.5-BREACH-01` | 8(5) | Breach detection and alerting hooks exist | medium | 3 | Inferred | yes |
+| `DPDPA-9-CHILD-01` | 9 | Children's data processing includes verifiable consent | high | 4 | Advisory | yes |
+| `DPDPA-10-SDF-01` | 10 | SDF governance artifacts are present | low | 1 | Advisory | yes |
+| `DPDPA-12-ACCESS-01` | 12 | Data access/export endpoint exists | medium | 0 | Advisory (not scored) | no |
+| `DPDPA-13-ERASE-01` | 13 | Correction and erasure are implemented | high | 4 | Inferred | yes |
+| `DPDPA-16-XBORDER-01` | 16 | Cross-border transfer is restricted or disclosed | high | 4 | Inferred | yes |
 
-Weights are relative within a section, not across sections. Section weights are defined in §11.
+Weights are relative within a section, not across sections. Section weights are defined in §9.3. The `scored` column maps to `Control.scored` (§13): controls with `scored = no` are excluded from both the numerator and the denominator of every section score.
 
 ### Applicability
 
@@ -350,8 +350,8 @@ Rules:
 
 ```
 resolve(scanner, ruleId, version):
-  1. exact   = mappings where scanner, ruleId, scannerRuleVersion = version, active
-  2. wildcard = mappings where scanner, ruleId, scannerRuleVersion = '*', active
+  1. exact   = mappings where scanner, ruleId, scannerRuleVersion = version
+  2. wildcard = mappings where scanner, ruleId, scannerRuleVersion = '*'
   3. if exact exists: use exact (do not merge with wildcard)
   4. else if wildcard exists: use wildcard
   5. else: unmapped
@@ -389,7 +389,7 @@ base = sha256(
 fingerprint = controlCode ? base + ":" + controlCode : base
 ```
 
-- `snippetHash` hashes the normalised matched lines (trimmed, comments removed) inside the runner. The snippet itself is discarded.
+- `snippetHash` hashes the normalised matched lines (trimmed, comments removed) inside the runner. The snippet itself is discarded. Unlike `evidenceHash` (§7.1), `snippetHash` is computed **without** the per-scan salt — the salt dies with the scan, while the fingerprint must stay stable across scans for the new/persistent/resolved/reopened lifecycle below.
 - `occurrenceIndex` disambiguates identical matches in the same file.
 - Line numbers are excluded, so a finding survives code moving down the file.
 - Fan-out findings share `base` and differ by `:controlCode`.
@@ -501,10 +501,10 @@ A scan with zero findings but partial coverage is explicitly **not** "clean".
 
 A repository with 3 critical, 7 high, 14 medium findings across Sections 6 and 8(4), full scanner coverage:
 
-- Section 6: 2 of 4 controls fail → `100 × (1 − 9/14) = 35.71`
+- Section 6: `DPDPA-6-CONSENT-01` (5) and `DPDPA-6-WD-01` (3) fail → `failedWeight = 8`, `applicableWeight = 12` → `100 × (1 − 8/12) = 33.33`
 - Section 8(4): as above → `47.62`
-- All other weighted sections have no failures and applicable controls → 100.
-- Overall = `(35.71×20 + 47.62×30 + 100×50) / 100 = 74.43` → Grade C.
+- All other weighted sections have applicable controls and no failures → 100.
+- Overall = `(33.33×20 + 47.62×30 + 100×50) / 100 = 70.95` → Grade C.
 
 The report explains that Section 6 and 8(4) drive the grade; it does not list every control in the summary.
 
@@ -516,13 +516,13 @@ The report explains that Section 6 and 8(4) drive the grade; it does not list ev
 |---|---|---|
 | `direct` | The scanner rule's semantics match the obligation with little interpretation | Green "Direct evidence" chip; counts fully |
 | `inferred` | The code pattern strongly suggests the obligation is unmet, but context could change the conclusion | Amber "Inferred" chip; counts fully, with a caveat |
-| `advisory` | A heuristic or hygiene signal; may not indicate a legal gap | Grey "Advisory" chip; counts at half weight? No — see below |
+| `advisory` | A heuristic or hygiene signal; may not indicate a legal gap | Grey "Advisory" chip; counts only when the control is marked `scored: true` (see below) |
 
 Advisory findings:
 
 - Appear in the report and the findings table.
 - Count toward the score **only if** the control is explicitly marked `scored: true` in the pack.
-- By default, advisory controls are excluded from the score and shown as "review recommended".
+- Controls marked `scored: false` (for example `DPDPA-12-ACCESS-01`) are excluded from both the numerator and the denominator of every section score and are shown as "review recommended".
 - The report never uses advisory findings to claim non-compliance.
 
 Users can mark any finding `false_positive` with a note. That removes it from scoring for that scan only; it does not change the rule pack for other tenants.
@@ -607,7 +607,16 @@ type Mapping = {
   controlCode: string
   confidence: 'direct' | 'inferred' | 'advisory'
   rationale: string
-  remediation: string
+  remediationTemplate: string
+}
+
+// Repository facts collected by the runner during the scan (languages,
+// frameworks, cloud resource types, IaC providers) and delivered with the
+// completion callback. Applicability predicates evaluate against these.
+type RepoFacts = {
+  languages: string[]
+  frameworks: string[]
+  resourceTypes: string[]
 }
 
 function mapFinding(
@@ -637,17 +646,17 @@ function mapFinding(
       confidence: m.confidence,
       fingerprint: `${finding.fingerprint}:${control.code}`,
       rationale: m.rationale,
-      remediation: m.remediation,
+      remediation: m.remediationTemplate,
     }
   })
 }
 
-function score(findings: MappedFinding[], controls: Control[]) {
+function score(findings: MappedFinding[], controls: Control[], facts: RepoFacts) {
   const sections = new Map<string, { failed: number; applicable: number }>()
 
   for (const control of controls) {
     if (!control.scored) continue
-    if (!isApplicable(control, findings)) continue
+    if (!isApplicable(control, facts)) continue
     const bucket = sections.get(control.section) ?? { failed: 0, applicable: 0 }
     bucket.applicable += control.weight
     const failed = findings.some(f =>
@@ -685,7 +694,7 @@ function score(findings: MappedFinding[], controls: Control[]) {
 }
 ```
 
-The implementation lives in `apps/orchestrator/src/modules/scoring/`. It is pure: no database access, no clock, no randomness. Inputs are passed in, outputs are compared against golden fixtures in CI.
+The implementation lives in `apps/orchestrator/src/modules/scoring/`. It is pure: no database access, no clock, no randomness. Inputs are passed in, outputs are compared against golden fixtures in CI. `facts` is required: applicability predicates (`applies_when`, §4) evaluate against repository facts, not against the findings list, so a control with zero findings is still correctly included or excluded. `facts` arrives with the runner's completion callback (architecture.md §6.4).
 
 ---
 
