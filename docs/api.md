@@ -29,7 +29,6 @@
 |---|---|---|
 | Browser | Encrypted, httpOnly session cookie (`dpdpa_session`) | `Cookie` |
 | CI / scripts | Organisation API key | `Authorization: Bearer dpk_live_...` |
-| GitHub webhooks | HMAC-SHA256 signature | `X-Hub-Signature-256` |
 | Internal services | HMAC + shared internal key | `X-Internal-Signature` |
 
 API keys are scoped. A request using a key without the required scope receives `403 FORBIDDEN`.
@@ -160,7 +159,8 @@ A `429` body uses `RATE_LIMITED` and states the window in `message`.
 | PATCH | `/api/v1/org/members/:userId` | Owner/Admin | Change role | `server/api/v1/org/members/[userId].patch.ts` |
 | DELETE | `/api/v1/org/members/:userId` | Owner/Admin | Remove member | `server/api/v1/org/members/[userId].delete.ts` |
 | GET | `/api/v1/repos` | viewer+ | List connected repositories | `server/api/v1/repos/index.get.ts` |
-| POST | `/api/v1/repos` | Admin | Connect/resolve a repository | `server/api/v1/repos/index.post.ts` |
+| POST | `/api/v1/repos` | Admin | Save a validated public repo URL | `server/api/v1/repos/index.post.ts` |
+| POST | `/api/v1/repos/resolve` | Auditor+ | Resolve a repo URL (default branch, size, visibility) | `server/api/v1/repos/resolve.post.ts` |
 | GET | `/api/v1/repos/:repoId` | viewer+ | Repository detail | `server/api/v1/repos/[repoId].get.ts` |
 | DELETE | `/api/v1/repos/:repoId` | Admin | Disconnect repository | `server/api/v1/repos/[repoId].delete.ts` |
 | GET | `/api/v1/repos/:repoId/scans` | viewer+ | Scans for a repository | `server/api/v1/repos/[repoId]/scans.get.ts` |
@@ -181,7 +181,6 @@ A `429` body uses `RATE_LIMITED` and states the window in `message`.
 | GET | `/api/v1/api-keys` | Admin | List API keys | `server/api/v1/api-keys/index.get.ts` |
 | POST | `/api/v1/api-keys` | Owner | Create API key | `server/api/v1/api-keys/index.post.ts` |
 | DELETE | `/api/v1/api-keys/:keyId` | Owner | Revoke API key | `server/api/v1/api-keys/[keyId].delete.ts` |
-| POST | `/api/v1/webhooks/github` | HMAC | GitHub App webhooks | `server/api/v1/webhooks/github.post.ts` |
 | GET | `/api/auth/github` | None | Start OAuth | `server/routes/auth/github.get.ts` |
 | GET | `/api/auth/github/callback` | None | OAuth callback | `server/routes/auth/github/callback.get.ts` |
 | POST | `/api/auth/logout` | Session | End session | `server/routes/auth/logout.post.ts` |
@@ -225,7 +224,7 @@ Content-Type: application/json
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `repositoryId` | string | one-of | Must belong to the caller's org |
-| `githubUrl` | string | one-of | Must be `https://github.com/<owner>/<repo>`; no credentials, query, or fragment |
+| `githubUrl` | string | one-of | Must be `https://github.com/<owner>/<repo>`; no credentials, query, or fragment; resolved anonymously before enqueue (§5.2) |
 | `ref` | string | no | Branch, tag, or 40/64-char SHA; defaults to the repository default branch |
 | `profile` | enum | no | `standard` (all scanners) or `secrets-only`; default `standard` |
 
@@ -262,8 +261,9 @@ Retry-After: 3
 | Code | HTTP | Cause |
 |---|---|---|
 | `VALIDATION_ERROR` | 422 | Missing both or both supplied; bad URL; bad ref |
-| `REPO_NOT_ACCESSIBLE` | 403 | GitHub App installation cannot see the repo |
-| `REPO_TOO_LARGE` | 422 | Above the plan size limit |
+| `REPO_NOT_FOUND` | 404 | Repository does not exist (same response as private — no existence oracle) |
+| `REPO_NOT_ACCESSIBLE` | 403 | Repository is private or blocked; anonymous clone not permitted |
+| `REPO_TOO_LARGE` | 422 | Above the plan size limit (`git ls-remote` size probe before enqueue) |
 | `PLAN_LIMIT_EXCEEDED` | 402 | Scan quota exhausted |
 | `SCAN_IN_PROGRESS` | 409 | An active scan already exists for this repo and ref |
 | `IDEMPOTENCY_CONFLICT` | 422 | Key reused with a different body |
@@ -281,7 +281,7 @@ Retry-After: 3
     "repository": {
       "id": "repo_01J8Z3K4M5N6P7Q8R9S0T1U2V3",
       "fullName": "acme/payments-service",
-      "visibility": "private"
+      "visibility": "public"
     },
     "status": "completed",
     "ref": "main",
@@ -535,7 +535,7 @@ Triage writes a `remediation_logs` row and an `audit_logs` row in the same trans
     {
       "id": "repo_01J8Z3K4M5N6P7Q8R9S0T1U2V3",
       "fullName": "acme/payments-service",
-      "visibility": "private",
+      "visibility": "public",
       "defaultBranch": "main",
       "language": "Python",
       "sizeKb": 84210,
@@ -553,7 +553,35 @@ Triage writes a `remediation_logs` row and an `audit_logs` row in the same trans
 }
 ```
 
-### 5.2 Connect a repository
+### 5.2 Resolve a repository URL
+
+`POST /api/v1/repos/resolve`
+
+Preview/validation step used by the paste-URL dialog before a scan or a save.
+
+```json
+{ "githubUrl": "https://github.com/acme/payments-service" }
+```
+
+**Response — 200**
+
+```json
+{
+  "data": {
+    "fullName": "acme/payments-service",
+    "defaultBranch": "main",
+    "sizeBytes": 86231040,
+    "visibility": "public",
+    "isPublic": true
+  }
+}
+```
+
+Resolution is anonymous (`git ls-remote --symref` plus an unauthenticated metadata lookup); no GitHub credential is used.
+
+**Errors:** `VALIDATION_ERROR` (422) for non-`github.com`, non-HTTPS, or malformed URLs; `REPO_NOT_FOUND` (404) / `REPO_NOT_ACCESSIBLE` (403) — the same non-leaking response for private and nonexistent repositories, so the endpoint is not an existence oracle; `REPO_TOO_LARGE` (422) when the size probe exceeds the plan cap.
+
+### 5.3 Save a repository
 
 `POST /api/v1/repos`
 
@@ -561,11 +589,7 @@ Triage writes a `remediation_logs` row and an `audit_logs` row in the same trans
 { "githubUrl": "https://github.com/acme/payments-service" }
 ```
 
-or, for a repository already selected in the GitHub App installation:
-
-```json
-{ "installationId": 12345678, "githubRepoId": 987654321 }
-```
+Saves a URL that has already been validated (§5.2) so it appears in the repository picker and can be scanned by `repositoryId`.
 
 **Response — 201**
 
@@ -575,21 +599,21 @@ or, for a repository already selected in the GitHub App installation:
     "id": "repo_01J8Z3K4M5N6P7Q8R9S0T1U2V3",
     "fullName": "acme/payments-service",
     "defaultBranch": "main",
-    "visibility": "private",
+    "visibility": "public",
     "connectedAt": "2026-11-04T09:20:00.000Z"
   }
 }
 ```
 
-**Errors:** `REPO_NOT_ACCESSIBLE` (403), `REPO_ALREADY_CONNECTED` (409), `INSTALLATION_SUSPENDED` (409).
+**Errors:** `VALIDATION_ERROR` (422), `REPO_NOT_ACCESSIBLE` (403), `REPO_NOT_FOUND` (404), `REPO_ALREADY_CONNECTED` (409), `REPO_TOO_LARGE` (422).
 
-### 5.3 Repository detail and scans
+### 5.4 Repository detail and scans
 
 `GET /api/v1/repos/:repoId` returns the repository plus `stats` (total scans, average score, last score, trend).
 
 `GET /api/v1/repos/:repoId/scans` supports the same filters as `/api/v1/scans`, scoped to the repository.
 
-### 5.4 Disconnect a repository
+### 5.5 Disconnect a repository
 
 `DELETE /api/v1/repos/:repoId`
 
@@ -824,31 +848,7 @@ No repository scope is requested during OAuth. Repository access comes exclusive
 
 ## 9. GitHub webhooks
 
-`POST /api/v1/webhooks/github`
-
-**Headers**
-
-```
-X-GitHub-Event: installation_repositories
-X-GitHub-Delivery: 72d3162e-cc78-11e3-81ab-4c9367dc0958
-X-Hub-Signature-256: sha256=...
-```
-
-**Processing**
-
-1. Read the raw body (max 1 MB) before JSON parsing.
-2. Verify `X-Hub-Signature-256` with the webhook secret using a constant-time comparison.
-3. Reject deliveries older than 5 minutes or already-seen `X-GitHub-Delivery` IDs.
-4. Handle `installation.created`, `installation.deleted`, `installation.suspend`, `installation.unsuspend`, `installation_repositories.added`, `installation_repositories.removed`, `repository.renamed`, `repository.transferred`.
-5. Return `202` after enqueueing; process asynchronously.
-
-**Response**
-
-```json
-{ "data": { "accepted": true, "deliveryId": "72d3162e-cc78-11e3-81ab-4c9367dc0958" } }
-```
-
-Invalid signatures return `401` with no detail. Webhook handling never trusts the payload's account identifiers without cross-checking the stored installation ID.
+No webhook endpoints at MVP: scans are triggered manually or via the API only (`scan_trigger` = `manual`/`api`). GitHub App webhooks (installation events, `repository` events, webhook-triggered rescans) are post-MVP with the GitHub App — ADR-011.
 
 ---
 
@@ -990,9 +990,8 @@ Orchestrator recomputes coverage, maps findings, scores, and returns `200`.
 | `REPORT_EXPIRED` | 410 | No | Report past retention |
 | `IDEMPOTENCY_CONFLICT` | 422 | No | Key reused with a different payload |
 | `PLAN_LIMIT_EXCEEDED` | 402 | No | Quota or seat limit reached |
-| `REPO_NOT_ACCESSIBLE` | 403 | No | GitHub App cannot access the repo |
+| `REPO_NOT_ACCESSIBLE` | 403 | No | Repository is private or blocked (anonymous clone not permitted) |
 | `REPO_TOO_LARGE` | 422 | No | Above the plan size limit |
-| `INSTALLATION_SUSPENDED` | 409 | No | GitHub App installation suspended |
 | `PAGINATION_LIMIT` | 422 | No | Offset beyond 10,000 |
 | `RATE_LIMITED` | 429 | Yes, after `Retry-After` | Limit exceeded |
 | `PAYLOAD_TOO_LARGE` | 413 | No | Body or batch too large |
@@ -1007,7 +1006,6 @@ Orchestrator recomputes coverage, maps findings, scores, and returns `200`.
 - Removing or changing a field requires `/api/v2` and a 6-month deprecation window with `Deprecation` and `Sunset` headers.
 - Enum values may be added; clients must tolerate unknown values and render a fallback.
 - Error `code` values are stable; `message` text is not part of the contract.
-- Webhook payloads follow GitHub's schema and are passed through with a stable envelope.
 - The OpenAPI 3.1 document is generated from `packages/contracts` and published at `/api/v1/openapi.json` in non-production; production publishes it to the developer docs site.
 
 ---

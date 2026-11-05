@@ -135,7 +135,8 @@ CREATE TYPE scan_status AS ENUM (
   'queued', 'cloning', 'scanning', 'mapping',
   'completed', 'failed', 'cancelled', 'expired'
 );
-CREATE TYPE scan_trigger AS ENUM ('manual', 'api', 'scheduled', 'webhook');
+CREATE TYPE scan_trigger AS ENUM ('manual', 'api');
+-- post-MVP (ADR-011): 'scheduled', 'webhook' added with the GitHub App
 
 CREATE TYPE scanner_name AS ENUM ('semgrep', 'checkov', 'gitleaks');
 CREATE TYPE scanner_status AS ENUM ('pending', 'running', 'completed', 'failed', 'timed_out', 'skipped');
@@ -229,26 +230,9 @@ CREATE INDEX idx_memberships_org_role ON memberships (org_id, role);
 
 Business rule: an organisation must always have at least one `owner`. Enforced in a transaction on role change and on membership deletion.
 
-### 4.4 GitHub installations
+### 4.4 GitHub installations (post-MVP)
 
-```sql
-CREATE TABLE github_installations (
-  id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  org_id               uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-  installation_id      bigint NOT NULL UNIQUE,
-  account_login        citext NOT NULL,
-  account_type         text NOT NULL CHECK (account_type IN ('User', 'Organization')),
-  repository_selection text NOT NULL DEFAULT 'selected'
-                       CHECK (repository_selection IN ('all', 'selected')),
-  suspended_at         timestamptz,
-  created_at           timestamptz NOT NULL DEFAULT now(),
-  updated_at           timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE INDEX idx_installations_org ON github_installations (org_id);
-```
-
-No token is stored here. Installation tokens are minted on demand and cached in memory for at most 50 minutes.
+No table. Repository access at MVP is URL-only and anonymous (ADR-011), so there is no installation to store: `repositories` rows carry an `owner`/`name` parsed from the submitted URL. A GitHub-installations table returns with the GitHub App in the post-MVP backlog (private repositories, repository listing, webhook rescans), along with its `updated_at` trigger.
 
 ### 4.5 Repositories
 
@@ -256,12 +240,13 @@ No token is stored here. Installation tokens are minted on demand and cached in 
 CREATE TABLE repositories (
   id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id           uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-  installation_id  uuid NOT NULL REFERENCES github_installations(id) ON DELETE RESTRICT,
-  github_repo_id   bigint NOT NULL,
+  owner            citext NOT NULL,
+  name             citext NOT NULL,
+  github_repo_id   bigint,
   full_name        citext NOT NULL
                    CHECK (full_name ~ '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'),
   default_branch   text NOT NULL DEFAULT 'main',
-  visibility       repo_visibility NOT NULL DEFAULT 'private',
+  visibility       repo_visibility NOT NULL DEFAULT 'public',
   language         text,
   size_kb          integer CHECK (size_kb >= 0),
   is_archived      boolean NOT NULL DEFAULT false,
@@ -277,10 +262,9 @@ CREATE TABLE repositories (
 CREATE INDEX idx_repos_org_recent
   ON repositories (org_id, last_scanned_at DESC NULLS LAST)
   WHERE deleted_at IS NULL;
-CREATE INDEX idx_repos_installation ON repositories (installation_id);
 ```
 
-Repository deletion is soft; scans and findings follow the retention policy. `full_name` is case-insensitive because GitHub paths are case-insensitive for lookup.
+Repository deletion is soft; scans and findings follow the retention policy. `full_name` is case-insensitive because GitHub paths are case-insensitive for lookup. `owner` and `name` are parsed from the pasted `https://github.com/<owner>/<repo>` URL; `github_repo_id` is filled from an unauthenticated GitHub API lookup when available and is nullable (the URL is authoritative at MVP). `visibility` defaults to `public` — only public repositories are accepted at MVP (ADR-011).
 
 ### 4.6 API keys
 
@@ -609,10 +593,6 @@ CREATE TRIGGER trg_memberships_updated
   BEFORE UPDATE ON memberships
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-CREATE TRIGGER trg_installations_updated
-  BEFORE UPDATE ON github_installations
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
 CREATE TRIGGER trg_repos_updated
   BEFORE UPDATE ON repositories
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -779,7 +759,7 @@ WHERE id IN (
 );
 ```
 
-Organisation deletion is a two-phase process: mark `deleted_at`, revoke GitHub installations, then hard-delete after 30 days. Object-storage prefixes are deleted by lifecycle rule. A deletion receipt is written to `audit_logs` with counts, never with contents.
+Organisation deletion is a two-phase process: mark `deleted_at`, then hard-delete after 30 days. Object-storage prefixes are deleted by lifecycle rule. A deletion receipt is written to `audit_logs` with counts, never with contents.
 
 ---
 
