@@ -16,7 +16,7 @@
 1. **Customer source code is never retained.** Not in a database, object store, log, cache, or backup.
 2. **Tenants cannot reach each other.** At the application, database, network, and pod layers.
 3. **A malicious repository cannot compromise the platform.** Scanning is treated as hostile-code execution.
-4. **Credentials are short-lived and narrowly scoped.** GitHub installation tokens live at most one hour; API keys are hashed and revocable.
+4. **Credentials are short-lived and narrowly scoped.** API keys are hashed and revocable; the session is server-side with absolute and idle expiry. At MVP no GitHub credential exists — cloning is anonymous over HTTPS.
 5. **Every security-relevant action is attributable.** Append-only audit logs, request IDs, and trace propagation.
 6. **The product is defensible in an enterprise security review.** Documented controls, evidence, and a working incident process.
 
@@ -35,7 +35,6 @@
 | Asset | Sensitivity | Where it lives |
 |---|---|---|
 | Customer source code | Highest | Scan pod `emptyDir`, memory only |
-| GitHub installation tokens | High | Orchestrator memory, K8s Secret for a scan |
 | Session cookies and API keys | High | Browser, hashed in PostgreSQL |
 | Findings and evidence | High | PostgreSQL, redacted |
 | PDF reports | Medium | Object storage, signed URLs |
@@ -59,10 +58,9 @@
 | Browser → edge | OAuth state, session cookie | TLS, CSRF | Request ID, audit log | CSP, no PII in URLs | WAF, rate limits | RBAC checks |
 | Edge → Nitro | Trusted proxy config | Signed cookies | Access logs | Generic errors | Body size caps | Role checks |
 | Nitro → orchestrator | HMAC + internal key | HMAC over body | Request ID | Private network | Timeouts, circuit breaker | Org claim from session only |
-| GitHub → webhook | HMAC-SHA256 | Signature over raw body | Delivery ID log | 401 without detail | 1 MB cap, rate limit | Installation cross-check |
-| Orchestrator → Job | K8s Secret, SA token audience | Digest-pinned image | Job events, audit | Secret scoped to one scan | Resource limits, deadline | No SA token mounted |
-| Runner → GitHub | Installation token | TLS | Git logs without contents | Token never logged | Clone timeout | Repo-scoped token |
-| Runner → orchestrator | Per-scan HMAC + SA token | HMAC over body | Batch IDs | Findings only, no code | Batch caps | Scan-ID bound |
+| GitHub → runner (clone) | Anonymous HTTPS to github.com only | TLS | Git logs without contents | No credentials to leak | Clone timeout, size cap | DNS-pinned github.com, no redirects |
+| Orchestrator → Job | K8s Secret (per-scan) | Digest-pinned image | Job events, audit | Secret scoped to one scan | Resource limits, deadline | No SA token mounted |
+| Runner → orchestrator | Per-scan HMAC | HMAC over body | Batch IDs | Findings only, no code | Batch caps | Scan-ID bound |
 | Orchestrator → PostgreSQL | TLS + IAM auth | Transactions | Audit log | Least-privilege role, RLS | Connection pool caps | No DDL at runtime |
 
 ### 2.4 Abuse cases and controls
@@ -70,6 +68,9 @@
 | Abuse case | Control |
 |---|---|
 | Submit `https://github.com/../../etc/passwd` or a non-GitHub URL | Strict URL parser, host allowlist, path regex, redirects disabled |
+| Submit a URL that redirects (git or HTTP) to an internal host | `http.followRedirects=false`, no `3xx` followed anywhere, private-range guard after resolution |
+| Probe for private/nonexistent repositories through resolve or scan errors | Identical `REPO_NOT_FOUND`/`REPO_NOT_ACCESSIBLE` response for both; per-user resolve limit (30/min) |
+| Submit an oversized repository to exhaust disk/CPU (DoS) | `git ls-remote` size probe before enqueue, plan size caps, `--depth 1`, disk quota, timeout |
 | Submit a repository containing a `.gitmodules` that clones an internal host | `--no-recurse-submodules`, network egress allowlist |
 | Submit a repository with a 10 GB file or zip bomb | Size check before clone, `--depth 1`, disk quota, timeout |
 | Submit a repository with a malicious `package.json` lifecycle script | Scanners never install dependencies; they parse files only |
@@ -99,19 +100,16 @@
 - Logout clears the cookie and revokes the server-side session record.
 - CSRF: double-submit token for state-changing browser requests, plus `SameSite=Lax`.
 
-### 3.2 Repository access — GitHub App
+### 3.2 Repository access — anonymous clone (URL-only)
+
+No GitHub App exists at MVP (ADR-011), so no App JWT, installation credential, or App private key exists anywhere in the system.
 
 | Token | Lifetime | Scope | Storage |
 |---|---|---|---|
-| GitHub App JWT | 10 minutes | App-level metadata | Memory only |
-| Installation access token | 1 hour (GitHub-defined) | Selected repositories, `contents: read`, `metadata: read` | Memory cache ≤ 50 minutes; K8s Secret for one scan |
-| User OAuth token | Session | Identity only | Never persisted |
+| User OAuth token | Session | Identity only (`read:user user:email`) | Never persisted |
 
-- Installation tokens are minted on demand, cached in memory with a 50-minute TTL, and never written to PostgreSQL or logs.
-- The token is delivered to the scan pod through a Kubernetes Secret with an owner reference and a 15-minute Job deadline.
-- Uninstalling the GitHub App or suspending an installation immediately blocks new token minting.
-- Token refresh on a `401` during clone is allowed once per scan.
-- The GitHub App private key lives in the secrets manager and is mounted as a file, never an environment variable.
+- Repository access is an anonymous `git clone` over HTTPS against `github.com` only; there is no repository credential to mint, cache, deliver to a pod, or leak.
+- The GitHub App (private repositories, repository listing, webhook-triggered rescans) returns in the post-MVP backlog; its token lifecycle will be specified then.
 
 ### 3.3 API keys
 
@@ -203,8 +201,9 @@ spec:
               app.kubernetes.io/name: orchestrator
       ports:
         - { protocol: TCP, port: 3001 }
-    # GitHub publishes ranges at https://api.github.com/meta.
-    # Prefer a Cilium FQDN policy or an egress gateway over hard-coded CIDRs.
+    # GitHub publishes its ranges at https://api.github.com/meta (covers
+    # web and git smart-HTTP). Prefer a Cilium FQDN policy for github.com
+    # or an egress gateway over hard-coded CIDRs.
     - to:
         - ipBlock:
             cidr: 140.82.112.0/20
@@ -284,7 +283,7 @@ A single canary hit is a **P1 security incident**, not a test failure to retry.
   - IDs: prefixed opaque format; resolved to UUID server-side.
   - Pagination: bounded; offsets above 10,000 rejected.
   - Notes: max 4,000 chars; rendered as text, never HTML.
-- Unknown fields are rejected. Request bodies above 1 MB are rejected (5 MB for webhooks is not needed; GitHub webhooks are capped at 1 MB by policy).
+- Unknown fields are rejected. Request bodies above 1 MB are rejected.
 
 ### 7.2 Injection and output
 
@@ -296,11 +295,10 @@ A single canary hit is a **P1 security incident**, not a test failure to retry.
 
 ### 7.3 SSRF
 
-- The only user-influenced fetch is repository resolution, which is constrained to GitHub's API and clone endpoints.
-- DNS is resolved and every address checked against public ranges; private, loopback, link-local, and reserved addresses are rejected.
-- Redirects are disabled for server-side fetches.
-- GitHub API calls use a fixed base URL, not a user-supplied one.
-- Webhook processing never fetches a URL from the payload.
+- **URL validation (exact pattern):** `^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/?$` (an optional `.git` suffix is tolerated by stripping before validation). Reject userinfo, ports, query strings, fragments, and any other host. `422 VALIDATION_ERROR` otherwise.
+- **Clone environment:** `GIT_TERMINAL_PROMPT=0` (no interactive credential prompt), `http.followRedirects=false`, `--depth 1`, `--no-recurse-submodules`, `--single-branch`. `file://`, `ssh://`, and `git://` schemes are rejected outright.
+- **DNS pinning:** the resolved address for `github.com` is checked against GitHub's published IP ranges and pinned for the clone; private, loopback, link-local, and reserved ranges are rejected after every resolution (there is no redirect hop to guard because redirects are disabled).
+- The only user-influenced fetch is repository resolution/clone, constrained to `github.com` over port 443.
 - The renderer never loads remote images or fonts; assets are bundled.
 
 ### 7.4 File and path safety
@@ -339,8 +337,6 @@ export default defineNuxtConfig({
     redisUrl: process.env.REDIS_URL,
     orchestratorUrl: process.env.ORCHESTRATOR_URL,
     orchestratorHmacKey: process.env.ORCHESTRATOR_HMAC_KEY,
-    githubAppId: process.env.GITHUB_APP_ID,
-    githubAppPrivateKey: process.env.GITHUB_APP_PRIVATE_KEY,
     githubClientId: process.env.GITHUB_CLIENT_ID,
     githubClientSecret: process.env.GITHUB_CLIENT_SECRET,
     sessionPassword: process.env.NUXT_SESSION_PASSWORD,
@@ -468,8 +464,8 @@ export default defineNuxtConfig({
 |---|---|---|
 | `/api/auth/**` | 10 per IP | 15 min |
 | `POST /api/v1/scan` | 10 per user | 1 hour (Free), plan-scaled above |
+| `POST /api/v1/repos/resolve` | 30 per user | 1 min (blunts repository probing) |
 | `POST /api/v1/report/pdf` | 20 per org | 1 hour |
-| `POST /api/webhooks/github` | 120 per IP | 1 min |
 | All other `/api/**` | 300 per user | 1 min |
 
 Use a sliding-window counter keyed by `orgId:userId:route` and `ip:route` for unauthenticated routes. Never trust `X-Forwarded-For` outside the trusted proxy.
@@ -490,6 +486,7 @@ Use a sliding-window counter keyed by `orgId:userId:route` and `ip:route` for un
 - Application limits are enforced in Redis, not in memory, so they survive multiple replicas.
 - Login and OAuth callbacks are limited per IP and per account.
 - Scan creation is limited per org plan and per repository (one active scan per ref).
+- Repository URL resolution (`POST /api/v1/repos/resolve`) is limited to 30/minute per user to blunt private-repo probing.
 - Failed authorization attempts are logged and counted; 20 failures in 5 minutes triggers a temporary block.
 - Payload caps: 1 MB JSON, 500 findings per callback, 100 callbacks per scan.
 - Cost alarms fire at 80% of the per-scan budget.
@@ -500,15 +497,15 @@ Use a sliding-window counter keyed by `orgId:userId:route` and `ip:route` for un
 
 | Secret | Storage | Rotation |
 |---|---|---|
-| GitHub App private key | Secrets manager; mounted file | 90 days |
 | GitHub OAuth client secret | Secrets manager; env at runtime | 90 days |
 | Session encryption key | Secrets manager; env | 90 days, with key ring |
 | Internal HMAC key | Secrets manager; env | 30 days, dual-key acceptance |
 | Database credentials | Workload identity / IAM auth | 30 days |
 | Redis credentials | Secrets manager | 90 days |
 | S3 access | Workload identity (IRSA) | Automatic |
-| Webhook secret | Secrets manager | 90 days |
 | Sentry/PostHog keys | Secrets manager; public DSN only | 180 days |
+
+No GitHub App private key or webhook secret exists at MVP (anonymous clone, no webhooks — ADR-011); both return with the GitHub App post-MVP.
 
 Rules:
 
@@ -570,13 +567,12 @@ PII in telemetry is prohibited. Sentry uses `sendDefaultPii: false` and before-s
 - Report download.
 - API key creation/revocation.
 - Retention changes and deletions.
-- Webhook signature failures.
-- Rate-limit blocks.
+- Rate-limit blocks (including repository-URL validation rejections).
 
 ### Never logged
 
 - Session cookies, OAuth codes, tokens.
-- GitHub installation tokens or App JWTs.
+- Any GitHub App credential — none exists at MVP (anonymous clone).
 - Repository contents, diffs, or file bodies.
 - Secret values or full evidence.
 - Full request bodies for scan or triage endpoints.
@@ -595,7 +591,7 @@ PII in telemetry is prohibited. Sentry uses `sendDefaultPii: false` and before-s
 |---|---|---|
 | Retention violation | `source_retention_violation_total > 0` | P1 |
 | Cross-tenant access attempt | 403/404 spike on org-scoped routes with mismatched IDs | P1 |
-| Webhook signature failure spike | > 10/min | P2 |
+| Repository-URL validation rejection spike | > 10/min | P2 |
 | Auth failure spike | > 20% for 5 min | P2 |
 | Scanner image signature failure | any admission rejection | P2 |
 | Secret detected in our repo | CI or runtime | P1 |
@@ -626,6 +622,7 @@ The customer is the **Data Fiduciary** for personal data in its repositories; DP
 | Subprocessor | Purpose | Region |
 |---|---|---|
 | Cloud provider (compute, Postgres, S3) | Hosting | India (`ap-south-1`) |
+| GitHub | Public repository clone over git smart-HTTP (URL + repo metadata only) | External (github.com) |
 | Sentry | Error tracking | EU/US with SCCs; PII scrubbed |
 | PostHog | Product analytics | EU/US with SCCs; PII scrubbed |
 | Email provider | Transactional email | Configured region |
@@ -704,7 +701,7 @@ The subprocessor list is published, versioned, and requires customer notice befo
 - [ ] External pen test complete; critical/high remediated or formally accepted with a date.
 - [ ] Canary retention test passes and the artifact is attached to the release.
 - [ ] Cross-tenant test suite passes for every read and write endpoint.
-- [ ] GitHub App permissions are exactly `contents: read` and `metadata: read`.
+- [ ] Repository-URL allowlist and anonymous-clone controls verified (`github.com` only, no redirects, `GIT_TERMINAL_PROMPT=0`).
 - [ ] Session cookie flags verified in production.
 - [ ] CSP, HSTS, CORS, and rate limits verified with `curl` and browser DevTools.
 - [ ] Secrets manager integration verified; no secrets in env files or images.
@@ -723,7 +720,7 @@ The subprocessor list is published, versioned, and requires customer notice befo
 |---|---|---|---|
 | A zero-day in gVisor or the kernel | Low | Platform | Patch cadence, minimal host surface, seccomp |
 | A malicious dependency in a scanner image | Low | Security | Digest pinning, SBOM, cosign, vendor review |
-| GitHub API outage blocks scans | Medium | Engineering | Queue, retries, status messaging, degraded mode |
+| GitHub outage or abuse limit blocks clones | Medium | Engineering | Queue, retries, status messaging, degraded mode |
 | Legal interpretation of a DPDPA clause changes | Medium | Legal | Versioned rule packs, review cadence, disclaimer |
 | Insider access to production | Low | Security | Break-glass, audit, least privilege, background checks |
 | False negatives from unsupported languages | Medium | Product | Coverage banner, supported-language list, no "clean" claim |
