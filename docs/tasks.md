@@ -150,7 +150,7 @@ Total: ~19–20 elapsed weeks with parallel tracks. Critical path: 2 → 3 → 4
 | P1-05 | Helm charts for `web`, `orchestrator`, `renderer` with probes, HPA, PDB | L | Platform | P1-03 |
 | P1-06 | Argo CD bootstrap: staging and production apps; sync policies | M | Platform | P1-05 |
 | P1-07 | Secrets: External Secrets Operator or CSI driver wired to the secrets manager | M | Security | P1-01 |
-| P1-08 | Local dev: Docker Compose for Postgres, Redis, MinIO, Mailpit; kind cluster for Jobs | M | Platform | P1-02 |
+| P1-08 | Local dev: Docker Compose for Postgres, Redis, MinIO, Mailpit + `docker` runner driver for scan-runner (one container per scan, no local cluster); kind cluster optional for Job-spec parity | M | Platform | P1-02 |
 | P1-09 | Backup and restore: automated snapshots, PITR, quarterly restore drill scheduled | M | Platform | P1-02 |
 | P1-10 | Baseline dashboards and alerts for cluster health | M | Platform | P1-05 |
 
@@ -195,7 +195,7 @@ Total: ~19–20 elapsed weeks with parallel tracks. Critical path: 2 → 3 → 4
 - [ ] Migrations apply cleanly to an empty database and to a database one version behind.
 - [ ] `/health` returns 200 for both services; readiness fails when the DB is down.
 - [ ] `curl -I` shows HSTS, CSP with nonce, and the remaining headers from `security.md`.
-- [ ] Local Compose + kind brings the stack up with one documented command.
+- [ ] Local Compose + `docker` runner driver brings the stack up with one documented command — no local Kubernetes required.
 - [ ] Backup restore drill completed once.
 
 ### Acceptance tests
