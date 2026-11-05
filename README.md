@@ -31,7 +31,7 @@ Specification pack for **DPDPA GitHub Code Auditor** — a B2B SaaS that audits 
 
 ## Stack
 
-Nuxt 4 / Nitro · NestJS / Fastify · PostgreSQL 16 / Prisma · Redis / BullMQ · Kubernetes (gVisor) · Semgrep / Checkov / Gitleaks · Puppeteer · S3
+Nuxt 4 / Nitro · NestJS / Fastify · PostgreSQL 16 / Prisma · Redis / BullMQ · Python 3.12 scan-runner (Semgrep / Checkov / Gitleaks) · Kubernetes (gVisor) · Puppeteer · S3
 
 ## Disclaimer
 

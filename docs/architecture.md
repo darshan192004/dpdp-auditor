@@ -16,7 +16,7 @@ The product is a multi-tenant SaaS with four deployable workloads:
 
 1. **`web`** — Nuxt 4 application. Nitro is the only public HTTP surface: SSR, session handling, request validation, rate limiting, PDF download, and a typed proxy to the orchestrator.
 2. **`orchestrator`** — NestJS (Fastify) service. Owns the domain model, Prisma access to PostgreSQL, scan lifecycle, rule mapping, scoring, and the internal API.
-3. **`scan-runner`** — a hardened container image containing Git, Semgrep, Checkov, and Gitleaks. It runs as a short-lived Kubernetes Job per scan.
+3. **`scan-runner`** — a Python 3.12 application in a hardened container image (Git, Semgrep, Checkov, Gitleaks). It runs as a short-lived Kubernetes Job per scan.
 4. **`renderer`** — a small Puppeteer service that renders report HTML to PDF and uploads it to object storage.
 
 Supporting infrastructure: PostgreSQL 16 (system of record), Redis 7 (BullMQ queues and rate-limit counters), S3-compatible object storage (PDFs and optional raw SARIF), and a Kubernetes cluster with a dedicated scanner node pool.
@@ -113,8 +113,10 @@ C4Container
 |---|---|---|
 | `web` | Sessions, SSR, route guards, CSRF, rate limiting, public OpenAPI surface, PDF download redirect | Access PostgreSQL, hold GitHub credentials, run scanners |
 | `orchestrator` | Repositories, scans, findings, rules, scoring, retention, audit log, internal API | Serve public traffic, clone code, render PDFs |
-| `scan-runner` | Clone, scanner execution, normalisation, redaction, callback | Persist code, access the database, call arbitrary internet hosts |
+| `scan-runner` (Python 3.12) | Clone, scanner execution, normalisation, redaction, fingerprinting, batched callback | Persist code, access the database, call arbitrary internet hosts, map or score findings |
 | `renderer` | HTML → PDF, template versioning, S3 upload | Read source code, mutate scan data |
+
+**Language boundary:** Python owns clone → scanners → normalise → redact → fingerprint → batched callback (`apps/scan-runner`, `pyproject.toml`, `src/`, `tests/`); TypeScript owns map → score → persist in the orchestrator, keeping scoring and mapping contracts in `packages/contracts`.
 
 Queue workers are processes inside the `orchestrator` Deployment (ADR-007); `queue-worker` is not a separate deployable workload. The product has four deployable workloads (§1).
 
@@ -134,7 +136,7 @@ dpdpa-auditor/
 │   │   ├── src/queue/            # BullMQ processors
 │   │   └── prisma/               # schema, migrations, seed
 │   ├── renderer/                 # Puppeteer report service
-│   └── scan-runner/              # Dockerfile + entrypoint + adapters
+│   └── scan-runner/              # Python 3.12: pyproject.toml, src/, tests/
 ├── packages/
 │   ├── contracts/                # Zod schemas and generated TS types
 │   ├── rule-packs/               # YAML DPDPA controls and mappings
@@ -150,7 +152,7 @@ dpdpa-auditor/
 └── docs/
 ```
 
-Tooling: pnpm workspaces, Turborepo task graph, Node 22 LTS, TypeScript 5.x strict, Changesets for versioning shared packages.
+Tooling: pnpm workspaces, Turborepo task graph, Node 22 LTS, TypeScript 5.x strict, Changesets for versioning shared packages; Python 3.12 with `pyproject.toml` for `apps/scan-runner` (uv/pip tooling, Ruff, mypy, pytest — see code_style.md §13).
 
 ---
 

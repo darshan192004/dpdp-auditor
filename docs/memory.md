@@ -85,6 +85,7 @@ These are non-negotiable. A change that violates one is rejected, not debated.
 | Logging | Pino, JSON, redaction allowlist |
 | Tracing | OpenTelemetry (W3C `traceparent`) |
 | Scanners | Semgrep 1.95.x, Checkov 3.2.x, Gitleaks 8.21.x (pinned) |
+| Python (scan-runner) | 3.12, Ruff, `mypy --strict`, pytest |
 | Runtime isolation | Kubernetes Jobs, gVisor `RuntimeClass`, UID 10001 |
 
 Version changes arrive as Renovate PRs, never as opportunistic edits.
@@ -464,7 +465,7 @@ dpdpa-auditor/
 │   ├── web/            # Nuxt 4: app/, server/, shared/
 │   ├── orchestrator/   # NestJS: src/modules, src/queue, prisma/
 │   ├── renderer/       # Fastify + Puppeteer
-│   └── scan-runner/    # Dockerfile, entrypoint, adapters
+│   └── scan-runner/    # Python 3.12: pyproject.toml, src/, tests/
 ├── packages/
 │   ├── contracts/      # Zod schemas, types, error codes
 │   ├── rule-packs/     # YAML controls, mappings, suppressions

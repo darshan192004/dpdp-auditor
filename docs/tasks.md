@@ -264,19 +264,21 @@ Retired IDs stay reserved: P2-01, P2-02, P2-07, P2-08, P2-10, P2-11, and the old
 
 | ID | Task | Size | Owner | Depends on |
 |---|---|---|---|---|
-| P3-01 | Build `scan-runner` image: Git, Semgrep 1.95.x, Checkov 3.2.x, Gitleaks 8.21.x, Python 3.12 | L | Platform | P1-03 |
-| P3-02 | Entrypoint: env validation, workspace setup, stage sequencing, structured logs | L | Backend | P3-01 |
-| P3-03 | Safe clone: `--depth 1 --single-branch`, no submodules, timeout, size pre-check, symlink escape guard | M | Backend | P3-02 |
-| P3-04 | Canonical Semgrep config (custom DPDPA rules + pinned registry packs), ignore repo configs | M | Security | P3-01 |
-| P3-05 | Semgrep adapter → normalised findings; duration, exit code, timeout handling | M | Backend | P3-04 |
-| P3-06 | Checkov adapter → normalised findings; framework detection; timeout handling | M | Backend | P3-01 |
-| P3-07 | Gitleaks adapter → normalised findings; redaction at source; hash + masked prefix only | M | Security | P3-01 |
-| P3-08 | Fingerprint implementation per `rules.md` §8 with per-scan salt; salt discarded after use | M | Backend | P0-12 |
-| P3-09 | Batched callback client with HMAC, ≤ 500 findings or 1 MB, idempotent `batchId` | M | Backend | P3-02 |
-| P3-10 | Final completion callback with scanner statuses and counts | S | Backend | P3-09 |
-| P3-11 | Graceful `SIGTERM` handling with 30 s drain; workspace cleanup on all exit paths | S | Backend | P3-02 |
-| P3-12 | Image hardening: distroless/Chainguard base, non-root UID 10001, digest pin, cosign sign, SBOM | M | Security | P3-01 |
-| P3-13 | Scanner version parity check: adapter assumes the pinned version; CI fails on drift | S | QA | P3-05, P3-06, P3-07 |
+| P3-01 `[PY]` | Build `scan-runner` image: Git, Semgrep 1.95.x, Checkov 3.2.x, Gitleaks 8.21.x, Python 3.12 | L | Platform | P1-03 |
+| P3-02 `[PY]` | Entrypoint: env validation, workspace setup, stage sequencing, structured logs | L | Backend | P3-01 |
+| P3-03 `[PY]` | Safe clone: `--depth 1 --single-branch`, no submodules, timeout, size pre-check, symlink escape guard | M | Backend | P3-02 |
+| P3-04 `[PY]` | Canonical Semgrep config (custom DPDPA rules + pinned registry packs), ignore repo configs | M | Security | P3-01 |
+| P3-05 `[PY]` | Semgrep adapter → normalised findings; duration, exit code, timeout handling | M | Backend | P3-04 |
+| P3-06 `[PY]` | Checkov adapter → normalised findings; framework detection; timeout handling | M | Backend | P3-01 |
+| P3-07 `[PY]` | Gitleaks adapter → normalised findings; redaction at source; hash + masked prefix only | M | Security | P3-01 |
+| P3-08 `[PY]` | Fingerprint implementation per `rules.md` §8 with per-scan salt; salt discarded after use | M | Backend | P0-12 |
+| P3-09 `[PY]` | Batched callback client with HMAC, ≤ 500 findings or 1 MB, idempotent `batchId` | M | Backend | P3-02 |
+| P3-10 `[PY]` | Final completion callback with scanner statuses and counts | S | Backend | P3-09 |
+| P3-11 `[PY]` | Graceful `SIGTERM` handling with 30 s drain; workspace cleanup on all exit paths | S | Backend | P3-02 |
+| P3-12 `[PY]` | Image hardening: distroless/Chainguard base, non-root UID 10001, digest pin, cosign sign, SBOM | M | Security | P3-01 |
+| P3-13 `[PY]` | Scanner version parity check: adapter assumes the pinned version; CI fails on drift | S | QA | P3-05, P3-06, P3-07 |
+
+`[PY]` tasks are implemented and tested in Python 3.12 (pytest, Ruff, `mypy --strict` — code_style.md §13). P3-14 onward are TypeScript in the orchestrator.
 
 ### 6.2 Orchestration
 

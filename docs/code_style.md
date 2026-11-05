@@ -30,6 +30,7 @@
 | Commits | Husky hooks + `lint-staged` + `commitlint` with `@commitlint/config-conventional` |
 | Logging | Pino, structured JSON |
 | Tracing | OpenTelemetry |
+| Python (`apps/scan-runner`) | Python 3.12, Ruff, `mypy --strict`, pytest (§13 is a first-class standard, not an appendix — the scan-runner is Python) |
 
 Version upgrades are Renovate PRs, not opportunistic edits. Pin exact versions in `package.json` and the lockfile; use `^` only for internal workspace packages.
 
@@ -623,9 +624,9 @@ CI blocks merge on any failing test. Flaky tests are fixed or quarantined with a
 
 ---
 
-## 13. Python appendix (scanner adapters)
+## 13. Python scan-runner standards (scanner adapters)
 
-Most of the product is TypeScript, but scanner wrapper scripts and normalisation helpers may be Python. Python 3.12, `ruff`, `mypy --strict`, `pytest`.
+The `scan-runner` (`apps/scan-runner/`) is a Python 3.12 application; these are its standards. Python 3.12, `ruff`, `mypy --strict`, `pytest`. Package layout: `pyproject.toml` at the package root, code under `src/`, tests under `tests/` (src layout — nothing importable from the package root).
 
 ### 13.1 Rules
 
