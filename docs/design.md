@@ -64,7 +64,7 @@ flowchart TD
 |---|---|---|---|
 | `/` | Marketing landing | SSG/ISR | Public |
 | `/login` | Sign-in | SSR | Public |
-| `/onboarding` | Create org, install GitHub App | SSR | User without org |
+| `/onboarding` | Create org, paste a repository URL | SSR | User without org |
 | `/app` | Overview dashboard | SSR + client refresh | Member |
 | `/app/repos` | Repository list | SSR | Member |
 | `/app/repos/[repoId]` | Repository detail and scan history | SSR | Member |
@@ -75,7 +75,7 @@ flowchart TD
 | `/app/rules/[code]` | Control detail and mappings | SSR | Member |
 | `/app/settings/org` | Org profile and retention | SSR | Admin |
 | `/app/settings/members` | Members and roles | SSR | Admin |
-| `/app/settings/integrations` | GitHub App installation | SSR | Admin |
+| `/app/settings/repositories` | Saved repository URLs | SSR | Admin |
 | `/app/settings/api-keys` | API keys | SSR | Owner |
 | `/app/settings/billing` | Plan and usage | SSR | Owner |
 | `/app/audit` | Audit log | SSR | Admin |
@@ -122,7 +122,7 @@ Redirect rules:
 - Split layout on desktop: product explanation on the left, action card on the right.
 - Single column below 768 px.
 - No navigation sidebar; a minimal logo and "Back to site" link.
-- Onboarding is a three-step wizard: create organisation → install GitHub App → choose repositories. Each step is resumable.
+- Onboarding is a three-step wizard: create organisation → paste a repository URL → review resolved default branch. Each step is resumable.
 
 ### 3.3 `print.vue` — report preview
 
@@ -334,8 +334,8 @@ Accessibility:
 
 ### 5.5 `ScanSubmitForm.vue`
 
-- Step 1: choose a connected repository or paste a GitHub URL.
-- Step 2: choose a branch or commit; default branch is preselected.
+- Step 1: paste a GitHub URL (primary field); optionally pick an already-saved repository from the dropdown.
+- Step 2: choose a branch or commit; the resolved default branch is preselected.
 - Step 3: choose a profile (`standard` or `secrets-only`) and confirm.
 - Shows plan usage and disables submit when the quota is exhausted, with an upgrade link.
 - Generates an `Idempotency-Key` when the form is first rendered and reuses it across retries.

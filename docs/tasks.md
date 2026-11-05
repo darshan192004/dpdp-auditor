@@ -47,7 +47,7 @@ No task may remain `XL` at sprint planning. Split it.
 ```mermaid
 flowchart LR
   P0[Phase 0<br/>Foundations] --> P1[Phase 1<br/>Platform skeleton]
-  P1 --> P2[Phase 2<br/>GitHub integration]
+  P1 --> P2[Phase 2<br/>Identity and URL resolution]
   P2 --> P3[Phase 3<br/>Scan pipeline]
   P3 --> P4[Phase 4<br/>DPDPA mapping and scoring]
   P4 --> P5[Phase 5<br/>Product UI and reports]
@@ -59,7 +59,7 @@ flowchart LR
 |---|---|---|---|
 | 0 | Foundations | 1.5 weeks | Architecture, threat model, rule taxonomy, CI green |
 | 1 | Platform skeleton | 2 weeks | Deployable web + orchestrator + Postgres + Redis |
-| 2 | GitHub integration | 2 weeks | Install App, connect repo, mint token, resolve URL |
+| 2 | Identity and URL resolution | 2 weeks | Sign in, resolve + save public repo URL, API keys |
 | 3 | Scan pipeline | 3 weeks | End-to-end scan on golden repos with ephemeral Jobs |
 | 4 | DPDPA mapping and scoring | 2.5 weeks | Deterministic score, legal-reviewed pack v1 |
 | 5 | Product UI and reports | 3 weeks | Dashboard, findings, triage, PDF export |
@@ -203,52 +203,52 @@ Total: ~19–20 elapsed weeks with parallel tracks. Critical path: 2 → 3 → 4
 
 ---
 
-## 5. Phase 2 — GitHub integration
+## 5. Phase 2 — Identity and URL resolution
 
-**Outcome:** Users sign in, install the GitHub App, connect repositories, and the platform can mint scoped installation tokens. No scanning yet.
+**Outcome:** Users sign in, save public repository URLs, and the platform resolves and validates them anonymously. No scanning yet.
 
-**Entry criteria:** Phase 1 exit gate passed; GitHub App registered in staging and production.
+**Entry criteria:** Phase 1 exit gate passed.
 
 ### Tasks
 
 | ID | Task | Size | Owner | Depends on |
 |---|---|---|---|---|
-| P2-01 | Register GitHub App: permissions `contents: read`, `metadata: read`; webhook URL; callback URL | S | Platform | P1-01 |
-| P2-02 | Store App private key in the secrets manager, mounted as a file; boot-time validation | S | Security | P2-01, P1-07 |
-| P2-03 | OAuth flow with PKCE and signed `state`; scope `read:user user:email` only | M | Backend | P2-01 |
+| P2-01 | _Retired — GitHub App registration is post-MVP (ADR-011)._ | — | — | — |
+| P2-02 | _Retired — App private key handling is post-MVP (ADR-011)._ | — | — | — |
+| P2-03 | OAuth flow with PKCE and signed `state`; scope `read:user user:email` only (identity only; GitHub OAuth App registration is the only GitHub config) | M | Backend | P1-01 |
 | P2-04 | Session management with `nuxt-auth-utils`: sealed cookie, 8 h absolute, 30 min idle | M | Frontend | P2-03, P1-22 |
 | P2-05 | `users`, `organizations`, `memberships` repositories and services | M | Backend | P1-12 |
 | P2-06 | Onboarding: create org, invite members, role assignment | M | Backend | P2-05 |
-| P2-07 | GitHub App installation callback; persist `github_installations` without tokens | M | Backend | P2-01 |
-| P2-08 | Installation token service: mint, cache ≤ 50 min, refresh once on 401, never persist | M | Backend | P2-07 |
-| P2-09 | Repository resolve: URL validation, host allowlist, GitHub API lookup, DB upsert | M | Backend | P2-08 |
-| P2-10 | Webhook endpoint: raw body, HMAC verify, replay window, idempotent delivery IDs | M | Backend | P2-01 |
-| P2-11 | Webhook handlers: installation created/deleted/suspended, repos added/removed, rename/transfer | L | Backend | P2-10 |
+| P2-07 | _Retired — installation callback is post-MVP (ADR-011)._ | — | — | — |
+| P2-08 | _Retired — installation token service is post-MVP (ADR-011)._ | — | — | — |
+| P2-09 | Repository resolve: exact URL validation, `github.com` host allowlist, anonymous `git ls-remote` lookup (default branch + size-cap probe), DB upsert | M | Backend | P2-05 |
+| P2-10 | _Retired — webhook endpoint is post-MVP (ADR-011)._ | — | — | — |
+| P2-11 | _Retired — webhook handlers are post-MVP (ADR-011)._ | — | — | — |
 | P2-12 | Repository list/detail/disconnect services with soft delete and retention scheduling | M | Backend | P2-09 |
 | P2-13 | API key create/list/revoke with hashed storage and scopes | M | Backend | P2-05 |
 | P2-14 | Auth middleware for API keys with 30 s cache and immediate revocation path | M | Backend | P2-13 |
 | P2-15 | Login, onboarding, and repository list pages `[FE]` | L | Frontend | P2-04, P2-09 |
-| P2-16 | GitHub App installation UI with repo picker `[FE]` | M | Frontend | P2-15 |
-| P2-17 | Rate-limit middleware backed by Redis for auth and repo routes | M | Backend | P1-18 |
+| P2-16 | Paste-URL repository dialog with resolve preview (default branch, size, visibility) `[FE]` | M | Frontend | P2-15 |
+| P2-17 | Rate-limit middleware backed by Redis for auth, repo, and resolve routes | M | Backend | P1-18 |
 | P2-18 | Audit events for login, org create, member invite, repo connect/disconnect, key create/revoke | S | Backend | P1-21 |
-| P2-19 | Integration tests: OAuth callback, install callback, webhook signature, token cache | L | QA | P2-11 |
-| P2-20 | Security tests: URL SSRF cases, tenant scoping on repos, API key scope enforcement | M | Security | P2-12 |
+| P2-19 | Integration tests: OAuth callback, URL validation/allowlist, `ls-remote` probe, resolve rate limit | L | QA | P2-16 |
+| P2-20 | Security tests: URL SSRF cases, tenant scoping on repos, API key scope enforcement, existence-oracle probes | M | Security | P2-12 |
+
+Retired IDs stay reserved: P2-01, P2-02, P2-07, P2-08, P2-10, P2-11, and the old P2-16 install UI are post-MVP with the GitHub App (ADR-011).
 
 ### Exit criteria
 
-- [ ] A new user signs in, creates an org, installs the App, and connects a repository in under three minutes in staging.
-- [ ] Installation tokens are never written to the database or logs (canary check on token string).
-- [ ] A repository outside the installation returns `REPO_NOT_ACCESSIBLE` with no metadata leakage.
-- [ ] Webhook replay with the same delivery ID is a no-op.
-- [ ] Invalid webhook signatures return 401 with no detail.
+- [ ] A new user signs in, creates an org, and saves a resolved public repository URL in under three minutes in staging — no GitHub App install anywhere in the flow.
+- [ ] A private and a nonexistent repository return the identical non-leaking error (no existence oracle).
+- [ ] Non-`github.com` and non-HTTPS URLs are rejected with `422 VALIDATION_ERROR`.
 - [ ] Cross-tenant repository access returns 404.
 
 ### Acceptance tests
 
 1. `POST /api/v1/repos` with `https://gitlab.com/a/b` returns `422 VALIDATION_ERROR`.
 2. `POST /api/v1/repos` with `https://github.com/a/b?x=1` returns `422`.
-3. `POST /api/v1/repos` with a repo the App cannot see returns `403 REPO_NOT_ACCESSIBLE`.
-4. Uninstalling the App blocks new token minting within one webhook cycle.
+3. `POST /api/v1/repos/resolve` with a private and with a nonexistent repository returns the same `403`/`404` pair with no metadata leakage.
+4. `POST /api/v1/repos/resolve` above 30/minute per user returns `429 RATE_LIMITED`.
 5. An API key without `scan:write` cannot create a scan (`403 FORBIDDEN`).
 6. A revoked API key fails within 30 seconds.
 
@@ -405,7 +405,7 @@ Total: ~19–20 elapsed weeks with parallel tracks. Critical path: 2 → 3 → 4
 | P5-06 | Finding drawer: evidence, rationale, remediation, history, triage | L | Frontend | P4-21 |
 | P5-07 | Rules catalog and control detail | M | Frontend | P4-23 |
 | P5-08 | Settings: org profile, retention, members and roles | M | Frontend | P2-06 |
-| P5-09 | Settings: integrations (GitHub App), API keys | M | Frontend | P2-13 |
+| P5-09 | Settings: repositories (saved URLs), API keys | M | Frontend | P2-13 |
 | P5-10 | Settings: billing and usage (read-only plan display at MVP) | M | Frontend | P2-05 |
 | P5-11 | Audit log viewer with filters and JSON export | M | Frontend | P1-21 |
 | P5-12 | Command palette (`⌘K`) for navigation and repo search | M | Frontend | P5-01 |
@@ -433,7 +433,7 @@ Total: ~19–20 elapsed weeks with parallel tracks. Critical path: 2 → 3 → 4
 | ID | Task | Size | Owner | Depends on |
 |---|---|---|---|---|
 | P5-26 | Transactional email: invite, scan completed, scan failed | M | Backend | P2-06 |
-| P5-27 | Outbound webhooks for scan completion (Growth+) | M | Backend | P3-18 |
+| P5-27 | Outbound customer webhooks for scan completion (Growth+) — post-MVP backlog | M | Backend | P3-18 |
 | P5-28 | Usage metering reconciliation: scans, reports, storage byte-hours | M | Backend | P3-25 |
 | P5-29 | Plan limit enforcement: scans/month, seats, retention days, concurrency | M | Backend | P5-28 |
 | P5-30 | Notification preferences in org settings | S | Frontend | P5-08 |
@@ -685,7 +685,7 @@ Rules:
 | Cross-tenant bug found late | Medium | Critical | Tenant-scoping tests from Phase 2; RLS in Phase 1 | Security |
 | PDF parity diverges from dashboard | Medium | High | Single view model; parity test in Phase 5 | Backend |
 | Team underestimates frontend | High | Medium | Frontend starts shell in Phase 1; mocks before API integration | Frontend |
-| GitHub App review delays | Low | Medium | Register App in Phase 2 day 1; use a dev App meanwhile | Platform |
+| GitHub availability or abuse limits block clones | Medium | Medium | Queue + degraded-mode messaging (operations.md); anonymous clone has no API quota | Platform |
 | Cost per scan exceeds margin | Medium | Medium | Usage metering from Phase 3; alarms at 80% | Platform |
 | Scope creep into cloud scanning | High | High | Non-goals in `PRD.md`; change control at phase gate | Product |
 
@@ -709,6 +709,7 @@ Rules:
 
 Listed to protect MVP scope, not as commitments:
 
+- GitHub App: private repositories, repository listing, webhook-triggered rescans (ADR-011).
 - GitLab and Bitbucket support.
 - PR comment bot and auto-fix suggestions.
 - Cloud account scanning (AWS/Azure/GCP) for runtime DSPM.

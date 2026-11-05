@@ -60,6 +60,7 @@ These are non-negotiable. A change that violates one is rejected, not debated.
 13. **No secrets in source, tests, fixtures, or comments.** Fixtures use obviously fake values.
 14. **Scanner images and versions are pinned by digest/version.** No floating tags.
 15. **Audit logs are append-only.** The runtime DB role has no `UPDATE`/`DELETE` on them.
+16. **Repository access is URL-only and anonymous.** Only `https://github.com/<owner>/<repo>` public repositories; no redirects, `GIT_TERMINAL_PROMPT=0`, no GitHub credentials anywhere (ADR-011).
 
 ---
 
@@ -120,8 +121,8 @@ Copy these exactly. Wire values are lowercase snake_case; database enums mirror 
 'queued' | 'cloning' | 'scanning' | 'mapping'
 | 'completed' | 'failed' | 'cancelled' | 'expired'
 
-// scan trigger
-'manual' | 'api' | 'scheduled' | 'webhook'
+// scan trigger (MVP; 'scheduled' | 'webhook' post-MVP with the GitHub App)
+'manual' | 'api'
 
 // severity
 'critical' | 'high' | 'medium' | 'low' | 'info'
@@ -184,8 +185,8 @@ Never expose a raw UUID in a public payload. Never accept a prefixed ID as a UUI
 | `organizations` | Tenant root, plan, retention, region | `id` |
 | `users` | Identity | — |
 | `memberships` | `(org_id, user_id)` → role, status | `org_id` |
-| `github_installations` | App installation, no tokens stored | `org_id` |
-| `repositories` | Connected repos, soft delete | `org_id` |
+| `sessions` | Server-side sessions: absolute/idle expiry, revocation | — |
+| `repositories` | Saved public repo URLs, soft delete | `org_id` |
 | `api_keys` | Hashed keys with scopes | `org_id` |
 | `scans` | Lifecycle, score, coverage, versions | `org_id` |
 | `scan_events` | Append-only timeline | `org_id` |
@@ -219,12 +220,12 @@ flowchart LR
 
 | Component | May | Must not |
 |---|---|---|
-| `web` | SSR, sessions, validation, rate limits, proxy, redirect to signed URL | Touch Postgres, hold installation tokens, run scanners, render PDFs |
+| `web` | SSR, sessions, validation, rate limits, proxy, redirect to signed URL | Touch Postgres, hold GitHub credentials, run scanners, render PDFs |
 | `orchestrator` | Domain logic, Prisma, scoring, queues, Jobs, callbacks | Serve public traffic, clone code, render PDFs |
 | `scan-runner` | Clone, scan, normalise, redact, callback | Persist code, reach the DB, call arbitrary hosts |
 | `renderer` | Fetch view model, render HTML → PDF, upload | Read source, mutate scan data, load remote assets |
 
-**Internal auth:** `X-Internal-Key` + `X-Internal-Signature` = HMAC-SHA256(secret, `timestamp + "." + rawBody`), 300 s skew. Runner callbacks additionally carry a projected service-account token with audience `dpdpa-orchestrator`.
+**Internal auth:** `X-Internal-Key` + `X-Internal-Signature` = HMAC-SHA256(secret, `timestamp + "." + rawBody`), 300 s skew. Runner callbacks use a per-scan HMAC only — no service-account token, no TokenReview (would need cluster-wide RBAC; ADR-001/§15 of architecture.md).
 
 ---
 
@@ -249,6 +250,7 @@ queued → cloning → scanning → mapping → completed
 | `expired` | Retention | Marked before hard delete |
 
 **Rules:**
+- URL is validated and the default branch resolved anonymously (`git ls-remote`) before the row enters `queued`.
 - One active scan per `(repository_id, ref)`.
 - Same `(org_id, idempotency_key)` returns the original scan.
 - A missing callback with a successful Job ⇒ `INCOMPLETE_RESULTS`, never a clean score.
@@ -351,6 +353,7 @@ Public base: `/api/v1`. Internal: `/internal/v1` (HMAC).
 | PATCH/DELETE | `/api/v1/org/members/:userId` | admin |
 | GET | `/api/v1/repos` | member |
 | POST | `/api/v1/repos` | admin |
+| POST | `/api/v1/repos/resolve` | auditor+ |
 | DELETE | `/api/v1/repos/:repoId` | admin |
 | GET | `/api/v1/repos/:repoId/scans` | member |
 | POST | `/api/v1/scan` | auditor+ |
@@ -375,9 +378,10 @@ Idempotency: `POST /scan` and `POST /report/pdf` require `Idempotency-Key` for A
 ## 15. Error codes
 
 `VALIDATION_ERROR`, `UNAUTHENTICATED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`,
+`INVALID_STATE_TRANSITION`, `LAST_OWNER`, `REPO_ALREADY_CONNECTED`,
 `SCAN_IN_PROGRESS`, `SCAN_NOT_READY`, `REPORT_NOT_READY`, `REPORT_EXPIRED`,
-`IDEMPOTENCY_CONFLICT`, `PLAN_LIMIT_EXCEEDED`, `REPO_NOT_ACCESSIBLE`,
-`REPO_TOO_LARGE`, `INSTALLATION_SUSPENDED`, `PAGINATION_LIMIT`, `RATE_LIMITED`,
+`IDEMPOTENCY_CONFLICT`, `PLAN_LIMIT_EXCEEDED`, `REPO_NOT_FOUND`,
+`REPO_NOT_ACCESSIBLE`, `REPO_TOO_LARGE`, `PAGINATION_LIMIT`, `RATE_LIMITED`,
 `PAYLOAD_TOO_LARGE`, `UPSTREAM_UNAVAILABLE`, `INTERNAL_ERROR`.
 
 Codes are stable; messages are not part of the contract. Never add a new code without updating `packages/contracts`.
@@ -554,6 +558,7 @@ Every report includes: "This report provides technical evidence, not legal advic
 - **PDF** uses the same view model as the dashboard, so numbers cannot diverge.
 - **Signed URLs** expire in 15 minutes and are never logged.
 - **`__Host-` cookie prefix** in production; `Secure`, `HttpOnly`, `SameSite=Lax`.
+- **Anonymous clone:** a private and a nonexistent repository return the identical error (`REPO_NOT_FOUND`/`REPO_NOT_ACCESSIBLE` pair with no metadata) — never an existence oracle.
 
 ---
 
@@ -572,9 +577,10 @@ Every report includes: "This report provides technical evidence, not legal advic
 | Item | Status |
 |---|---|
 | Documentation pack | Complete (10 documents) |
+| Doc revision pass: URL-only + Python runner + enterprise hardening | In progress |
 | Phase 0 — Foundations | Planned |
 | Phase 1 — Platform skeleton | Planned |
-| Phase 2 — GitHub integration | Planned |
+| Phase 2 — Identity and URL resolution | Planned |
 | Phase 3 — Scan pipeline | Planned |
 | Phase 4 — Mapping and scoring | Planned |
 | Phase 5 — UI and reports | Specified, not implemented |
