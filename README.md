@@ -21,8 +21,8 @@ Specification pack for **DPDPA GitHub Code Auditor** — a B2B SaaS that audits 
 
 ## How it works
 
-1. A user signs in with GitHub OAuth (identity only) and installs a GitHub App (`contents: read`).
-2. They submit a repository and branch; the orchestrator queues a scan.
+1. A user signs in with GitHub OAuth (identity only).
+2. They paste a public repository URL (`https://github.com/<owner>/<repo>`); the orchestrator validates it and queues a scan.
 3. A hardened, ephemeral Kubernetes Job clones the repo, runs Semgrep, Checkov, and Gitleaks.
 4. Findings are normalised, redacted, and mapped to DPDPA obligations.
 5. The orchestrator scores the repository and the UI presents evidence with fix guidance.
