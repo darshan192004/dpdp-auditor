@@ -227,7 +227,7 @@ flowchart LR
 | `scan-runner` | Clone, scan, normalise, redact, callback | Persist code, reach the DB, call arbitrary hosts |
 | `renderer` | Fetch view model, render HTML → PDF, upload | Read source, mutate scan data, load remote assets |
 
-**Internal auth:** `X-Internal-Key` + `X-Internal-Signature` = HMAC-SHA256(secret, `timestamp + "." + rawBody`), 300 s skew. Runner callbacks use a per-scan HMAC only — no service-account token, no TokenReview (would need cluster-wide RBAC; ADR-001/§15 of architecture.md).
+**Internal auth:** `X-Internal-Key` + `X-Internal-Signature` = HMAC-SHA256(secret, `timestamp + "." + rawBody`), 300 s skew. Runner callbacks use a per-scan HMAC only — no service-account token, no TokenReview (would need cluster-wide RBAC; architecture.md §15).
 
 ---
 
@@ -350,26 +350,30 @@ Public base: `/api/v1`. Internal: `/internal/v1` (HMAC).
 | Method | Path | Role |
 |---|---|---|
 | GET | `/api/v1/me` | session |
-| GET/PATCH | `/api/v1/org` | member / admin |
-| GET/POST | `/api/v1/org/members` | member / admin |
-| PATCH/DELETE | `/api/v1/org/members/:userId` | admin |
-| GET | `/api/v1/repos` | member |
+| GET | `/api/v1/org` | session |
+| PATCH | `/api/v1/org` | owner/admin |
+| GET | `/api/v1/org/members` | viewer+ |
+| POST | `/api/v1/org/members` | owner/admin |
+| PATCH/DELETE | `/api/v1/org/members/:userId` | owner/admin |
+| GET | `/api/v1/repos` | viewer |
 | POST | `/api/v1/repos` | admin |
 | POST | `/api/v1/repos/resolve` | auditor+ |
 | DELETE | `/api/v1/repos/:repoId` | admin |
-| GET | `/api/v1/repos/:repoId/scans` | member |
+| GET | `/api/v1/repos/:repoId/scans` | viewer |
 | POST | `/api/v1/scan` | auditor+ |
-| GET | `/api/v1/scan/:scanId` | member |
+| GET | `/api/v1/scan/:scanId` | viewer |
 | POST | `/api/v1/scan/:scanId/cancel` | auditor+ |
-| GET | `/api/v1/scan/:scanId/findings` | member |
-| GET | `/api/v1/scan/:scanId/events` | member |
+| GET | `/api/v1/scan/:scanId/findings` | viewer |
+| GET | `/api/v1/scan/:scanId/events` | viewer |
 | PATCH | `/api/v1/findings/:findingId` | auditor+ |
 | POST | `/api/v1/report/pdf` | auditor+ |
-| GET | `/api/v1/report/pdf/:reportId` | member |
-| GET | `/api/v1/report/pdf/:reportId/download` | member |
-| GET | `/api/v1/rules`, `/api/v1/rules/:code` | member |
+| GET | `/api/v1/report/pdf/:reportId` | viewer |
+| GET | `/api/v1/report/pdf/:reportId/download` | viewer |
+| GET | `/api/v1/rules`, `/api/v1/rules/:code` | viewer |
 | GET | `/api/v1/audit-logs` | admin |
-| GET/POST/DELETE | `/api/v1/api-keys` | owner |
+| GET | `/api/v1/audit-logs/export` | owner/admin |
+| GET | `/api/v1/api-keys` | admin |
+| POST/DELETE | `/api/v1/api-keys` | owner |
 
 Response shapes: `{ data }`, `{ data, pagination }`, `{ data, meta }`. Errors: `{ error: { code, message, details?, requestId } }`.
 
@@ -383,7 +387,7 @@ Idempotency: `POST /scan` and `POST /report/pdf` require `Idempotency-Key` for A
 `INVALID_STATE_TRANSITION`, `LAST_OWNER`, `REPO_ALREADY_CONNECTED`,
 `SCAN_IN_PROGRESS`, `SCAN_NOT_READY`, `REPORT_NOT_READY`, `REPORT_EXPIRED`,
 `IDEMPOTENCY_CONFLICT`, `PLAN_LIMIT_EXCEEDED`, `REPO_NOT_FOUND`,
-`REPO_NOT_ACCESSIBLE`, `REPO_TOO_LARGE`, `PAGINATION_LIMIT`, `RATE_LIMITED`,
+`REPO_TOO_LARGE`, `PAGINATION_LIMIT`, `RATE_LIMITED`,
 `PAYLOAD_TOO_LARGE`, `UPSTREAM_UNAVAILABLE`, `INTERNAL_ERROR`.
 
 Codes are stable; messages are not part of the contract. Never add a new code without updating `packages/contracts`.
@@ -560,7 +564,7 @@ Every report includes: "This report provides technical evidence, not legal advic
 - **PDF** uses the same view model as the dashboard, so numbers cannot diverge.
 - **Signed URLs** expire in 15 minutes and are never logged.
 - **`__Host-` cookie prefix** in production; `Secure`, `HttpOnly`, `SameSite=Lax`.
-- **Anonymous clone:** a private and a nonexistent repository return the identical error (`REPO_NOT_FOUND`/`REPO_NOT_ACCESSIBLE` pair with no metadata) — never an existence oracle.
+- **Anonymous clone:** a private and a nonexistent repository return the identical `REPO_NOT_FOUND` (404) with no metadata — never an existence oracle.
 
 ---
 

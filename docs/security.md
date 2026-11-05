@@ -69,7 +69,7 @@
 |---|---|
 | Submit `https://github.com/../../etc/passwd` or a non-GitHub URL | Strict URL parser, host allowlist, path regex, redirects disabled |
 | Submit a URL that redirects (git or HTTP) to an internal host | `http.followRedirects=false`, no `3xx` followed anywhere, private-range guard after resolution |
-| Probe for private/nonexistent repositories through resolve or scan errors | Identical `REPO_NOT_FOUND`/`REPO_NOT_ACCESSIBLE` response for both; per-user resolve limit (30/min) |
+| Probe for private/nonexistent repositories through resolve or scan errors | One identical `REPO_NOT_FOUND` (404) response for private and nonexistent repositories; per-user resolve limit (30/min) |
 | Submit an oversized repository to exhaust disk/CPU (DoS) | `git ls-remote` size probe before enqueue, plan size caps, `--depth 1`, disk quota, timeout |
 | Submit a repository containing a `.gitmodules` that clones an internal host | `--no-recurse-submodules`, network egress allowlist |
 | Submit a repository with a 10 GB file or zip bomb | Size check before clone, `--depth 1`, disk quota, timeout |
@@ -648,7 +648,7 @@ The subprocessor list is published, versioned, and requires customer notice befo
 | Level | Definition | Response |
 |---|---|---|
 | P1 | Confirmed or suspected source-code exposure, cross-tenant access, or credential compromise | Page on-call immediately; incident commander; customer notification within 24 h of confirmation |
-| P2 | Service-wide outage, auth bypass without data exposure, malicious scan behaviour | Page on-call; status page; update every 60 min |
+| P2 | Service-wide outage, auth bypass without data exposure, malicious scan behaviour | Page on-call; status page; first update within 30 min, then every 60 min |
 | P3 | Limited degradation, single-tenant issue | Ticket; respond within one business day |
 | P4 | Cosmetic or informational | Backlog |
 

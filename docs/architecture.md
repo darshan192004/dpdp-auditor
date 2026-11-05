@@ -206,7 +206,7 @@ sequenceDiagram
 ### Submission invariants
 
 - **Authoritative plan limits:** the orchestrator enforces plan limits (§9); Nitro's pre-check is defense-in-depth only.
-- **One active scan per repository ref:** enforced by a partial unique index on `scans (org_id, repo_id, ref)` across active statuses (see `database.md` §4.7); a duplicate submission returns `409 SCAN_IN_PROGRESS`.
+- **One active scan per repository ref:** enforced by a partial unique index on `scans (repository_id, ref)` across active statuses — org scoping derives from `repository_id` (see `database.md` §4.7); a duplicate submission returns `409 SCAN_IN_PROGRESS`.
 - **No orphaned queued scans:** the scan row and its queue entry are written through a transactional outbox; a reconciler re-enqueues rows stuck in `queued` without a dispatched job.
 
 ### Timing budget (100 MB repository, p95)
@@ -319,6 +319,7 @@ spec:
 ### 6.4 What the runner is allowed to send back
 
 - Normalised finding records: scanner, rule ID, severity, file path, line range, message, confidence, redacted evidence, fingerprint.
+- Repository facts for scoring: detected languages, framework/configuration-detection booleans (for example `has_ci`, `has_iac`), and repository size band — the `facts` input evaluated by applicability predicates (`rules.md` §9). Facts contain no file contents.
 - Scanner metadata: version, duration, exit code, coverage status.
 - Aggregate counts.
 - **Never:** file contents, repository archives, environment variables, credentials, raw secret values, commit diffs.
@@ -348,7 +349,7 @@ Secret findings are reduced to: rule ID, file path, line, a salted hash of the m
 - `POST /internal/v1/scans/:scanId/findings` with batched payloads (≤ 500 findings or 1 MB).
 - Auth: per-scan HMAC only — `X-Internal-Signature: HMAC-SHA256(secret, timestamp + "." + rawBody)` with 5-minute skew; the secret is delivered in the Job's K8s Secret. The Job mounts no service-account token (`automountServiceAccountToken: false`), and callback auth deliberately requires no cluster-wide Kubernetes API permissions (see §15).
 - Idempotent by `(scanId, batchId)`; duplicates are ignored.
-- Final `POST /internal/v1/scans/:scanId/complete` carries scanner statuses and counts.
+- Final `POST /internal/v1/scans/:scanId/complete` carries scanner statuses, aggregate counts, and the repository `facts` used for applicability scoring (`rules.md` §9.1).
 - Orchestrator rejects callbacks for scans not in `cloning` or `scanning`.
 
 ### 7.4 Orchestrator → renderer
@@ -394,7 +395,7 @@ See `database.md` for the schema and `security.md` for the deletion proof.
 | Failure | Detection | Behaviour |
 |---|---|---|
 | GitHub availability / abuse limit (git smart-HTTP) | Clone connection errors, 429s from GitHub | Exponential backoff with jitter; scan stays `queued` up to 10 min, then fails with `GITHUB_RATE_LIMITED`; degraded-mode banner (operations.md) |
-| Repository not found or private (404 on anonymous clone) | Clone exit code | Fail with `REPO_NOT_FOUND`/`REPO_NOT_ACCESSIBLE` — the same non-leaking error for private and nonexistent repositories (no existence oracle) |
+| Repository not found or private (404 on anonymous clone) | Clone exit code | Fail with `REPO_NOT_FOUND` (404) — one identical non-leaking response for private and nonexistent repositories (no existence oracle) |
 | Repository too large | Pre-flight size check | Fail fast with `REPO_TOO_LARGE` and the limit in the message |
 | Scanner timeout | Per-scanner deadline | Kill scanner, mark that scanner `timed_out`, continue with others; coverage warning |
 | Scanner crash | Non-zero exit | Mark `failed`, continue; score computed with explicit coverage penalty |

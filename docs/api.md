@@ -40,8 +40,8 @@ API keys are scoped. A request using a key without the required scope receives `
 - Roles: `owner` > `admin` > `auditor` > `viewer`.
   - `viewer`: read scans, findings, reports.
   - `auditor`: viewer + triage findings + export reports.
-  - `admin`: auditor + manage repositories, members, API keys, retention.
-  - `owner`: admin + billing, organisation deletion, ownership transfer.
+  - `admin`: auditor + manage repositories and members, read API keys, configure retention.
+  - `owner`: admin + create/revoke API keys, billing, organisation deletion, ownership transfer.
 
 ### 1.4 Error envelope
 
@@ -264,8 +264,7 @@ Retry-After: 3
 | Code | HTTP | Cause |
 |---|---|---|
 | `VALIDATION_ERROR` | 422 | Missing both or both supplied; bad URL; bad ref |
-| `REPO_NOT_FOUND` | 404 | Repository does not exist (same response as private — no existence oracle) |
-| `REPO_NOT_ACCESSIBLE` | 403 | Repository is private or blocked; anonymous clone not permitted |
+| `REPO_NOT_FOUND` | 404 | Repository is private, nonexistent, or unavailable to anonymous access — the identical response for all three, so the endpoint is never an existence oracle |
 | `REPO_TOO_LARGE` | 422 | Above the plan size limit (`git ls-remote` size probe before enqueue) |
 | `PLAN_LIMIT_EXCEEDED` | 402 | Scan quota exhausted |
 | `SCAN_IN_PROGRESS` | 409 | An active scan already exists for this repo and ref |
@@ -582,7 +581,7 @@ Preview/validation step used by the paste-URL dialog before a scan or a save.
 
 Resolution is anonymous (`git ls-remote --symref` plus an unauthenticated metadata lookup); no GitHub credential is used.
 
-**Errors:** `VALIDATION_ERROR` (422) for non-`github.com`, non-HTTPS, or malformed URLs; `REPO_NOT_FOUND` (404) / `REPO_NOT_ACCESSIBLE` (403) — the same non-leaking response for private and nonexistent repositories, so the endpoint is not an existence oracle; `REPO_TOO_LARGE` (422) when the size probe exceeds the plan cap.
+**Errors:** `VALIDATION_ERROR` (422) for non-`github.com`, non-HTTPS, or malformed URLs; `REPO_NOT_FOUND` (404) — the single non-leaking response for private, nonexistent, and blocked repositories (identical body, no metadata, so the endpoint is never an existence oracle); `REPO_TOO_LARGE` (422) when the size probe exceeds the plan cap.
 
 ### 5.3 Save a repository
 
@@ -608,7 +607,7 @@ Saves a URL that has already been validated (§5.2) so it appears in the reposit
 }
 ```
 
-**Errors:** `VALIDATION_ERROR` (422), `REPO_NOT_ACCESSIBLE` (403), `REPO_NOT_FOUND` (404), `REPO_ALREADY_CONNECTED` (409), `REPO_TOO_LARGE` (422).
+**Errors:** `VALIDATION_ERROR` (422), `REPO_NOT_FOUND` (404), `REPO_ALREADY_CONNECTED` (409), `REPO_TOO_LARGE` (422).
 
 ### 5.4 Repository detail and scans
 
@@ -849,11 +848,11 @@ Streams the full filtered audit trail as newline-delimited JSON with `Content-Di
 | POST | `/api/auth/logout` | Clears the session cookie, returns `204` |
 | GET | `/api/v1/me` | Returns user, memberships, active org, role, feature flags |
 
-No repository scope is requested during OAuth. Repository access comes exclusively from the GitHub App installation.
+At MVP no repository scope is requested during OAuth and no GitHub App is installed: repositories are public URLs cloned anonymously (`git ls-remote`, ADR-011). The GitHub App installation flow is post-MVP.
 
 ---
 
-## 9. GitHub webhooks
+## 9. GitHub webhooks (post-MVP)
 
 No webhook endpoints at MVP: scans are triggered manually or via the API only (`scan_trigger` = `manual`/`api`). GitHub App webhooks (installation events, `repository` events, webhook-triggered rescans) are post-MVP with the GitHub App — ADR-011.
 
@@ -999,13 +998,15 @@ Orchestrator recomputes coverage, maps findings, scores, and returns `200`.
 | `REPORT_EXPIRED` | 410 | No | Report past retention |
 | `IDEMPOTENCY_CONFLICT` | 422 | No | Key reused with a different payload |
 | `PLAN_LIMIT_EXCEEDED` | 402 | No | Quota or seat limit reached |
-| `REPO_NOT_ACCESSIBLE` | 403 | No | Repository is private or blocked (anonymous clone not permitted) |
+| `REPO_NOT_FOUND` | 404 | No | Repository is private, nonexistent, or unavailable to anonymous access — one identical response for all three (no existence oracle) |
 | `REPO_TOO_LARGE` | 422 | No | Above the plan size limit |
 | `PAGINATION_LIMIT` | 422 | No | Offset beyond 10,000 |
 | `RATE_LIMITED` | 429 | Yes, after `Retry-After` | Limit exceeded |
 | `PAYLOAD_TOO_LARGE` | 413 | No | Body or batch too large |
 | `UPSTREAM_UNAVAILABLE` | 503 | Yes | Database, Redis, or GitHub unavailable |
 | `INTERNAL_ERROR` | 500 | Maybe | Unexpected server error; request ID required for support |
+
+Scan-level failure codes (`GITHUB_RATE_LIMITED`, `INCOMPLETE_RESULTS`) are not HTTP responses: they are outcomes stored in `scans.error_code` per the failure table in `architecture.md` §10.
 
 ---
 

@@ -64,6 +64,7 @@ The launch metric set in `architecture.md` §13 is a subset of this catalog; eve
 |---|---|---|
 | `scan_queue_depth` | gauge | BullMQ |
 | `scan_queue_wait_seconds` | histogram | orchestrator |
+| `scan_queue_oldest_age_seconds` | gauge | BullMQ |
 | `scan_duration_seconds` | histogram | orchestrator |
 | `scan_failure_rate` | ratio | orchestrator |
 | `scanner_partial_rate` | ratio | orchestrator |
@@ -106,7 +107,8 @@ Severities map to response: **P1** pages the on-call immediately; **P2** pages w
 | Secret detected in our repo | CI or runtime | P1 | Security lead + on-call | `runbooks/secret-exposure.md` |
 | Unusual export volume | > 50 PDFs/hour/org | P3 | Support + on-call | `runbooks/export-volume.md` |
 | Queue depth sustained | `scan_queue_depth > 50` for 10 min | P2 | On-call | `runbooks/queue-backlog.md` |
-| Queue job age | oldest waiting job > 10 min | P2 | On-call | `runbooks/queue-backlog.md` |
+| Queue job age | `scan_queue_oldest_age_seconds` > 600 (10 min) | P2 | On-call | `runbooks/queue-backlog.md` |
+| Report render latency | `report_render_duration_seconds` p95 > 10 s for 15 min | P2 | On-call | `runbooks/report-render-slow.md` |
 | Scan p95 breach | `scan_duration_seconds` p95 > 10 min for 15 min | P2 | On-call | `runbooks/scan-slow.md` |
 | Scan failure rate | `scan_failure_rate > 5%` for 10 min | P2 | On-call | `runbooks/scan-failure.md` |
 | Git-clone failure rate | `git_clone_failure_rate > 10%` for 10 min | P2 | On-call | `runbooks/github-outage.md` |
@@ -119,7 +121,7 @@ Severities map to response: **P1** pages the on-call immediately; **P2** pages w
 | Error budget burn | fast/slow burn-rate windows (§1) | P1 (fast) / P2 (slow) | On-call + engineering manager | `runbooks/error-budget.md` |
 | Backup/PITR job failure | nightly archive check fails | P2 | On-call | `runbooks/db-failover.md` |
 
-Every alert links to a runbook with: detection context, triage steps, mitigation, escalation, and post-incident requirements. P6-11 verifies this catalog against live alerts; P6-20 authors the runbooks.
+Every alert links to a runbook with: detection context, triage steps, mitigation, escalation, and post-incident requirements. The `runbooks/*.md` paths above are targets — those files are not written yet and land with P6-11/P6-20. P6-11 verifies this catalog against live alerts; P6-20 authors the runbooks.
 
 ---
 
@@ -129,10 +131,10 @@ Every alert links to a runbook with: detection context, triage steps, mitigation
 - **Incident channels:** one channel per incident with the commander, scribe, and comms lead roles; timeline recorded in the incident tool.
 - **Customer communication triggers** (`security.md` §15):
   - P1 affecting availability or data handling: acknowledge publicly on the status page within 1 hour; direct customer notification **within 24 hours**; breach analysis follows the DPDPA processor obligations.
-  - P2 > 30 minutes: status-page update.
+  - P2 > 30 minutes: first status-page update, then every 60 minutes until resolved.
   - P3: status-page post-incident note if customers were affected.
 - **Status page** (P6-14): fed from the SLO metrics in §1 with three components (Web app, API, Scan execution); incidents are created automatically from P1/P2 alerts and closed manually after review.
-- **Post-incident:** blameless review within 3 business days for every P1/P2; action items get owners and dates and are tracked to closure.
+- **Post-incident:** blameless review within five business days for every P1/P2; action items get owners and dates and are tracked to closure.
 
 ---
 

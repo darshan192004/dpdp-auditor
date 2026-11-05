@@ -117,7 +117,7 @@ Total: ~19–20 elapsed weeks with parallel tracks. Critical path: 2 → 3 → 4
 
 - [ ] `main` is protected; CI runs lint, typecheck, test, build, audit, secrets on every PR.
 - [ ] `packages/contracts` publishes ID, error, pagination, and finding schemas.
-- [ ] ADR-001…010 merged.
+- [ ] ADR-001…ADR-011 merged.
 - [ ] Threat model reviewed by security lead.
 - [ ] DPDPA taxonomy v0 signed off by legal.
 - [ ] Fingerprint specification frozen; changing it later requires a version bump.
@@ -446,7 +446,7 @@ Retired IDs stay reserved: P2-01, P2-02, P2-07, P2-08, P2-10, P2-11, and the old
 | P5-27 | Outbound customer webhooks for scan completion (Growth+) — post-MVP backlog | M | Backend | P3-18 |
 | P5-28 | Usage metering reconciliation: scans, reports, storage byte-hours | M | Backend | P3-25 |
 | P5-29 | Plan limit enforcement: scans/month, seats, retention days, concurrency | M | Backend | P5-28 |
-| P5-30 | Audit-log export endpoint (`GET /audit-logs/export`, streamed JSON, audit action `audit.exported`) + usage-event idempotency via `event_id` | M | Backend | P5-11, P5-28 |
+| P5-31 | Audit-log export endpoint (`GET /audit-logs/export`, streamed JSON, audit action `audit.exported`) + usage-event idempotency via `event_id` | M | Backend | P5-11, P5-28 |
 | P5-30 | Notification preferences in org settings | S | Frontend | P5-08 |
 
 ### Exit criteria

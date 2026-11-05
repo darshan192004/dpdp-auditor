@@ -207,7 +207,7 @@ The result is a gap between the DPO's compliance questionnaire and the engineeri
 | FR-14 | Audit log | P0 | Append-only; exportable by admins via `GET /api/v1/audit-logs/export` (api.md §7.4) |
 | FR-15 | API keys for CI | P1 | Scoped to `scan:write`, `scan:read`, `report:read` |
 | FR-16 | Rescan comparison | P1 | New/persistent/resolved/reopened |
-| FR-17 | Email and webhook notifications | P1 | Post-scan completion and failure |
+| FR-17 | Email and webhook notifications | P1 | Email on scan completion/failure; outbound webhooks are post-MVP backlog (P5-27, ADR-011) |
 | FR-18 | Rule explorer | P1 | Explains each DPDPA control and mapped scanner rules |
 | FR-19 | Usage metering and plan limits | P1 | Scans per month, seats, retention |
 | FR-20 | Organisation deletion and data export | P0 | Hard delete within 30 days; export in JSON |
@@ -222,7 +222,7 @@ The result is a gap between the DPO's compliance questionnaire and the engineeri
 | Performance | p95 API latency < 400 ms; p95 time-to-first-finding < 10 min for repos ≤ 100 MB; p95 PDF < 10 s |
 | Scale (launch) | 200 organisations, 2,000 repositories, 20,000 scans/month, 50 concurrent scans |
 | Isolation | One Kubernetes Job per scan; no cross-tenant network or filesystem access |
-| Abuse controls (public-repo-only MVP) | Plan scan limits (Free 10/h), per-user rate limits, repo-size caps, DNS-pinned clone egress, cost alarms — architecture.md §12 |
+| Abuse controls (public-repo-only MVP) | Plan quotas (Free 5 scans/month) plus rate limits (Free 10/h), per-user rate limits, repo-size caps, DNS-pinned clone egress, cost alarms — architecture.md §12 |
 | Retention | Source code deleted on job completion; derived findings per org policy; reports 30 days by default |
 | Security | OWASP ASVS L2; no critical/high vulnerabilities at launch; annual pen test |
 | Privacy | Data minimisation, purpose limitation, DPA with subprocessors, India region by default |
@@ -294,7 +294,7 @@ Pricing is usage-aware but seat-based at launch. Exact price points are an open 
 | Legal overreach — product implies legal advice | Medium | High | Prominent disclaimer, "evidence not opinion" framing, DPO review workflow, no "certified compliant" claims |
 | Malicious repository attacks the scanner | Medium | High | Isolated Jobs, no network egress except allowlist, resource caps, gVisor, non-root, read-only rootfs |
 | GitHub availability or abuse limits (git smart-HTTP) | Medium | Medium | Anonymous clone has no API quota; exponential backoff, degraded-mode messaging, repo-size and concurrency caps |
-| Any signed-up user can scan any public repo (cost/abuse) | High | Medium | Plan limits (Free 10 scans/h), per-user rate limits, repo-size caps, cost alarms (architecture.md §12) |
+| Any signed-up user can scan any public repo (cost/abuse) | High | Medium | Plan quotas (Free 5 scans/month), rate limits (Free 10/h), repo-size caps, cost alarms (architecture.md §12) |
 | Large monorepos exceed time budget | High | Medium | Size caps, path filters, scanner timeouts, partial results, async UX |
 | Scanner supply-chain compromise | Low | High | Pin image digests, SBOM, cosign verification, Trivy scan, no floating tags |
 | DPDPA rules or interpretations change | Medium | Medium | Versioned rule packs, legal review cadence, changelog, re-score on pack upgrade |

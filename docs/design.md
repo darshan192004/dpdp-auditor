@@ -52,7 +52,7 @@ flowchart TD
 
   Dashboard --> Settings[/app/settings/org/]
   Settings --> Members[/app/settings/members/]
-  Settings --> Integrations[/app/settings/integrations/]
+  Settings --> Repositories[/app/settings/repositories/]
   Settings --> ApiKeys[/app/settings/api-keys/]
   Settings --> Billing[/app/settings/billing/]
   Dashboard --> Audit[/app/audit/]
@@ -65,21 +65,21 @@ flowchart TD
 | `/` | Marketing landing | SSG/ISR | Public |
 | `/login` | Sign-in | SSR | Public |
 | `/onboarding` | Create org, paste a repository URL | SSR | User without org |
-| `/app` | Overview dashboard | SSR + client refresh | Member |
-| `/app/repos` | Repository list | SSR | Member |
-| `/app/repos/[repoId]` | Repository detail and scan history | SSR | Member |
-| `/app/scans` | All scans | SSR | Member |
-| `/app/scans/[scanId]` | Scorecard and summary | SSR + polling | Member |
-| `/app/scans/[scanId]/findings` | Findings workbench | SSR shell + client table | Member |
-| `/app/rules` | DPDPA control catalog | SSR | Member |
-| `/app/rules/[code]` | Control detail and mappings | SSR | Member |
+| `/app` | Overview dashboard | SSR + client refresh | viewer |
+| `/app/repos` | Repository list | SSR | viewer |
+| `/app/repos/[repoId]` | Repository detail and scan history | SSR | viewer |
+| `/app/scans` | All scans | SSR | viewer |
+| `/app/scans/[scanId]` | Scorecard and summary | SSR + polling | viewer |
+| `/app/scans/[scanId]/findings` | Findings workbench | SSR shell + client table | viewer |
+| `/app/rules` | DPDPA control catalog | SSR | viewer |
+| `/app/rules/[code]` | Control detail and mappings | SSR | viewer |
 | `/app/settings/org` | Org profile and retention | SSR | Admin |
 | `/app/settings/members` | Members and roles | SSR | Admin |
 | `/app/settings/repositories` | Saved repository URLs | SSR | Admin |
 | `/app/settings/api-keys` | API keys | SSR | Owner |
 | `/app/settings/billing` | Plan and usage | SSR | Owner |
 | `/app/audit` | Audit log | SSR | Admin |
-| `/report/[reportId]` | Print-optimised report preview | SSR | Member (signed) |
+| `/report/[reportId]` | Print-optimised report preview | SSR | viewer (signed) |
 | `[...slug]` | Not found | SSR | Public |
 
 Redirect rules:
