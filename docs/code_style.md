@@ -24,8 +24,10 @@
 | ORM | Prisma 5 |
 | Database | PostgreSQL 16 |
 | Queue | BullMQ 5 + Redis 7 |
-| Validation | Zod 3, shared through `packages/contracts` |
-| Tests | Vitest, `@nuxt/test-utils`, Playwright, Testcontainers |
+| Validation | Zod 3, shared through `packages/contracts` (the only validation stack) |
+| Tests | Vitest (`v8` coverage provider), `@nuxt/test-utils`, Playwright, Testcontainers |
+| Lint / format | ESLint 9 flat config (`typescript-eslint` v8, `eslint-plugin-vue`), Prettier + `prettier-plugin-tailwindcss` |
+| Commits | Husky hooks + `lint-staged` + `commitlint` with `@commitlint/config-conventional` |
 | Logging | Pino, structured JSON |
 | Tracing | OpenTelemetry |
 
@@ -458,7 +460,7 @@ export class ScansController {
 ```
 
 - Controllers are thin: parse, delegate, return.
-- DTOs use Zod via `nestjs-zod` or `class-validator` with `whitelist: true`, `forbidNonWhitelisted: true`, `transform: true`.
+- DTOs use Zod via `nestjs-zod` (`createZodDto`) with `whitelist: true`, `forbidNonWhitelisted: true`, `transform: true`. Zod is the single validation stack end to end (§1); no decorator-based DTO validator is used anywhere in the product.
 - Internal routes are prefixed `/internal/v1` and guarded by HMAC.
 - Public routes do not exist in this service.
 - Set `@HttpCode` explicitly; defaults are easy to get wrong.
@@ -537,7 +539,7 @@ Config is validated at boot; the process exits on failure. No `process.env` read
 |---|---|---|
 | Unit | Vitest | Pure functions: scoring, mapping, validation, formatters |
 | Component | Vitest + `@nuxt/test-utils` + Testing Library | Props, emits, states, accessibility |
-| API contract | Vitest | Zod schemas accept/reject fixtures; response shapes |
+| API contract | Vitest | Zod schemas accept/reject fixtures; response shapes; OpenAPI conformance (spec diff against the document generated from `packages/contracts`, gate in CI — api.md §12) |
 | Integration | Vitest + Testcontainers | Repositories, transactions, RLS, queues |
 | Scanner integration | Vitest + real scanners | Golden repos produce expected findings |
 | E2E | Playwright | Sign in → connect repo → scan → triage → export |
@@ -604,7 +606,7 @@ CI blocks merge on any failing test. Flaky tests are fixed or quarantined with a
 - Conventional Commits: `feat(scans): add cancel endpoint`, `fix(rules): correct CKV_AWS_19 mapping`.
 - Squash merge; the PR title becomes the commit subject.
 - PR size target: under 400 changed lines excluding generated files. Split larger work.
-- Required checks: lint, typecheck, unit, integration, build, secrets, audit.
+- Required checks: lint, typecheck, unit, integration, `test:coverage` (enforces the §10.3 floors), `test:e2e` (Playwright), build, secrets, audit.
 - CODEOWNERS review for `security/`, `infra/`, `prisma/migrations/`, and `packages/rule-packs/`.
 - No direct pushes to `main`; no force-push to shared branches.
 - A change that alters scoring or rule mapping requires a rule-pack version bump and a legal note.
@@ -643,10 +645,13 @@ Most of the product is TypeScript, but scanner wrapper scripts and normalisation
 from __future__ import annotations
 
 import json
+import logging
 import subprocess
 from pathlib import Path
 
 from pydantic import BaseModel, ValidationError
+
+logger = logging.getLogger(__name__)
 
 
 class SemgrepResult(BaseModel):
@@ -681,12 +686,17 @@ def run_semgrep(workspace: Path, timeout_s: int = 180) -> list[SemgrepResult]:
 
     payload = json.loads(completed.stdout)
     results: list[SemgrepResult] = []
+    malformed = 0
     for run in payload.get("runs", []):
         for item in run.get("results", []):
             try:
                 results.append(SemgrepResult.model_validate(item))
             except ValidationError:
-                continue
+                malformed += 1
+    if malformed:
+        # Never silently drop scanner output (§9 "Never swallow"): the
+        # dropped count is surfaced so partial coverage is visible.
+        logger.warning("semgrep results rejected by schema", dropped=malformed)
     return results
 ```
 
@@ -705,9 +715,11 @@ pytest -q
 
 ### Pre-commit
 
-- `lint-staged`: ESLint + Prettier on staged files.
-- `gitleaks protect --staged`.
-- Typecheck is not run pre-commit (too slow); it runs in CI and pre-push.
+Hook files live under `.husky/`:
+
+- `.husky/pre-commit` — `lint-staged` (ESLint + Prettier on staged files) + `gitleaks protect --staged`.
+- `.husky/pre-push` — typecheck (too slow for pre-commit; CI also runs it).
+- `.husky/commit-msg` — `commitlint` with `@commitlint/config-conventional`.
 
 ### CI
 
@@ -716,7 +728,9 @@ pytest -q
 - pnpm lint
 - pnpm typecheck
 - pnpm test:unit
+- pnpm test:coverage        # vitest --coverage, thresholds per §10.3
 - pnpm test:integration
+- pnpm test:e2e             # Playwright, chromium project
 - pnpm build
 - pnpm security:audit
 - pnpm security:secrets
@@ -733,4 +747,4 @@ CI fails on warnings for TypeScript and ESLint. Warnings that are acceptable req
 - [ ] Accessibility states covered for new UI.
 - [ ] Tests prove the behaviour, including the unhappy path.
 - [ ] No secret, PII, or code in logs.
-- [ ] Bundle and query budgets respected.
+- [ ] Bundle and query budgets respected. Bundle budgets (enforced by the bundle-analysis CI gate, design.md P5-16): `/app` route JS ≤ 180 KB gzipped; any initial-load chunk ≤ 120 KB gzipped.
