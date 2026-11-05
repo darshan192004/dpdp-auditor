@@ -44,7 +44,7 @@ C4Context
 
   System(auditor, "DPDPA GitHub Code Auditor", "Scans repositories, maps findings to DPDPA, scores compliance, exports reports")
 
-  System_Ext(github, "GitHub.com", "Repository hosting; GitHub App installation tokens")
+  System_Ext(github, "GitHub.com", "Repository hosting; anonymous git smart-HTTP clone")
   System_Ext(idp, "GitHub OAuth", "User identity")
   System_Ext(s3, "Object Storage", "PDF reports and short-lived raw artifacts")
   System_Ext(email, "Email Provider", "Transactional notifications")
@@ -53,7 +53,7 @@ C4Context
   Rel(engineer, auditor, "Submits repos, reviews findings", "HTTPS")
   Rel(dpo, auditor, "Reads scorecards, exports PDF", "HTTPS")
   Rel(admin, auditor, "Manages org", "HTTPS")
-  Rel(auditor, github, "Clones repos with installation token", "HTTPS")
+  Rel(auditor, github, "Clones public repos anonymously", "HTTPS")
   Rel(auditor, idp, "Signs users in", "OAuth 2.0")
   Rel(auditor, s3, "Stores reports", "HTTPS")
   Rel(auditor, email, "Sends notifications", "HTTPS")
@@ -67,7 +67,7 @@ C4Context
 | Browser → edge | Cookies, JSON bodies, repo URLs, filters | TLS, CSP, CSRF, schema validation, rate limits |
 | Edge → Nitro | Forwarded headers, client IP | Trusted proxy configuration; ignore client-supplied identity headers |
 | Nitro → orchestrator | Internal DTOs | Private network, HMAC signature, request ID, org/user claims |
-| GitHub → webhook endpoint | Webhook JSON | HMAC-SHA256 signature verification, replay window |
+| GitHub → runner (clone) | git smart-HTTP responses | DNS-pinned `github.com`, no redirects, `GIT_TERMINAL_PROMPT=0`, repo-size cap, depth 1 |
 | Orchestrator → runner | Scan spec | K8s Secret with per-scan HMAC, short TTL |
 | Runner → orchestrator | Findings payload | Per-scan HMAC over timestamp + body, payload size cap |
 | Runner → internet | Git clone, no other egress | NetworkPolicy allowlist to GitHub only |
@@ -100,7 +100,7 @@ C4Container
   Rel(orch, pg, "Prisma")
   Rel(orch, redis, "BullMQ")
   Rel(orch, runner, "Creates K8s Job")
-  Rel(runner, github, "git clone (installation token)")
+  Rel(runner, github, "git clone (anonymous, depth 1, no redirects)")
   Rel(runner, orch, "Findings callback + HMAC")
   Rel(orch, renderer, "Enqueues report.render")
   Rel(renderer, orch, "Fetches report view model", "internal API")
@@ -111,7 +111,7 @@ C4Container
 
 | Component | Owns | Must not |
 |---|---|---|
-| `web` | Sessions, SSR, route guards, CSRF, rate limiting, public OpenAPI surface, PDF download redirect | Access PostgreSQL, hold GitHub installation tokens, run scanners |
+| `web` | Sessions, SSR, route guards, CSRF, rate limiting, public OpenAPI surface, PDF download redirect | Access PostgreSQL, hold GitHub credentials, run scanners |
 | `orchestrator` | Repositories, scans, findings, rules, scoring, retention, audit log, internal API | Serve public traffic, clone code, render PDFs |
 | `scan-runner` | Clone, scanner execution, normalisation, redaction, callback | Persist code, access the database, call arbitrary internet hosts |
 | `renderer` | HTML → PDF, template versioning, S3 upload | Read source code, mutate scan data |
@@ -169,9 +169,10 @@ sequenceDiagram
   participant DB as PostgreSQL
   participant S as Object Storage
 
-  U->>W: POST /api/v1/scan {repositoryId, ref}
-  W->>W: Session, CSRF, org role, plan-limit pre-check (defense-in-depth), Zod validation
+  U->>W: POST /api/v1/scan {repositoryId | githubUrl, ref}
+  W->>W: Session, CSRF, org role, plan-limit pre-check (defense-in-depth), Zod validation (github.com allowlist, HTTPS)
   W->>O: POST /internal/v1/scans (HMAC, requestId)
+  O->>G: git ls-remote --symref (resolve default branch, size probe; no auth)
   O->>DB: Insert scan (queued) or return existing by idempotency key
   O->>R: Enqueue scan.execute {scanId}
   O-->>W: 202 {scanId, statusUrl}
@@ -181,8 +182,8 @@ sequenceDiagram
   O->>DB: status=cloning
   O->>K: Create Job scan-<id> (scanner node pool)
   K->>J: Start pod
-  J->>J: Decode repo spec, resolve installation token
-  J->>G: git clone --depth 1 --single-branch
+  J->>J: Decode repo spec; clone URL pinned to github.com
+  J->>G: git clone --depth 1 --single-branch (GIT_TERMINAL_PROMPT=0, no redirects)
   J->>DB: (never)
   J->>J: Semgrep → Checkov → Gitleaks
   J->>J: Normalise, dedupe, redact
@@ -310,7 +311,7 @@ spec:
 | Network | Egress allowlist: DNS, `github.com`, `api.github.com`, `codeload.github.com`, orchestrator; ingress denied |
 | Resources | CPU/memory/ephemeral-storage limits; `activeDeadlineSeconds: 900` |
 | Image integrity | Digest-pinned image, cosign signature verified by admission policy |
-| Secrets | Per-scan K8s Secret with installation token, callback HMAC key, `ownerReferences` to Job; deleted with Job |
+| Secrets | Per-scan K8s Secret with clone URL/ref spec and callback HMAC key, `ownerReferences` to Job; deleted with Job |
 | Retention | `emptyDir` deleted on pod termination; Job and Secret removed after 300 s |
 
 ### 6.4 What the runner is allowed to send back
@@ -390,8 +391,8 @@ See `database.md` for the schema and `security.md` for the deletion proof.
 
 | Failure | Detection | Behaviour |
 |---|---|---|
-| GitHub rate limit (403/429) | Response headers | Exponential backoff with jitter; installation token cached; scan stays `queued` up to 10 min, then fails with `GITHUB_RATE_LIMITED` |
-| Installation token expired | 401 from clone | Refresh once from GitHub App; retry clone; then fail with `GITHUB_AUTH_FAILED` |
+| GitHub availability / abuse limit (git smart-HTTP) | Clone connection errors, 429s from GitHub | Exponential backoff with jitter; scan stays `queued` up to 10 min, then fails with `GITHUB_RATE_LIMITED`; degraded-mode banner (operations.md) |
+| Repository not found or private (404 on anonymous clone) | Clone exit code | Fail with `REPO_NOT_FOUND`/`REPO_NOT_ACCESSIBLE` — the same non-leaking error for private and nonexistent repositories (no existence oracle) |
 | Repository too large | Pre-flight size check | Fail fast with `REPO_TOO_LARGE` and the limit in the message |
 | Scanner timeout | Per-scanner deadline | Kill scanner, mark that scanner `timed_out`, continue with others; coverage warning |
 | Scanner crash | Non-zero exit | Mark `failed`, continue; score computed with explicit coverage penalty |
@@ -492,6 +493,7 @@ flowchart TB
 ### Cost guardrails
 
 - Per-scan budget alarm at US$0.40; page at US$0.60.
+- Anonymous `git clone` over smart-HTTP consumes no GitHub API quota; the binding constraints are the repo-size caps, per-org concurrency caps, and the scan-plan limits above.
 - Repositories above 250 MB require a Growth plan and use a reduced scanner profile.
 - Idle scanner nodes scale to zero outside business hours where latency allows.
 - Raw SARIF storage is opt-in and TTL-bound at 24 hours.
@@ -552,7 +554,7 @@ This is the launch metric set; the complete alert catalog with severities, on-ca
 
 ### ADR-004 — GitHub App over user OAuth for repository access
 
-**Status:** Accepted. **Context:** OAuth user tokens are broad and long-lived. **Decision:** GitHub App installation tokens (1 hour, repo-scoped) for cloning; OAuth only for identity. **Alternatives:** fine-grained PATs; OAuth with repo scope. **Consequences:** least privilege and central revocation; App installation UX and webhook handling required.
+**Status:** Superseded by ADR-011. **Context:** OAuth user tokens are broad and long-lived. **Decision:** short-lived, repo-scoped GitHub App credentials for cloning; OAuth only for identity. **Alternatives:** fine-grained PATs; OAuth with repo scope. **Consequences:** least privilege and central revocation; App install UX and webhook handling required.
 
 ### ADR-005 — Orchestrator exclusively owns PostgreSQL
 
@@ -577,6 +579,10 @@ This is the launch metric set; the complete alert catalog with severities, on-ca
 ### ADR-010 — Zero-retention by construction, not by cleanup job
 
 **Status:** Accepted. **Context:** A cleanup cron can fail silently. **Decision:** source lives only on pod `emptyDir`; no code path writes it elsewhere. **Alternatives:** scan then delete from a PVC; object-storage staging. **Consequences:** no post-hoc debugging on source; deletion is verifiable by architecture rather than by a job.
+
+### ADR-011 — URL-only public scanning at MVP
+
+**Status:** Accepted. **Context:** A GitHub App flow adds install UX, App-credential minting and caching, webhook handling, and per-repo visibility configuration before a user can run a first scan — friction that delays the core value (paste URL → DPDPA report) and expands the security surface. **Decision:** MVP scans public repositories only, submitted by pasting `https://github.com/<owner>/<repo>`; resolution and clone are anonymous over git smart-HTTP (`git ls-remote`, depth 1, no redirects). OAuth remains identity-only. **Alternatives:** ship the App at MVP (rejected: install friction, token caching, webhook surface); fine-grained PATs (rejected: secret handling, revocation). **Consequences:** first scan in under a minute with zero GitHub configuration; no private-repo scanning, no repository listing, no webhook-triggered rescans — these return with the GitHub App in the post-MVP backlog, which supersedes ADR-004.
 
 ---
 
