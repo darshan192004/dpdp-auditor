@@ -18,6 +18,7 @@ Specification pack for **DPDPA GitHub Code Auditor** — a B2B SaaS that audits 
 | 8 | [code_style.md](docs/code_style.md) | TypeScript, Vue, NestJS, Prisma, testing, and git standards |
 | 9 | [tasks.md](docs/tasks.md) | Phases 0–7, dependencies, definition of done, launch gates |
 | 10 | [memory.md](docs/memory.md) | Canonical context for AI assistants and new engineers |
+| 11 | [operations.md](docs/operations.md) | SLOs, alert routing, RTO/RPO, on-call, degraded modes |
 
 ## How it works
 

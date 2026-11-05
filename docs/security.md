@@ -587,6 +587,8 @@ PII in telemetry is prohibited. Sentry uses `sendDefaultPii: false` and before-s
 
 ### Alerts
 
+Alert severities, on-call recipients, escalation, and runbook links are defined in `operations.md` §4; this table lists the security-relevant conditions.
+
 | Alert | Condition | Severity |
 |---|---|---|
 | Retention violation | `source_retention_violation_total > 0` | P1 |

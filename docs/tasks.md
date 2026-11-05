@@ -94,10 +94,10 @@ Total: ~19–20 elapsed weeks with parallel tracks. Critical path: 2 → 3 → 4
 | P0-02 | Add root TypeScript config (strict, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`) and per-package extends | XS | Platform | P0-01 |
 | P0-03 | Configure ESLint + Prettier + Tailwind class sorting; fail CI on warnings | S | Platform | P0-01 |
 | P0-04 | Add Husky + lint-staged + Gitleaks pre-commit | S | Security | P0-01 |
-| P0-05 | CI: install (`--frozen-lockfile`), lint, typecheck, unit, build, `pnpm audit`, Gitleaks full history | M | Platform | P0-02, P0-03, P0-04 |
+| P0-05 | CI: install (`--frozen-lockfile`), lint, typecheck, unit, `test:coverage` (code_style §10.3 floors), integration, `test:e2e` smoke (Playwright), build, `pnpm audit`, Gitleaks full history | M | Platform | P0-02, P0-03, P0-04 |
 | P0-06 | Create `packages/contracts` with Zod primitives: IDs, timestamps, pagination, error envelope | M | Backend | P0-02 |
 | P0-07 | Create `packages/config` with shared ESLint/TS/Tailwind presets | S | Platform | P0-03 |
-| P0-08 | Write ADR-001…ADR-010 (from `architecture.md`) as files under `docs/adr/` | M | Architecture | — |
+| P0-08 | Write ADR-001…ADR-011 (from `architecture.md`) as files under `docs/adr/` | M | Architecture | — |
 | P0-09 | Threat model workshop; record STRIDE table and abuse cases | M | Security | P0-08 |
 | P0-10 | DPDPA taxonomy v0: sections, candidate controls, severity, weight, evidence strength | L | Product + Legal | — |
 | P0-11 | Legal review of taxonomy; sign-off memo stored in `docs/legal/` | M | Legal | P0-10 |
@@ -110,6 +110,8 @@ Total: ~19–20 elapsed weeks with parallel tracks. Critical path: 2 → 3 → 4
 | P0-18 | Data map and subprocessor list v0 (for the DPA) | M | Legal + Security | P0-09 |
 | P0-19 | Define non-functional budgets as code: bundle size, API p95, scan p95 | S | Architecture | — |
 | P0-20 | Create `docs/memory.md` and keep it current from this point | XS | Architecture | — |
+| P0-21 | SAST on our own code (CodeQL or semgrep self-scan) + IaC scan (`checkov`/`tflint`) in CI | M | Security | P0-05 |
+| P0-22 | Renovate onboarding: grouped PRs, automerge patch updates, pin digests for images | S | Platform | P0-05 |
 
 ### Exit criteria
 
@@ -181,6 +183,10 @@ Total: ~19–20 elapsed weeks with parallel tracks. Critical path: 2 → 3 → 4
 | P1-28 | Health check page and status endpoint | XS | Frontend | P1-22 |
 | P1-29 | `useState` org/feature context and route middleware skeleton | S | Frontend | P1-24 |
 | P1-30 | Playwright harness with authenticated storage state stub | M | QA | P1-22 |
+| P1-31 | SLO definitions as code + burn-rate alerts wired to Grafana per `operations.md` §1 | M | Platform | P1-17 |
+| P1-32 | Sentry + PostHog onboarding (PII scrubbing, `sendDefaultPii: false`) | S | Platform | P1-16 |
+| P1-33 | Feature-flag infrastructure (env-driven at MVP; no vendor lock-in) | S | Backend | P1-11 |
+| P1-34 | App image build pipeline (web/orchestrator/renderer) with SBOM + cosign provenance | M | Platform | P1-03 |
 
 ### Exit criteria
 
@@ -233,6 +239,8 @@ Total: ~19–20 elapsed weeks with parallel tracks. Critical path: 2 → 3 → 4
 | P2-18 | Audit events for login, org create, member invite, repo connect/disconnect, key create/revoke | S | Backend | P1-21 |
 | P2-19 | Integration tests: OAuth callback, URL validation/allowlist, `ls-remote` probe, resolve rate limit | L | QA | P2-16 |
 | P2-20 | Security tests: URL SSRF cases, tenant scoping on repos, API key scope enforcement, existence-oracle probes | M | Security | P2-12 |
+| P2-21 | Invitation flow: `membership_invites` table (hashed token, role, expiry), invite create/accept endpoints, expiry cleanup | M | Backend | P2-06 |
+| P2-22 | Invitations UI: invite dialog, pending-invite list, accept page `[FE]` | M | Frontend | P2-21 |
 
 Retired IDs stay reserved: P2-01, P2-02, P2-07, P2-08, P2-10, P2-11, and the old P2-16 install UI are post-MVP with the GitHub App (ADR-011).
 
@@ -438,6 +446,7 @@ Retired IDs stay reserved: P2-01, P2-02, P2-07, P2-08, P2-10, P2-11, and the old
 | P5-27 | Outbound customer webhooks for scan completion (Growth+) — post-MVP backlog | M | Backend | P3-18 |
 | P5-28 | Usage metering reconciliation: scans, reports, storage byte-hours | M | Backend | P3-25 |
 | P5-29 | Plan limit enforcement: scans/month, seats, retention days, concurrency | M | Backend | P5-28 |
+| P5-30 | Audit-log export endpoint (`GET /audit-logs/export`, streamed JSON, audit action `audit.exported`) + usage-event idempotency via `event_id` | M | Backend | P5-11, P5-28 |
 | P5-30 | Notification preferences in org settings | S | Frontend | P5-08 |
 
 ### Exit criteria
@@ -486,7 +495,7 @@ Retired IDs stay reserved: P2-01, P2-02, P2-07, P2-08, P2-10, P2-11, and the old
 | P6-11 | Observability review: every alert has a runbook; SLO dashboards live | M | Platform | P1-10 |
 | P6-12 | Incident response tabletop exercise; runbook updated | M | Security | P0-09 |
 | P6-13 | Docs: customer quickstart, CI integration, API reference, security package, DPA, privacy notice | L | Product + Legal | P5-20 |
-| P6-14 | Status page and `security@` contact live | S | Platform | — |
+| P6-14 | On-call tooling (PagerDuty/Opsgenie rotation), status-page data pipeline fed from SLO metrics, `security@` contact live | M | Platform | P1-31 |
 | P6-15 | 20 golden repos scanned in staging; all expected findings matched, no false criticals | L | QA | P4-12 |
 | P6-16 | 5 design partners onboarded; feedback triaged; P0 bugs fixed | L | Product | P6-15 |
 | P6-17 | Performance: API p95 < 400 ms; scan p95 < 10 min; PDF p95 < 10 s | M | QA | P6-07 |
@@ -594,7 +603,7 @@ A task is done when:
 
 | Layer | What it proves | When | Gate |
 |---|---|---|---|
-| Unit | Scoring, mapping, validation, formatters | Every PR | Blocking |
+| Unit | Scoring, mapping, validation, formatters | Every PR | Blocking (coverage floors enforced per `code_style.md` §10.3) |
 | Contract | Zod schemas accept/reject; OpenAPI matches | Every PR | Blocking |
 | Integration | Repositories, transactions, RLS, queues | Every PR | Blocking |
 | Scanner integration | Golden repos produce expected findings | Every PR (subset), nightly (full) | Blocking on subset |
@@ -733,7 +742,7 @@ Listed to protect MVP scope, not as commitments:
 |---|---|
 | `P0-*` | Foundations |
 | `P1-*` | Platform skeleton |
-| `P2-*` | GitHub integration |
+| `P2-*` | Identity and URL resolution |
 | `P3-*` | Scan pipeline |
 | `P4-*` | DPDPA mapping and scoring |
 | `P5-*` | Product UI and reports |
