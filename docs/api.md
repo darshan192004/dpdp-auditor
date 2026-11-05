@@ -145,6 +145,8 @@ Retry-After: 30
 
 A `429` body uses `RATE_LIMITED` and states the window in `message`.
 
+Enterprise custom scan limits are configured as `organizations.scan_concurrency` and the org plan quota (`database.md` §4.1); the table above lists the default tiers.
+
 ---
 
 ## 2. Endpoint index
@@ -178,6 +180,7 @@ A `429` body uses `RATE_LIMITED` and states the window in `message`.
 | GET | `/api/v1/rules/:code` | viewer+ | Control detail and mappings | `server/api/v1/rules/[code].get.ts` |
 | GET | `/api/v1/openapi.json` | None | OpenAPI 3.1 document (non-production; see §12) | `server/api/v1/openapi.json.get.ts` |
 | GET | `/api/v1/audit-logs` | Admin | Audit trail | `server/api/v1/audit-logs.get.ts` |
+| GET | `/api/v1/audit-logs/export` | Owner/Admin | Stream audit trail as NDJSON | `server/api/v1/audit-logs/export.get.ts` |
 | GET | `/api/v1/api-keys` | Admin | List API keys | `server/api/v1/api-keys/index.get.ts` |
 | POST | `/api/v1/api-keys` | Owner | Create API key | `server/api/v1/api-keys/index.post.ts` |
 | DELETE | `/api/v1/api-keys/:keyId` | Owner | Revoke API key | `server/api/v1/api-keys/[keyId].delete.ts` |
@@ -805,6 +808,10 @@ Returns `201` with the membership; sends an invitation email. Existing users are
 
 Only `owner` and `admin` can read audit logs. `metadata` is allowlisted per action and never contains tokens or code.
 
+**Export — `GET /api/v1/audit-logs/export?format=json` (owner/admin)**
+
+Streams the full filtered audit trail as newline-delimited JSON with `Content-Disposition: attachment; filename="audit-logs-<org>-<date>.jsonl"`. Keyset-paginated internally (server-side, no client cursor), capped at 100,000 rows; beyond the cap the response ends with a trailing `{"truncated": true, "nextFrom": "<ISO date>"}` record and the client narrows `from`/`to` and re-requests. Every export emits the audit action `audit.exported` (actor, row count, filter) — exporting is itself audited. Rate limit: 5 exports/hour/org.
+
 ### 7.5 API keys
 
 `POST /api/v1/api-keys`
@@ -855,6 +862,8 @@ No webhook endpoints at MVP: scans are triggered manually or via the API only (`
 ## 10. Internal orchestrator API
 
 Internal endpoints are not reachable from the internet. They require HMAC plus network policy.
+
+**Metering idempotency:** every usage event the orchestrator emits carries a unique `event_id`; `usage_events` enforces `UNIQUE (org_id, event_id)` (`database.md` §4.15), so retried or replayed emissions (queue redelivery, at-least-once handlers) are deduplicated and can never double-meter a scan. Producers treat a unique-violation on `(org_id, event_id)` as success.
 
 ### 10.1 Authentication
 
@@ -1006,6 +1015,8 @@ Orchestrator recomputes coverage, maps findings, scores, and returns `200`.
 - Removing or changing a field requires `/api/v2` and a 6-month deprecation window with `Deprecation` and `Sunset` headers.
 - Enum values may be added; clients must tolerate unknown values and render a fallback.
 - Error `code` values are stable; `message` text is not part of the contract.
+- **Latency and availability commitments** (SLOs, error budgets, RTO/RPO) live in `operations.md`, not in this contract; API behaviour during incidents (held scans, `503` + `Retry-After`) is defined there.
+- **Retry guidance for `409` "retry later" codes** (`SCAN_IN_PROGRESS`, `SCAN_NOT_READY`, `REPORT_NOT_READY`): retry after 3–5 seconds with jitter; these are transient states, not errors. `429` always honours `Retry-After`.
 - The OpenAPI 3.1 document is generated from `packages/contracts` and published at `/api/v1/openapi.json` in non-production; production publishes it to the developer docs site.
 
 ---

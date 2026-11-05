@@ -204,7 +204,7 @@ The result is a gap between the DPO's compliance questionnaire and the engineeri
 | FR-11 | Finding triage states | P0 | `false_positive`, `accepted_risk`, `fixed`, with audit trail |
 | FR-12 | PDF report generation and signed download | P0 | Asynchronous render; 15-minute signed URL |
 | FR-13 | Role-based access control | P0 | Org-scoped; least privilege |
-| FR-14 | Audit log | P0 | Append-only; exportable by admins |
+| FR-14 | Audit log | P0 | Append-only; exportable by admins via `GET /api/v1/audit-logs/export` (api.md §7.4) |
 | FR-15 | API keys for CI | P1 | Scoped to `scan:write`, `scan:read`, `report:read` |
 | FR-16 | Rescan comparison | P1 | New/persistent/resolved/reopened |
 | FR-17 | Email and webhook notifications | P1 | Post-scan completion and failure |
@@ -231,6 +231,7 @@ The result is a gap between the DPO's compliance questionnaire and the engineeri
 | Browser support | Last two versions of Chrome, Edge, Firefox, Safari; 1280 px primary, 320 px minimum |
 | Localisation | English at launch; INR and USD pricing display |
 | Recovery | RPO 15 min, RTO 4 h for the database; scan jobs are retryable |
+| Service levels | Measured per `operations.md` (SLOs, error budgets, alert routing); Enterprise SLA exhibit is post-MVP — no service-credit numbers are committed at launch |
 
 ---
 
@@ -279,7 +280,7 @@ The result is a gap between the DPO's compliance questionnaire and the engineeri
 | **Free** | Evaluation | 2 repos, 5 scans/month, 7-day history | Community support |
 | **Starter** | Small teams | 10 repos, 50 scans/month, 90-day history, PDF | Email support |
 | **Growth** | Scaling teams | 50 repos, 300 scans/month, 365-day history, API keys, webhooks | Priority support |
-| **Enterprise** | Regulated orgs | Unlimited repos, custom retention, SSO, DPA, audit export, onboarding | SLA + named contact |
+| **Enterprise** | Regulated orgs | Unlimited repos, custom retention, SSO, DPA, audit export, onboarding | SLA + named contact (SLA exhibit: `operations.md`; formal exhibit post-MVP) |
 
 Pricing is usage-aware but seat-based at launch. Exact price points are an open question; the billing model must support per-scan overage and seat counts without a schema change.
 

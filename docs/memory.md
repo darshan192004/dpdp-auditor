@@ -25,7 +25,8 @@ Read in this order before writing code or proposing a design:
 | 7 | `design.md` | Routes, components, tokens, states, accessibility |
 | 8 | `code_style.md` | TypeScript, Vue, NestJS, Prisma, testing, git |
 | 9 | `tasks.md` | Phases, dependencies, definition of done, gates |
-| 10 | `memory.md` | This file: the fast reference |
+| 10 | `operations.md` | SLOs, alert routing, RTO/RPO, on-call, degraded modes |
+| 11 | `memory.md` | This file: the fast reference |
 
 If two documents disagree, the earlier document in this list wins for its domain, except that `memory.md` wins on naming and pins. Report the conflict rather than guessing.
 
@@ -577,8 +578,8 @@ Every report includes: "This report provides technical evidence, not legal advic
 
 | Item | Status |
 |---|---|
-| Documentation pack | Complete (10 documents) |
-| Doc revision pass: URL-only + Python runner + enterprise hardening | In progress |
+| Documentation pack | Complete (11 documents) |
+| Doc revision pass: URL-only + Python runner + enterprise hardening | **Complete** |
 | Phase 0 — Foundations | Planned |
 | Phase 1 — Platform skeleton | Planned |
 | Phase 2 — Identity and URL resolution | Planned |
@@ -594,3 +595,14 @@ Every report includes: "This report provides technical evidence, not legal advic
 ### Next action
 
 Begin Phase 0: monorepo scaffold, CI, contracts package, ADRs, threat model, and DPDPA taxonomy v0. See `tasks.md` §3. Frontend execution remains out of scope until the Phase 1 gate.
+
+---
+
+## 25. AI build workflow
+
+Standing workflow for AI assistants implementing this spec (repo remains docs-only until the Phase 0 scaffold):
+
+- **Context7 for framework docs.** Query current Nuxt 4/Nitro, NestJS/Fastify, Prisma, and BullMQ documentation before implementing against any of their APIs — never code from memory of an API surface.
+- **Code review gate (CodeScene MCP + review skill).** Every PR is reviewed before merge: `analyze_change_set` for branch-level review and `code_health_review` / `code_health_score` for touched files, alongside the `code-review-and-quality` skill. These gates are never weakened, skipped, or "just this once"-ed; if a gate fails, fix the code.
+- **Playwright MCP for browser verification.** After UI changes, drive a real browser through the primary journey — sign in → paste URL → scan → findings → PDF export — in addition to the Playwright test suite. The suite proves the code; MCP verification proves the built page actually works.
+- **Docs stay authoritative.** When code and these documents disagree, this file's conflict rule (§1) applies; update the document in the same change.
