@@ -28,7 +28,7 @@ Supporting infrastructure: PostgreSQL 16 (system of record), Redis 7 (BullMQ que
 - **Code never persists.** Repository contents live in an `emptyDir` inside the scan pod and die with it.
 - **Deterministic output.** A scan's score is a pure function of findings, rule-pack version, and scoring version.
 - **Fail visible, not silent.** Partial scanner coverage is reported explicitly; a missing scanner never yields a falsely clean score.
-- **Every boundary is authenticated.** Browser → Nitro uses a session cookie or API key; Nitro → orchestrator uses HMAC + network policy; runner → orchestrator uses a per-scan secret and a projected service-account token.
+- **Every boundary is authenticated.** Browser → Nitro uses a session cookie or API key; Nitro → orchestrator uses HMAC + network policy; runner → orchestrator uses a per-scan HMAC secret delivered in the Job's Kubernetes Secret.
 
 ---
 
@@ -68,8 +68,8 @@ C4Context
 | Edge → Nitro | Forwarded headers, client IP | Trusted proxy configuration; ignore client-supplied identity headers |
 | Nitro → orchestrator | Internal DTOs | Private network, HMAC signature, request ID, org/user claims |
 | GitHub → webhook endpoint | Webhook JSON | HMAC-SHA256 signature verification, replay window |
-| Orchestrator → runner | Scan spec | K8s Secret, projected SA token, per-scan HMAC, short TTL |
-| Runner → orchestrator | Findings payload | HMAC, scan-scoped token, payload size cap |
+| Orchestrator → runner | Scan spec | K8s Secret with per-scan HMAC, short TTL |
+| Runner → orchestrator | Findings payload | Per-scan HMAC over timestamp + body, payload size cap |
 | Runner → internet | Git clone, no other egress | NetworkPolicy allowlist to GitHub only |
 | Orchestrator → PostgreSQL | Queries | Parameterised Prisma queries, least-privilege DB role, TLS |
 
@@ -85,7 +85,7 @@ C4Container
 
   Container(web, "web", "Nuxt 4 / Nitro / Node 22", "SSR, BFF, session, validation, rate limits, PDF download")
   Container(orch, "orchestrator", "NestJS / Fastify / Node 22", "Domain logic, scan lifecycle, mapping, scoring, internal API")
-  Container(worker, "queue-worker", "BullMQ", "Dispatches scan and report jobs")
+  Container(worker, "queue workers", "BullMQ (inside orchestrator)", "Dispatches scan and report jobs; runs in the orchestrator Deployment")
   Container(runner, "scan-runner", "Kubernetes Job", "Clone, Semgrep, Checkov, Gitleaks, normalise")
   Container(renderer, "renderer", "Fastify + Puppeteer", "HTML to PDF")
 
@@ -103,7 +103,7 @@ C4Container
   Rel(runner, github, "git clone (installation token)")
   Rel(runner, orch, "Findings callback + HMAC")
   Rel(orch, renderer, "Enqueues report.render")
-  Rel(renderer, pg, "Reads report data via orchestrator", "internal API")
+  Rel(renderer, orch, "Fetches report view model", "internal API")
   Rel(renderer, s3, "Uploads PDF")
 ```
 
@@ -115,6 +115,8 @@ C4Container
 | `orchestrator` | Repositories, scans, findings, rules, scoring, retention, audit log, internal API | Serve public traffic, clone code, render PDFs |
 | `scan-runner` | Clone, scanner execution, normalisation, redaction, callback | Persist code, access the database, call arbitrary internet hosts |
 | `renderer` | HTML → PDF, template versioning, S3 upload | Read source code, mutate scan data |
+
+Queue workers are processes inside the `orchestrator` Deployment (ADR-007); `queue-worker` is not a separate deployable workload. The product has four deployable workloads (§1).
 
 ---
 
@@ -168,7 +170,7 @@ sequenceDiagram
   participant S as Object Storage
 
   U->>W: POST /api/v1/scan {repositoryId, ref}
-  W->>W: Session, CSRF, org role, plan limits, Zod validation
+  W->>W: Session, CSRF, org role, plan-limit pre-check (defense-in-depth), Zod validation
   W->>O: POST /internal/v1/scans (HMAC, requestId)
   O->>DB: Insert scan (queued) or return existing by idempotency key
   O->>R: Enqueue scan.execute {scanId}
@@ -197,6 +199,12 @@ sequenceDiagram
   O-->>W: status + score + counts
   W-->>U: 200
 ```
+
+### Submission invariants
+
+- **Authoritative plan limits:** the orchestrator enforces plan limits (§9); Nitro's pre-check is defense-in-depth only.
+- **One active scan per repository ref:** enforced by a partial unique index on `scans (org_id, repo_id, ref)` across active statuses (see `database.md` §4.7); a duplicate submission returns `409 SCAN_IN_PROGRESS`.
+- **No orphaned queued scans:** the scan row and its queue entry are written through a transactional outbox; a reconciler re-enqueues rows stuck in `queued` without a dispatched job.
 
 ### Timing budget (100 MB repository, p95)
 
@@ -329,13 +337,13 @@ Secret findings are reduced to: rule ID, file path, line, a salted hash of the m
 ### 7.2 Orchestrator → Kubernetes
 
 - Uses a dedicated ServiceAccount with RBAC limited to `create`, `get`, `list`, `delete` Jobs and Secrets in the `scanners` namespace.
-- Creates Secret first, then Job with `ownerReferences` pointing at the Secret's UID? Kubernetes requires owner in same namespace; the Job is created first, then the Secret with the Job as owner. Order: create Job (pending) → create Secret → Job pod mounts it. To avoid a race, create Secret first with a deterministic name, then Job; add a cleanup finalizer on the Job. Simpler: create Secret, then Job with `envFrom`; if Job creation fails, delete Secret. The orchestrator records both names on the scan row.
+- **Order decided: Secret → Job.** Creates the per-scan Secret first (deterministic name `scan-<scanId>`), then the Job with `envFrom`; if Job creation fails, the Secret is deleted immediately. After the Job exists, the Secret is patched with an `ownerReference` to the Job so Kubernetes garbage collection removes it if the Job is deleted. The orchestrator records both names on the scan row and deletes both explicitly on cancel or TTL cleanup.
 - Watches Job conditions with a 15-minute deadline, independent of the runner callback.
 
 ### 7.3 Runner → orchestrator callback
 
 - `POST /internal/v1/scans/:scanId/findings` with batched payloads (≤ 500 findings or 1 MB).
-- Auth: per-scan HMAC key + `Authorization: Bearer <projected-sa-token>` validated through the Kubernetes TokenReview API with audience `dpdpa-orchestrator`.
+- Auth: per-scan HMAC only — `X-Internal-Signature: HMAC-SHA256(secret, timestamp + "." + rawBody)` with 5-minute skew; the secret is delivered in the Job's K8s Secret. The Job mounts no service-account token (`automountServiceAccountToken: false`), and callback auth deliberately requires no cluster-wide Kubernetes API permissions (see §15).
 - Idempotent by `(scanId, batchId)`; duplicates are ignored.
 - Final `POST /internal/v1/scans/:scanId/complete` carries scanner statuses and counts.
 - Orchestrator rejects callbacks for scans not in `cloning` or `scanning`.
@@ -373,7 +381,7 @@ See `database.md` for the schema and `security.md` for the deletion proof.
 - **Object storage:** key prefix per org; bucket policy denies unauthenticated access; signed URLs only.
 - **Queue:** job payloads contain IDs only; workers re-load the row and verify `org_id`.
 - **Scan pods:** one org's code per pod; NetworkPolicy prevents pod-to-pod traffic; no shared cache volume.
-- **Rate limiting:** per user, per org, per IP at the edge, and per org plan in the orchestrator.
+- **Rate limiting:** per user, per org, per IP at the edge, and per org plan in the orchestrator. The orchestrator is authoritative for plan limits; edge checks are defense-in-depth.
 - **Noisy neighbour:** per-org concurrency cap (default 3, Enterprise configurable) and global cap enforced by BullMQ.
 
 ---
@@ -434,7 +442,7 @@ flowchart TB
   ORCH --> RD
   ORCH --> JOB
   ORCH --> REND
-  REND --> PG
+  REND -->|view model + callback| ORCH
   JOB -->|egress allowlist| GH[GitHub.com]
   REND --> S3[(Object Storage)]
   WEB --> S3
@@ -511,6 +519,8 @@ OpenTelemetry across Nitro → orchestrator → Kubernetes Job → callback. W3C
 | `source_retention_violation_total` | counter | any value > 0 (P1) |
 | `auth_failure_rate` | ratio | > 20% for 5 min |
 
+This is the launch metric set; the complete alert catalog with severities, on-call recipients, and runbook links lives in `operations.md`.
+
 ### Logs
 
 - JSON structured logs with `requestId`, `orgId`, `scanId`, `route`, `status`, `durationMs`.
@@ -521,7 +531,7 @@ OpenTelemetry across Nitro → orchestrator → Kubernetes Job → callback. W3C
 
 1. **Customer health:** scans/day, success rate, p95 duration, partial coverage, top failure codes.
 2. **Platform:** API latency/errors, DB connections, Redis memory, queue depth, pod restarts.
-3. **Security:** auth failures, rate-limit hits, webhook signature failures, retention violations.
+3. **Security:** auth failures, rate-limit hits, repository-URL validation rejections, retention violations.
 4. **Cost:** CPU/GiB-hours per scan, storage, egress, cost per org.
 
 ---
@@ -582,6 +592,7 @@ OpenTelemetry across Nitro → orchestrator → Kubernetes Job → callback. W3C
 | GraphQL | REST is sufficient; cacheability and simple CI clients matter more than query flexibility |
 | Mapping inside each scanner adapter | Duplicated logic and inconsistent clause coverage |
 | Running Puppeteer in Nitro | Memory spikes would degrade SSR and API latency |
+| Service-account token auth for runner callbacks | Would require cluster-wide Kubernetes API permissions, conflicting with the namespace-only RBAC in `security.md` §5.3; a per-scan HMAC secret is sufficient inside the `scanners` namespace |
 
 ---
 
