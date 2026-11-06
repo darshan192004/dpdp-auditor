@@ -29,6 +29,17 @@ Thumbs.db
 !.vscode/extensions.json
 !.vscode/settings.json
 
+# Turborepo
+.turbo/
+
+# CodeScene MCP recreates a credentials dir literally named `?` in cwd
+\?/
+**/.codescene/
+
+# Husky internals
+.husky/_/
+
+
 # Local database files
 prisma/*.db
 prisma/*.db-journal

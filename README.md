@@ -6,19 +6,19 @@ Specification pack for **DPDPA GitHub Code Auditor** — a B2B SaaS that audits 
 
 ## Documents
 
-| # | Document | What it covers |
-|---|---|---|
-| 1 | [PRD.md](docs/PRD.md) | Problem, personas, user journeys, requirements, metrics, pricing |
-| 2 | [architecture.md](docs/architecture.md) | Service boundaries, scan lifecycle, Kubernetes Job model, ADRs |
-| 3 | [database.md](docs/database.md) | Full PostgreSQL DDL, enums, indexes, RLS, retention |
-| 4 | [api.md](docs/api.md) | Public and internal endpoints, payloads, errors, Nitro mapping |
-| 5 | [security.md](docs/security.md) | Threat model, token lifecycle, zero-retention proof, `nuxt-security` |
-| 6 | [rules.md](docs/rules.md) | DPDPA control catalog, scanner mappings, scoring formula |
-| 7 | [design.md](docs/design.md) | Nuxt UI architecture, routes, components, tokens, accessibility |
-| 8 | [code_style.md](docs/code_style.md) | TypeScript, Vue, NestJS, Prisma, testing, and git standards |
-| 9 | [tasks.md](docs/tasks.md) | Phases 0–7, dependencies, definition of done, launch gates |
-| 10 | [memory.md](docs/memory.md) | Canonical context for AI assistants and new engineers |
-| 11 | [operations.md](docs/operations.md) | SLOs, alert routing, RTO/RPO, on-call, degraded modes |
+| #   | Document                                | What it covers                                                       |
+| --- | --------------------------------------- | -------------------------------------------------------------------- |
+| 1   | [PRD.md](docs/PRD.md)                   | Problem, personas, user journeys, requirements, metrics, pricing     |
+| 2   | [architecture.md](docs/architecture.md) | Service boundaries, scan lifecycle, Kubernetes Job model, ADRs       |
+| 3   | [database.md](docs/database.md)         | Full PostgreSQL DDL, enums, indexes, RLS, retention                  |
+| 4   | [api.md](docs/api.md)                   | Public and internal endpoints, payloads, errors, Nitro mapping       |
+| 5   | [security.md](docs/security.md)         | Threat model, token lifecycle, zero-retention proof, `nuxt-security` |
+| 6   | [rules.md](docs/rules.md)               | DPDPA control catalog, scanner mappings, scoring formula             |
+| 7   | [design.md](docs/design.md)             | Nuxt UI architecture, routes, components, tokens, accessibility      |
+| 8   | [code_style.md](docs/code_style.md)     | TypeScript, Vue, NestJS, Prisma, testing, and git standards          |
+| 9   | [tasks.md](docs/tasks.md)               | Phases 0–7, dependencies, definition of done, launch gates           |
+| 10  | [memory.md](docs/memory.md)             | Canonical context for AI assistants and new engineers                |
+| 11  | [operations.md](docs/operations.md)     | SLOs, alert routing, RTO/RPO, on-call, degraded modes                |
 
 ## How it works
 
