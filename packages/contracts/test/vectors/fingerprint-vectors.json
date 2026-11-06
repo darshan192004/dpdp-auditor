@@ -1,0 +1,58 @@
+[
+  {
+    "name": "checkov unencrypted S3",
+    "input": {
+      "scanner": "checkov",
+      "scannerRuleId": "CKV_AWS_19",
+      "normalisedPath": "infra/storage.tf",
+      "snippetHash": "3aab96fbde7521e294952426e2c0e53569279b746e9e7b1dc77236f638bef266",
+      "occurrenceIndex": 0
+    },
+    "expected": "fpt_cb20c547457ef3736da7c059bf402112c58d221651be3919b93b954e37ce363f"
+  },
+  {
+    "name": "checkov fan-out with control",
+    "input": {
+      "scanner": "checkov",
+      "scannerRuleId": "CKV_AWS_19",
+      "normalisedPath": "infra/storage.tf",
+      "snippetHash": "3aab96fbde7521e294952426e2c0e53569279b746e9e7b1dc77236f638bef266",
+      "occurrenceIndex": 0,
+      "controlCode": "DPDPA-8.4-ENC-01"
+    },
+    "expected": "fpt_cb20c547457ef3736da7c059bf402112c58d221651be3919b93b954e37ce363f:DPDPA-8.4-ENC-01"
+  },
+  {
+    "name": "gitleaks AWS key occurrence 1",
+    "input": {
+      "scanner": "gitleaks",
+      "scannerRuleId": "aws-access-token",
+      "normalisedPath": "config/settings.py",
+      "snippetHash": "0bb00cbf99e349cf2b73bd59a1445de31be8a93d7c74cad6340796781dc933fc",
+      "occurrenceIndex": 1
+    },
+    "expected": "fpt_3c5accaf25d9d267668fe2c65ec94de99d164ad3f2ee7fff6ad02a3c1e97ffdb"
+  },
+  {
+    "name": "semgrep PII log deep path",
+    "input": {
+      "scanner": "semgrep",
+      "scannerRuleId": "java.lang.security.audit.crypto.weak-hash",
+      "normalisedPath": "services/api/src/main/java/App.java",
+      "snippetHash": "f4927cae3343c45e9d28100611bc200a4fc6095392c6eac9a20893d086e07c85",
+      "occurrenceIndex": 0
+    },
+    "expected": "fpt_0305cafb119585c859a83d0d358dfd44a78a3cfd79eb80de764f227da561da8d"
+  },
+  {
+    "name": "same inputs occurrence 0",
+    "input": {
+      "scanner": "gitleaks",
+      "scannerRuleId": "aws-access-token",
+      "normalisedPath": "config/settings.py",
+      "snippetHash": "0bb00cbf99e349cf2b73bd59a1445de31be8a93d7c74cad6340796781dc933fc",
+      "occurrenceIndex": 0
+    },
+    "expected": "fpt_5673030958daaf186622054410fc21c6c46e4b298500291944c92304575683b8"
+  }
+]

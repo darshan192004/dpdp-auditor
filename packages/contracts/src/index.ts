@@ -5,3 +5,5 @@ export * from './timestamps';
 export * from './pagination';
 export * from './envelope';
 export * from './error-codes';
+export * from './fingerprint';
+export * from './finding';
