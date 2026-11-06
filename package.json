@@ -13,7 +13,7 @@
     "build": "turbo build",
     "format": "prettier --write .",
     "security:audit": "pnpm audit --audit-level=high",
-    "security:secrets": "gitleaks detect --source . --no-banner",
+    "security:secrets": "gitleaks git --no-banner",
     "prepare": "husky"
   },
   "devDependencies": {

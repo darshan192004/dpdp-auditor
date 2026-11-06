@@ -1,0 +1,6 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "docs/api.md contains documented placeholder values (example Idempotency-Key UUIDs, example dpk_live_ key) required verbatim by the spec; scoped to this path only so real leaks elsewhere still fail"
+paths = ['''docs/api\.md$''']
