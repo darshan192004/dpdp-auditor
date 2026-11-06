@@ -1,0 +1,38 @@
+name: Bug report
+description: Something is broken or behaved unexpectedly
+title: '[Bug]: '
+labels:
+  - bug
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Observed behaviour, expected behaviour, and why it matters.
+      placeholder: Expected X, got Y instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Minimal deterministic steps, including branch/commit if code-specific.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Logs, screenshots, or failing command output
+      render: shell
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Node/pnpm versions, browser if relevant.
+      placeholder: Ubuntu 24.04, Node 22, pnpm 9.15.9
+    validations:
+      required: true

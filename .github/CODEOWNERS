@@ -1,0 +1,7 @@
+# CODEOWNERS — required reviews for security-sensitive paths (code_style.md §10.7).
+# Paths are anchored to the repository root; future directories match as soon as they exist.
+
+/security/ @darshan192004
+/infra/ @darshan192004
+/prisma/migrations/ @darshan192004
+/packages/rule-packs/ @darshan192004
