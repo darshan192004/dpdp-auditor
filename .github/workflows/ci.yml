@@ -14,10 +14,6 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v7
 
-      # Rule configuration lives in .markdownlint-cli2.jsonc at the
-      # repository root; the action discovers it automatically. Globs are
-      # listed explicitly so newly added top-level markdown (e.g. a future
-      # CONTRIBUTING.md) is a deliberate choice, not a silent skip.
       - name: Lint Markdown
         uses: DavidAnson/markdownlint-cli2-action@v25
         with:
@@ -32,8 +28,5 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v7
 
-      # Validates every workflow in .github/workflows against GitHub's
-      # schema plus shellcheck/staticcheck on run: steps. The image is
-      # actionlint's official Docker Hub image; entrypoint is the binary.
       - name: Lint workflows
         run: docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint -color

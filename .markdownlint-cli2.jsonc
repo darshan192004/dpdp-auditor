@@ -1,24 +1,4 @@
 {
-  // markdownlint-cli2 configuration — read automatically by both the CLI
-  // and DavidAnson/markdownlint-cli2-action from the repository root.
-  //
-  // Baseline: the spec pack has 2,138 default-rule violations, all stylistic.
-  // Disabled rules and why:
-  //  - MD013 line-length: spec prose, tables, and API examples routinely
-  //    exceed 80 columns; wrapping them would make the documents harder to
-  //    read, not easier.
-  //  - MD060 table-column-style: the pack uses compact `|---|---|` table
-  //    separators throughout; reformatting 880 cells adds review noise for
-  //    zero reader value.
-  //  - MD036 no-emphasis-as-heading: `**Response — 200**`-style labels in
-  //    api.md are intentional annotations inside endpoint sections, not
-  //    headings.
-  //  - MD024 with siblings_only: headings like "Errors"/"Headers" repeat
-  //    across endpoint sections; only same-level duplicates are flagged.
-  //
-  // Everything else stays enabled — MD040 (fenced code language) and MD032
-  // (blanks around lists) caught 27 real issues that were fixed in the
-  // same change as this file.
   "config": {
     "MD013": false,
     "MD060": false,
