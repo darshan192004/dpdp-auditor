@@ -24,7 +24,7 @@
 | ORM | Prisma 5 |
 | Database | PostgreSQL 16 |
 | Queue | BullMQ 5 + Redis 7 |
-| Validation | Zod 3, shared through `packages/contracts` (the only validation stack) |
+| Validation | Zod 4 (≥4.6.7, security advisory GHSA-mrhx-c7xc-m3w5 has no 3.x fix), shared through `packages/contracts` (the only validation stack) |
 | Tests | Vitest (`v8` coverage provider), `@nuxt/test-utils`, Playwright, Testcontainers |
 | Lint / format | ESLint 9 flat config (`typescript-eslint` v8, `eslint-plugin-vue`), Prettier + `prettier-plugin-tailwindcss` |
 | Commits | Husky hooks + `lint-staged` + `commitlint` with `@commitlint/config-conventional` |
