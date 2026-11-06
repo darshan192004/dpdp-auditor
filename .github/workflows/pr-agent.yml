@@ -21,6 +21,7 @@ jobs:
         uses: the-pr-agent/pr-agent@v0.47.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_AGENT_CONFIG_BRANCH: ${{ github.head_ref }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
