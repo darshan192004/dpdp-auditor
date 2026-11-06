@@ -29,6 +29,13 @@ Thumbs.db
 !.vscode/extensions.json
 !.vscode/settings.json
 
+# Turborepo
+.turbo/
+
+# Husky internals
+.husky/_/
+
+
 # Local database files
 prisma/*.db
 prisma/*.db-journal

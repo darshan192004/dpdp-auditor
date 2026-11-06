@@ -1,0 +1,7 @@
+docs/
+pnpm-lock.yaml
+.superpowers/
+.playwright-mcp/
+coverage/
+.turbo/
+.husky/_/
