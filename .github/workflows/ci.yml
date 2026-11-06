@@ -23,6 +23,7 @@ jobs:
           globs: |
             README.md
             docs/*.md
+            docs/adr/*.md
 
   workflow-lint:
     name: Workflow lint (actionlint)
