@@ -1,0 +1,11 @@
+version: 2
+updates:
+  # Maintain dependencies for GitHub Actions. This is the only manifest
+  # ecosystem in the repository today (docs-only until the Phase 0
+  # scaffold). Add "npm" / "cargo" / "pip" entries when those manifests
+  # land — and note tasks.md P0-22 still plans Renovate onboarding for the
+  # full monorepo; this config covers the gap until then.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
