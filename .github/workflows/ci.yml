@@ -71,6 +71,22 @@ jobs:
       - name: Audit dependencies
         run: pnpm security:audit
 
+  sast:
+    name: SAST (semgrep)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Semgrep security audit scan
+        # The semgrep image requires the code mounted at /src (validated locally:
+        # 0 findings, 90 rules). --error makes any finding fail the job.
+        run: >
+          docker run --rm -v "${PWD}:/src" -w /src
+          semgrep/semgrep semgrep scan
+          --config p/security-audit --config p/typescript
+          --error --metrics=off
+
   secrets:
     name: Secret scan
     runs-on: ubuntu-latest
