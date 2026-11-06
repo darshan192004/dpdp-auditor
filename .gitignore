@@ -32,6 +32,10 @@ Thumbs.db
 # Turborepo
 .turbo/
 
+# CodeScene MCP recreates a credentials dir literally named `?` in cwd
+\?/
+**/.codescene/
+
 # Husky internals
 .husky/_/
 

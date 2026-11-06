@@ -19,7 +19,7 @@ describe('tsBase preset', () => {
 
   it('keeps the root tsconfig.base.json in sync with tsBase', () => {
     const rootBase = JSON.parse(
-      readFileSync(resolve(process.cwd(), '../../tsconfig.base.json'), 'utf8'),
+      readFileSync(resolve(__dirname, '../../../tsconfig.base.json'), 'utf8'),
     ) as { compilerOptions: Record<string, unknown> };
 
     for (const flag of REQUIRED_FLAGS) {
