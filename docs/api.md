@@ -136,7 +136,7 @@ Offsets above 10,000 are rejected with `422 PAGINATION_LIMIT`; clients must narr
 
 Responses include:
 
-```
+```http
 RateLimit-Limit: 60
 RateLimit-Remaining: 42
 RateLimit-Reset: 1762245120
@@ -200,7 +200,7 @@ All handlers validate with Zod schemas from `packages/contracts`, verify authori
 
 **Headers**
 
-```
+```http
 Authorization: Bearer dpk_live_...
 Idempotency-Key: 6f0c2f1e-7a3b-4c8d-9e10-1a2b3c4d5e6f
 Content-Type: application/json
@@ -254,7 +254,7 @@ Content-Type: application/json
 
 **Headers on success**
 
-```
+```http
 Location: /api/v1/scan/scn_01J8Z4A1B2C3D4E5F6G7H8J9K0
 Retry-After: 3
 ```
@@ -633,7 +633,7 @@ Disconnection revokes future scans and schedules deletion of repository-derived 
 
 **Headers**
 
-```
+```http
 Idempotency-Key: 3d1b4a2c-5e6f-4a7b-8c9d-0e1f2a3b4c5d
 Content-Type: application/json
 ```
@@ -866,7 +866,7 @@ Internal endpoints are not reachable from the internet. They require HMAC plus n
 
 ### 10.1 Authentication
 
-```
+```http
 X-Internal-Key: <rotated shared key>
 X-Internal-Timestamp: 1762245120
 X-Internal-Signature: HMAC-SHA256(secret, timestamp + "." + rawBody)

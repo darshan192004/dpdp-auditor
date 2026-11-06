@@ -1,0 +1,10 @@
+# Docs: https://docs.pr-agent.ai/usage-guide/configuration_options/
+
+[config]
+model = "gemini/gemini-3.8-flash"
+fallback_models = ["groq/openai/gpt-oss-120b", "openrouter/free"]
+custom_model_max_tokens = 20000
+max_model_tokens = 8000
+
+[ignore]
+glob = ["pnpm-lock.yaml", "package-lock.json", "yarn.lock", "**/Cargo.lock"]

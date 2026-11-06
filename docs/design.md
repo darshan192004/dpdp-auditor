@@ -95,7 +95,7 @@ Redirect rules:
 
 ### 3.1 `app.vue` — application shell
 
-```
+```text
 ┌────────────────────────────────────────────────────────────┐
 │ Topbar: org switcher · global search · help · avatar       │ 56px
 ├───────────────┬────────────────────────────────────────────┤
@@ -135,7 +135,7 @@ Redirect rules:
 
 ## 4. Component hierarchy
 
-```
+```text
 app/components/
 ├── shell/
 │   ├── AppSidebar.vue
@@ -230,7 +230,7 @@ interface ScoreCardProps {
 
 Layout:
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────┐
 │  DPDPA score                    [Grade B]    ▲ 4.2 vs last  │
 │  82.6 / 100                                                  │

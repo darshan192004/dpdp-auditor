@@ -233,7 +233,7 @@ flowchart LR
 
 ## 10. Scan lifecycle
 
-```
+```text
 queued → cloning → scanning → mapping → completed
                               ↘ failed
         ↘ cancelled
@@ -252,6 +252,7 @@ queued → cloning → scanning → mapping → completed
 | `expired` | Retention | Marked before hard delete |
 
 **Rules:**
+
 - URL is validated and the default branch resolved anonymously (`git ls-remote`) before the row enters `queued`.
 - One active scan per `(repository_id, ref)`.
 - Same `(org_id, idempotency_key)` returns the original scan.
@@ -262,7 +263,7 @@ queued → cloning → scanning → mapping → completed
 
 ## 11. Scoring (memorise this)
 
-```
+```text
 sectionScore = 100 × (1 − failedWeight / applicableWeight)
 ```
 
@@ -270,7 +271,7 @@ sectionScore = 100 × (1 − failedWeight / applicableWeight)
 - `failedWeight` = Σ weights of applicable controls with ≥ 1 open finding.
 - `applicableWeight = 0` ⇒ section is `null` ("not assessed"), **not 100**.
 
-```
+```json
 sectionWeights = {
   "8(4)": 30, "6": 20, "5": 10, "7": 10, "9": 10,
   "10": 5, "13": 5, "8(5)": 5, "16": 5
@@ -290,6 +291,7 @@ Sections `12`, `14`, `15` have weight 0 and are reported as "Not assessed by cod
 | F | 0.00–59.99 |
 
 **Triage semantics:**
+
 - `false_positive` → excluded from the score.
 - `fixed` → excluded from the score.
 - `accepted_risk` → **still counts** as a failure; labelled separately.
@@ -305,7 +307,7 @@ Sections `12`, `14`, `15` have weight 0 and are reported as "Not assessed by cod
 
 Location: `packages/rule-packs/`
 
-```
+```text
 dpdpa-controls.yaml       # controls, severity, weight, appliesWhen, remediation
 scoring.yaml              # section weights and formula version
 mappings/
@@ -321,6 +323,7 @@ Control code format: `DPDPA-<section>-<domain>-<sequence>` — e.g. `DPDPA-8.4-E
 Lifecycle: `DRAFT → LEGAL REVIEW → APPROVED → PUBLISHED → DEPRECATED`.
 
 Version bumps:
+
 - patch: wording clarification, no score impact
 - minor: new control or mapping
 - major: weight, section weight, or formula change
@@ -331,7 +334,7 @@ Resolution order: exact `(scanner, ruleId, version)` wins; otherwise `*`; otherw
 
 ## 13. Fingerprints
 
-```
+```text
 base = sha256(scanner | scannerRuleId | normalisedPath | snippetHash | occurrenceIndex)
 fingerprint = controlCode ? `${base}:${controlCode}` : base
 ```
@@ -466,7 +469,7 @@ pnpm --filter web exec playwright test --project=chromium -g "triage"
 
 ## 18. Repository layout
 
-```
+```text
 dpdpa-auditor/
 ├── apps/
 │   ├── web/            # Nuxt 4: app/, server/, shared/
