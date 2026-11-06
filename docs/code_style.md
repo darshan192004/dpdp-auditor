@@ -182,7 +182,7 @@ UI labels are Title Case for actions ("Start scan") and sentence case for descri
 
 ### 5.1 File structure
 
-```
+```text
 apps/web/
 ├── app/
 │   ├── app.vue
@@ -416,7 +416,7 @@ The orchestrator verifies the signature against the raw body, timestamp, and a 5
 
 ### 7.1 Module structure
 
-```
+```text
 src/
 ├── modules/
 │   ├── auth/

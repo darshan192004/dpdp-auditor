@@ -50,7 +50,7 @@ This document defines how scanner output becomes a DPDPA-mapped finding and how 
 
 ## 3. Domain model
 
-```
+```text
 Scanner output
    │
    ▼
@@ -132,7 +132,7 @@ If a control is not applicable, it is excluded from both the numerator and the d
 
 Rule packs live in `packages/rule-packs/` and are published as immutable, signed bundles consumed by the orchestrator at startup.
 
-```
+```text
 packages/rule-packs/
 ├── dpdpa-controls.yaml
 ├── scoring.yaml
@@ -348,7 +348,7 @@ Rules:
 
 ### 7.2 Mapping resolution
 
-```
+```text
 resolve(scanner, ruleId, version):
   1. exact   = mappings where scanner, ruleId, scannerRuleVersion = version
   2. wildcard = mappings where scanner, ruleId, scannerRuleVersion = '*'
@@ -378,7 +378,7 @@ Persisted severity is the higher of the scanner severity and the control severit
 
 ## 8. Fingerprinting and cross-scan comparison
 
-```
+```text
 base = sha256(
   scanner + "|" +
   scannerRuleId + "|" +
@@ -420,7 +420,7 @@ Resolution is computed at scan completion by joining on `fingerprint` within the
 
 ### 9.2 Section score
 
-```
+```text
 applicableWeight(section) = Σ weight(control) for applicable controls
 failedWeight(section)     = Σ weight(control) for controls with ≥1 open finding
 sectionScore(section)     = 100 × (1 − failedWeight / applicableWeight)
@@ -445,7 +445,7 @@ Example for Section 8(4):
 
 ### 9.3 Overall score
 
-```
+```json
 sectionWeights = {
   "8(4)": 30,
   "6":    20,
@@ -544,7 +544,7 @@ Users can mark any finding `false_positive` with a note. That removes it from sc
 
 ### 12.1 Rule-pack lifecycle
 
-```
+```text
 DRAFT → LEGAL REVIEW → APPROVED → PUBLISHED → DEPRECATED
 ```
 

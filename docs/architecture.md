@@ -124,7 +124,7 @@ Queue workers are processes inside the `orchestrator` Deployment (ADR-007); `que
 
 ## 4. Monorepo layout
 
-```
+```text
 dpdpa-auditor/
 ├── apps/
 │   ├── web/                      # Nuxt 4 application
