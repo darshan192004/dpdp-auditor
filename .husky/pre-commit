@@ -1,2 +1,2 @@
 pnpm lint-staged
-gitleaks git --pre-commit --staged --no-banner
+gitleaks git --pre-commit --staged --no-banner --exit-code=1
