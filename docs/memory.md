@@ -589,7 +589,7 @@ Every report includes: "This report provides technical evidence, not legal advic
 |---|---|
 | Documentation pack | Complete (11 documents) |
 | Doc revision pass: URL-only + Python runner + enterprise hardening | **Complete** |
-| Phase 0 — Foundations | Planned |
+| Phase 0 — Foundations | **Complete** (2026-11-06: PRs #3–#12 + Dependabot #15–#17; all 11 plan tasks merged; acceptance sweep 5/5) |
 | Phase 1 — Platform skeleton | Planned |
 | Phase 2 — Identity and URL resolution | Planned |
 | Phase 3 — Scan pipeline | Planned |
@@ -601,15 +601,35 @@ Every report includes: "This report provides technical evidence, not legal advic
 | Scoring version | `1.0.0` (specified) |
 | Frontend implementation | **Not started — specification only** |
 
+### Phase 0 record (toolchain decisions)
+
+- **Toolchain:** pnpm 9.15.9 workspaces + Turborepo; strict `tsconfig.base.json`; ESLint 9 + Prettier; Husky + lint-staged + gitleaks v8.30.1 (pre-commit `gitleaks git --staged`).
+- **Dependency versions:** TypeScript `6.0.3` (Dependabot #17, full gate re-verified locally), zod `4.6.7` (no 3.x fix for GHSA-mrhx-c7xc-m3w5), `pnpm/action-setup@v6`, `actions/setup-node@v7`.
+- **CI required checks on `main` (branch protection, `enforce_admins`, dismiss stale reviews, 0 required approvals — solo dev):** `Code CI`, `Secret scan`, `Docs lint (markdownlint)`, `Workflow lint (actionlint)`, `SAST (semgrep)`.
+- **SAST:** `semgrep/semgrep` container, `p/security-audit` + `p/typescript`, `--error --metrics=off`; the image requires the code mounted at **`/src`** (actionlint-style `/repo` mount fails). No account needed.
+- **Gates per PR:** CodeScene `analyze_change_set` + code health (failures fixed, never waived) + five-axis `code-review-and-quality` review + PR-Agent comments (applied or rejected with reason; PR-Agent skips `synchronize` and bot PRs — read the `opened` run). Merge only when all required checks are green; delete merged branches remote + local.
+- **Coverage floors:** contracts/observability 95% lines / 90% branches (`vitest.config.ts`).
+- **Contracts:** `@dpdpa/contracts` (zod schemas: errors, pagination, IDs, `normalisedFindingSchema`, `computeFingerprint` with `FINGERPRINT_VERSION=1`, `goldenManifestSchema`, `budgetsSchema`), `@dpdpa/observability` (`redact()`), `@dpdpa/config`.
+- **Golden fixtures:** 12 under `tests/golden-repos/` (manifest.yaml + placeholder source each); gitleaks allowlists are path+exact-string scoped (`.gitleaks.toml`) — `gitleaks dir` needs an explicit `--config`, only `gitleaks git` auto-discovers it.
+
+### Deferred items (Phase 0 exit)
+
+- **P0-10/P0-11 taxonomy v0 legal sign-off** — content exists in `docs/rules.md` §4; sign-off memo is a human task.
+- **P0-17 secrets manager / P0-18 data map** — need real-world accounts/decisions.
+- **Threat model security-lead review** — `docs/threat-model.md` is marked Draft (solo dev).
+- **Renovate** — documented fallback only; Dependabot is active (npm + github-actions, weekly).
+- **minimatch moderate advisory** — below `pnpm security:audit` `--audit-level=high` (audit passes); revisit when it crosses the threshold or when the next major of the parent package ships a fix.
+- **Integration + `test:e2e` Playwright CI jobs** — impossible in Phase 0 (no app yet); join CI when Phase 1 lands them (P1-20, P1-30). Plan deviation recorded.
+
 ### Next action
 
-Begin Phase 0: monorepo scaffold, CI, contracts package, ADRs, threat model, and DPDPA taxonomy v0. See `tasks.md` §3. Frontend execution remains out of scope until the Phase 1 gate.
+Plan and execute **Phase 1 — Platform skeleton** per `tasks.md` §3. Frontend execution remains out of scope until the Phase 1 gate — stop and confirm with the user before any frontend task.
 
 ---
 
 ## 25. AI build workflow
 
-Standing workflow for AI assistants implementing this spec (repo remains docs-only until the Phase 0 scaffold):
+Standing workflow for AI assistants implementing this spec (Phase 0 scaffold is complete — monorepo, CI, contracts):
 
 - **Context7 for framework docs.** Query current Nuxt 4/Nitro, NestJS/Fastify, Prisma, and BullMQ documentation before implementing against any of their APIs — never code from memory of an API surface.
 - **Code review gate (CodeScene MCP + review skill).** Every PR is reviewed before merge: `analyze_change_set` for branch-level review and `code_health_review` / `code_health_score` for touched files, alongside the `code-review-and-quality` skill. These gates are never weakened, skipped, or "just this once"-ed; if a gate fails, fix the code.
