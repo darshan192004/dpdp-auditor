@@ -1,0 +1,16 @@
+name: public-bucket
+languages:
+  - terraform
+scanners:
+  - checkov
+expectedFindings:
+  - scanner: checkov
+    ruleId: CKV_AWS_20
+    control: DPDPA-8.4-ACCESS-01
+    confidence: direct
+    severity: critical
+    minCount: 1
+    maxCount: 1
+expectedCoverage: full
+tolerances:
+  extraFindings: 4

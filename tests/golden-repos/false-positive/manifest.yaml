@@ -1,0 +1,16 @@
+name: false-positive
+languages:
+  - python
+scanners:
+  - semgrep
+expectedFindings:
+  - scanner: semgrep
+    ruleId: dpdpa.python.no-consent-check
+    control: DPDPA-6-CONSENT-01
+    confidence: inferred
+    severity: high
+    minCount: 1
+    maxCount: 1
+expectedCoverage: full
+tolerances:
+  extraFindings: 0

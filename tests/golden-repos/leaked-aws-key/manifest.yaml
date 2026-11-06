@@ -1,0 +1,16 @@
+name: leaked-aws-key
+languages:
+  - python
+scanners:
+  - gitleaks
+expectedFindings:
+  - scanner: gitleaks
+    ruleId: aws-access-token
+    control: DPDPA-8.4-SECRET-01
+    confidence: direct
+    severity: critical
+    minCount: 1
+    maxCount: 1
+expectedCoverage: full
+tolerances:
+  extraFindings: 0

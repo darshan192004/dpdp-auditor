@@ -9,3 +9,8 @@ paths = ['''docs/api\.md$''']
 description = "docs/fingerprint-spec.md pins the obviously-fake example AWS key AKIA1234567890ABCDEF verbatim as a conformance-vector input (changing it would change the pinned sha256 vectors); allowed for that exact string on that exact path only"
 paths = ['''docs/fingerprint-spec\.md$''']
 regexAllowed = ['''AKIA1234567890ABCDEF''']
+
+[[allowlists]]
+description = "tests/golden-repos/leaked-aws-key pins a fake AWS key so the Phase 4 golden runner can assert gitleaks aws-access-token detection; allowed for that exact string in that fixture directory only so real leaks elsewhere still fail. CI suppression only — the golden runner must scan with an explicit default config, not this file"
+paths = ['''tests/golden-repos/leaked-aws-key/''']
+regexAllowed = ['''AKIAABCDEFGHIJKLMNOP''']

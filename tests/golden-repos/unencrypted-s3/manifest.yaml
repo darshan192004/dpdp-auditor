@@ -1,0 +1,16 @@
+name: unencrypted-s3
+languages:
+  - terraform
+scanners:
+  - checkov
+expectedFindings:
+  - scanner: checkov
+    ruleId: CKV_AWS_19
+    control: DPDPA-8.4-ENC-01
+    confidence: direct
+    severity: high
+    minCount: 1
+    maxCount: 1
+expectedCoverage: full
+tolerances:
+  extraFindings: 4

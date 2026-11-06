@@ -1,0 +1,16 @@
+name: missing-privacy-notice
+languages:
+  - typescript
+scanners:
+  - semgrep
+expectedFindings:
+  - scanner: semgrep
+    ruleId: dpdpa.generic.privacy-notice-missing
+    control: DPDPA-5-NOTICE-01
+    confidence: advisory
+    severity: medium
+    minCount: 1
+    maxCount: 1
+expectedCoverage: full
+tolerances:
+  extraFindings: 0

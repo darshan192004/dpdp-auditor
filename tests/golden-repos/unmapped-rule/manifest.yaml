@@ -1,0 +1,15 @@
+name: unmapped-rule
+languages:
+  - java
+scanners:
+  - semgrep
+expectedFindings:
+  - scanner: semgrep
+    ruleId: java.lang.security.audit.crypto.weak-hash
+    confidence: direct
+    severity: high
+    minCount: 1
+    maxCount: 1
+expectedCoverage: full
+tolerances:
+  extraFindings: 4
