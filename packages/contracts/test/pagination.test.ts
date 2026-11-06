@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { z } from 'zod';
 import { paginationMetaSchema, paginationQuerySchema } from '../src/pagination';
 
-function expectCustomIssue(error: { issues: readonly z.ZodIssue[] }, expectedCode: string): void {
-  const issue = error.issues[0];
-  if (issue?.code !== 'custom') throw new Error('expected a custom issue');
-  expect(issue.params).toMatchObject({ code: expectedCode });
+function expectCustomIssue(
+  issues: readonly { code: string; params?: unknown }[],
+  expectedCode: string,
+): void {
+  expect(issues[0]?.code).toBe('custom');
+  expect(issues[0]?.params).toMatchObject({ code: expectedCode });
 }
 
 type RejectionCase = {
@@ -75,7 +76,7 @@ describe('pagination rejections', () => {
       const target = schema === 'query' ? paginationQuerySchema : paginationMetaSchema;
       const result = target.safeParse(input);
       expect(result.success).toBe(false);
-      if (!result.success && issueCode) expectCustomIssue(result.error, issueCode);
+      if (!result.success && issueCode) expectCustomIssue(result.error.issues, issueCode);
     });
   }
 });

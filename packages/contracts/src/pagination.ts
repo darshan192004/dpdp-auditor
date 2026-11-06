@@ -13,7 +13,7 @@ export const paginationQuerySchema = z
   .superRefine((value, ctx) => {
     if (value.page * value.pageSize > OFFSET_BUDGET) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         params: { code: 'PAGINATION_LIMIT' },
         message: `page × pageSize must not exceed ${OFFSET_BUDGET}.`,
       });
