@@ -19,6 +19,17 @@ export const SENSITIVE_KEY_PATTERN =
 
 const allowedKeySet: ReadonlySet<string> = new Set<string>(ALLOWED_KEYS);
 
+/** Decide one object entry's fate: allowlisted value, redaction marker, or recursion. */
+function redactEntry(key: string, entry: unknown, seen: WeakMap<object, unknown>): unknown {
+  if (allowedKeySet.has(key)) {
+    return entry;
+  }
+  if (SENSITIVE_KEY_PATTERN.test(key)) {
+    return REDACTED;
+  }
+  return transform(entry, seen);
+}
+
 function transform(value: unknown, seen: WeakMap<object, unknown>): unknown {
   if (value === null || typeof value !== 'object') {
     return value;
@@ -47,13 +58,7 @@ function transform(value: unknown, seen: WeakMap<object, unknown>): unknown {
   const clone: Record<string, unknown> = {};
   seen.set(value, clone);
   for (const [key, entry] of Object.entries(value)) {
-    if (allowedKeySet.has(key)) {
-      clone[key] = entry;
-    } else if (SENSITIVE_KEY_PATTERN.test(key)) {
-      clone[key] = REDACTED;
-    } else {
-      clone[key] = transform(entry, seen);
-    }
+    clone[key] = redactEntry(key, entry, seen);
   }
   return clone;
 }
