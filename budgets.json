@@ -1,0 +1,6 @@
+{
+  "webAppGzipBytes": 180435,
+  "apiP95Ms": 400,
+  "scanP95Ms": 600000,
+  "pdfP95Ms": 10000
+}
