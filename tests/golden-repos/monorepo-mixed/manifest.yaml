@@ -1,0 +1,25 @@
+name: monorepo-mixed
+languages:
+  - typescript
+  - terraform
+scanners:
+  - checkov
+  - semgrep
+expectedFindings:
+  - scanner: checkov
+    ruleId: CKV_AWS_19
+    control: DPDPA-8.4-ENC-01
+    confidence: direct
+    severity: high
+    minCount: 1
+    maxCount: 1
+  - scanner: semgrep
+    ruleId: dpdpa.javascript.pii-in-logs
+    control: DPDPA-8.4-LOG-01
+    confidence: direct
+    severity: critical
+    minCount: 1
+    maxCount: 1
+expectedCoverage: full
+tolerances:
+  extraFindings: 4

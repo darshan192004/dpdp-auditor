@@ -1,0 +1,10 @@
+name: no-findings
+languages:
+  - python
+scanners:
+  - gitleaks
+  - semgrep
+expectedFindings: []
+expectedCoverage: full
+tolerances:
+  extraFindings: 0

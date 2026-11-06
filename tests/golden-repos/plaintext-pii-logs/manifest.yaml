@@ -1,0 +1,16 @@
+name: plaintext-pii-logs
+languages:
+  - python
+scanners:
+  - semgrep
+expectedFindings:
+  - scanner: semgrep
+    ruleId: dpdpa.python.pii-in-logs
+    control: DPDPA-8.4-LOG-01
+    confidence: direct
+    severity: critical
+    minCount: 1
+    maxCount: 1
+expectedCoverage: full
+tolerances:
+  extraFindings: 0
