@@ -4,3 +4,8 @@ useDefault = true
 [[allowlists]]
 description = "docs/api.md contains documented placeholder values (example Idempotency-Key UUIDs, example dpk_live_ key) required verbatim by the spec; scoped to this path only so real leaks elsewhere still fail"
 paths = ['''docs/api\.md$''']
+
+[[allowlists]]
+description = "docs/fingerprint-spec.md pins the obviously-fake example AWS key AKIA1234567890ABCDEF verbatim as a conformance-vector input (changing it would change the pinned sha256 vectors); allowed for that exact string on that exact path only"
+paths = ['''docs/fingerprint-spec\.md$''']
+regexAllowed = ['''AKIA1234567890ABCDEF''']
