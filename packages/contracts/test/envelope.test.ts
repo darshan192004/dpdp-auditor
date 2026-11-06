@@ -10,75 +10,83 @@ const SPEC_EXAMPLE = {
   },
 };
 
-describe('errorEnvelopeSchema', () => {
-  it('parses the exact api.md §1.4 example', () => {
-    expect(errorEnvelopeSchema.parse(SPEC_EXAMPLE)).toEqual(SPEC_EXAMPLE);
-  });
+type EnvelopeCase = { name: string; payload: unknown; valid: boolean };
 
-  it('accepts an envelope without details (details omitted when empty)', () => {
-    const result = errorEnvelopeSchema.safeParse({
+const envelopeCases: EnvelopeCase[] = [
+  { name: 'the exact api.md §1.4 example', payload: SPEC_EXAMPLE, valid: true },
+  {
+    name: 'an envelope without details (details omitted when empty)',
+    payload: {
       error: {
         code: 'NOT_FOUND',
         message: 'Not found.',
         requestId: 'req_01J8Z3K4M5N6P7Q8R9S0T1U2V3',
       },
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it('accepts a client-supplied request ID (X-Request-Id format)', () => {
-    const result = errorEnvelopeSchema.safeParse({
+    },
+    valid: true,
+  },
+  {
+    name: 'a client-supplied request ID (X-Request-Id format)',
+    payload: {
       error: {
         code: 'INTERNAL_ERROR',
         message: 'Something went wrong.',
         requestId: 'trace-abc12345',
       },
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it('rejects a missing requestId', () => {
-    const result = errorEnvelopeSchema.safeParse({
-      error: { code: 'VALIDATION_ERROR', message: 'The request body is invalid.' },
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it('rejects a non-string code', () => {
-    const result = errorEnvelopeSchema.safeParse({
+    },
+    valid: true,
+  },
+  {
+    name: 'a missing requestId',
+    payload: { error: { code: 'VALIDATION_ERROR', message: 'The request body is invalid.' } },
+    valid: false,
+  },
+  {
+    name: 'a non-string code',
+    payload: {
       error: {
         code: 422,
         message: 'The request body is invalid.',
         requestId: 'req_01J8Z3K4M5N6P7Q8R9S0T1U2V3',
       },
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it('rejects a code outside the ERROR_CODES registry', () => {
-    const result = errorEnvelopeSchema.safeParse({
+    },
+    valid: false,
+  },
+  {
+    name: 'a code outside the ERROR_CODES registry',
+    payload: {
       error: {
         code: 'NOT_A_REAL_CODE',
         message: 'Nope.',
         requestId: 'req_01J8Z3K4M5N6P7Q8R9S0T1U2V3',
       },
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it('rejects a requestId shorter than 8 characters', () => {
-    const result = errorEnvelopeSchema.safeParse({
-      error: { code: 'NOT_FOUND', message: 'Not found.', requestId: 'short' },
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it('rejects an envelope missing the error wrapper', () => {
-    const result = errorEnvelopeSchema.safeParse({
+    },
+    valid: false,
+  },
+  {
+    name: 'a requestId shorter than 8 characters',
+    payload: { error: { code: 'NOT_FOUND', message: 'Not found.', requestId: 'short' } },
+    valid: false,
+  },
+  {
+    name: 'an envelope missing the error wrapper',
+    payload: {
       code: 'NOT_FOUND',
       message: 'Not found.',
       requestId: 'req_01J8Z3K4M5N6P7Q8R9S0T1U2V3',
-    });
-    expect(result.success).toBe(false);
+    },
+    valid: false,
+  },
+];
+
+describe('errorEnvelopeSchema', () => {
+  it('parses the exact api.md §1.4 example structurally equal', () => {
+    expect(errorEnvelopeSchema.parse(SPEC_EXAMPLE)).toEqual(SPEC_EXAMPLE);
   });
+
+  for (const { name, payload, valid } of envelopeCases) {
+    it(`${valid ? 'accepts' : 'rejects'} ${name}`, () => {
+      expect(errorEnvelopeSchema.safeParse(payload).success).toBe(valid);
+    });
+  }
 });
