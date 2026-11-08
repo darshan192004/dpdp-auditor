@@ -6,7 +6,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "lint": "eslint . --max-warnings 0 && prettier --check .",
+    "lint": "eslint . --max-warnings 0 && prettier --check . && node apps/web/scripts/lint-tokens.mjs",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
     "test:coverage": "turbo test:coverage",
