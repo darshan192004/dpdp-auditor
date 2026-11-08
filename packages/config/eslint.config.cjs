@@ -40,6 +40,12 @@ module.exports = [
     },
     rules: {
       'vue/multi-word-component-names': 'off',
+      // Vue SFC <script lang="ts"> blocks rely on Nuxt auto-imports
+      // (definePageMeta, useHead, ...). typescript-eslint disables no-undef
+      // for TS files because the compiler already catches undefined
+      // identifiers; extend that to TS-backed SFCs so auto-imports are not
+      // reported as globals. `pnpm typecheck` remains the source of truth.
+      'no-undef': 'off',
     },
   },
   {
