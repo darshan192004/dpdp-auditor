@@ -4,7 +4,11 @@
 </script>
 
 <template>
-  <main class="mx-auto flex min-h-screen max-w-3xl flex-col justify-center px-6 py-16">
+  <main
+    id="main"
+    tabindex="-1"
+    class="mx-auto flex min-h-screen max-w-3xl flex-col justify-center px-6 py-16"
+  >
     <p class="text-brand-700 font-mono text-xs tracking-wide">DPDPA compliance workbench</p>
     <h1 class="text-ink-900 mt-3 text-2xl font-semibold">DPDPA GitHub Code Auditor</h1>
     <p class="text-ink-600 mt-4 text-base leading-6">
