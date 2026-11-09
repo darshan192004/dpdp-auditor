@@ -25,6 +25,7 @@ export default defineNuxtConfig({
     // Server-only. Values come from the environment; no secrets in the repo.
     orchestratorUrl: process.env.ORCHESTRATOR_URL ?? '',
     orchestratorHmacKey: process.env.ORCHESTRATOR_HMAC_KEY ?? '',
+    orchestratorInternalKey: process.env.ORCHESTRATOR_INTERNAL_KEY ?? '',
     sessionPassword: process.env.NUXT_SESSION_PASSWORD ?? '',
     public: {
       appUrl: process.env.NUXT_PUBLIC_APP_URL ?? '',
