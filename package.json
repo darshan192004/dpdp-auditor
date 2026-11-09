@@ -10,6 +10,7 @@
     "typecheck": "turbo typecheck",
     "test": "turbo test",
     "test:coverage": "turbo test:coverage",
+    "test:e2e": "pnpm --filter @dpdpa/web test:e2e",
     "build": "turbo build",
     "format": "prettier --write .",
     "security:audit": "pnpm audit --audit-level=high",

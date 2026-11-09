@@ -30,6 +30,10 @@ const SKIPPED_DIRECTORIES = new Set([
   'dist',
   'scripts',
   'test',
+  // Playwright run artifacts (regenerated every `test:e2e` run; the HTML report
+  // contains raw hex colors by design).
+  'playwright-report',
+  'test-results',
 ]);
 const EXEMPT_PATH = 'app/assets/css/main.css';
 

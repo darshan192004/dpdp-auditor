@@ -126,7 +126,7 @@ Branch `feat/P1-22-nuxt-app`. Conventional commit `feat(web): scaffold Nuxt 4 ap
 - Consumes: token file path `app/assets/css/main.css` from Task 1.
 - Produces: `scanForRawHex(entries: Array<{ path: string; content: string }>, exemptPath: string): Array<{ path: string; line: number }>` exported from `lint-tokens.mjs`; CLI exit 1 with a printed file:line list when violations exist; root `pnpm lint` runs it after prettier.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `apps/web/test/lint-tokens.test.ts` (fixture-driven, no filesystem writes needed if `scanForRawHex` takes content entries):
 - detects `#0d9488` in a `.vue` template and in a `<style>` block → reports path+line
@@ -135,22 +135,22 @@ Branch `feat/P1-22-nuxt-app`. Conventional commit `feat(web): scaffold Nuxt 4 ap
 - does NOT report `href="#main"` or `id="main"` (regex must require 3/4/6/8 hex digits followed by a non-hex boundary — `#main` fails because `m`/`i`/`n` are not all hex... `#abc`-style fragments of exactly 3 hex chars WILL match; acceptable — test pins `#main` no-match, and `#feed` false-positive is documented as acceptable in the script header comment)
 - CLI smoke: running the script with a temp dir containing one violation exits 1 and prints `path:line`
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `pnpm --filter @dpdpa/web test -- lint-tokens`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Implement `lint-tokens.mjs`**
+- [x] **Step 3: Implement `lint-tokens.mjs`**
 
 Walk `apps/web` recursively (skip `node_modules`, `.nuxt`, `.output`, `test`, `scripts`), scan extensions `.vue .ts .css .html` with `/#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{4}|[0-9a-fA-F]{3})\b/g`, exempt `app/assets/css/main.css`, print `relative/path:line` per hit, `process.exitCode = 1` on any hit. Export `scanForRawHex` for the tests; CLI entry guarded by `import.meta.url === pathToFileURL(process.argv[1]).href`.
 
-- [ ] **Step 4: Run tests to verify they pass, then wire into root lint**
+- [x] **Step 4: Run tests to verify they pass, then wire into root lint**
 
 Run: `pnpm --filter @dpdpa/web test -- lint-tokens` → PASS.
 Root `package.json`: `"lint": "eslint . --max-warnings 0 && prettier --check . && node apps/web/scripts/lint-tokens.mjs"`.
 Run: `pnpm lint` → green (current repo has no violations — if Task 1 or later code introduced one, fix the code, never the rule).
 
-- [ ] **Step 5: Commit → PR → gates → merge**
+- [x] **Step 5: Commit → PR → gates → merge**
 
 Branch `feat/P1-25-token-lint`; commit `feat(web): enforce token-only hex colors with lint script`. Same full gate chain as Task 1 Step 7.
 
@@ -169,7 +169,7 @@ Branch `feat/P1-25-token-lint`; commit `feat(web): enforce token-only hex colors
 - Consumes: default layout stub + landing page from Task 1.
 - Produces: layouts `default | auth | app | print` (selectable via `definePageMeta({ layout })`); `nav.ts` exports `APP_NAV: Array<{ label: string; to: string; icon: string }>` with exactly `Overview /app`, `Repositories /app/repos`, `Scans /app/scans`, `Rules /app/rules`, `Audit /app/audit`, `Settings /app/settings/org` (design §3.1); `PageHeader` props `{ title: string; breadcrumbs?: Array<{ label: string; to?: string }>; actions?: Slot }`.
 
-- [ ] **Step 1: Write the failing layout tests**
+- [x] **Step 1: Write the failing layout tests**
 
 `apps/web/test/app-layout.test.ts` via `mountSuspended` on a test page using layout `app`:
 - first focusable element is `<a href="#main">Skip to content</a>` (assert it is the first `a`/`button` in DOM order)
@@ -179,12 +179,12 @@ Branch `feat/P1-25-token-lint`; commit `feat(web): enforce token-only hex colors
 - exactly one `h1` on the page (from `PageHeader`)
 - layout at `print` renders no `header`/`aside` chrome (assert absence)
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `pnpm --filter @dpdpa/web test -- app-layout`
 Expected: FAIL — layouts/components missing.
 
-- [ ] **Step 3: Implement shell**
+- [x] **Step 3: Implement shell**
 
 - `layouts/app.vue`: skip link first (`class="sr-only focus:not-sr-only ..."` per §9), `<AppTopbar />` (56px, `h-14`, `border-b border-ink-200`, contains org switcher placeholder + `⌘K` command-palette trigger placeholder + account menu placeholder — all native `<button>`s with accessible names), grid with `<AppSidebar />` (240px `w-60`, `hidden lg:flex`, off-canvas drawer button with `aria-expanded` below 1024px — implement drawer as simple `<details>`/toggle state, no Nuxt UI dependency required yet), `<main id="main" tabindex="-1">` with `<slot />`, content wrapper `max-w-[1280px] px-6` (max-width/gutters per §3.1; `px-6` = 24px on the 4px scale).
 - `layouts/default.vue`: skip link + `<slot />` (landing).
@@ -193,16 +193,16 @@ Expected: FAIL — layouts/components missing.
 - All layouts wrapped in `<NuxtLayout>` usage already set in `app.vue` from Task 1.
 - Styling strictly from §6.1 semantic classes; focus ring class per §6.1.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `pnpm --filter @dpdpa/web test` → all green (Tasks 1–3 tests together).
 
-- [ ] **Step 5: Full gate + screenshot**
+- [x] **Step 5: Full gate + screenshot**
 
 `set -o pipefail; pnpm lint && pnpm typecheck && pnpm exec turbo test --force && pnpm build` → green.
 Run `pnpm --filter @dpdpa/web preview` + screenshot the shell at 1440px and 375px (Playwright script or devtools) → attach to PR (design §15 DoD requires a screenshot).
 
-- [ ] **Step 6: Commit → PR → gates → merge**
+- [x] **Step 6: Commit → PR → gates → merge**
 
 Branch `feat/P1-24-app-shell`; commit `feat(web): app shell layouts with skip link and sidebar navigation`. Full gate chain.
 
@@ -218,7 +218,7 @@ Branch `feat/P1-24-app-shell`; commit `feat(web): app shell layouts with skip li
 - Consumes: running app from Task 1.
 - Produces: response headers on every page response (verified live); `runtimeConfig` keys `orchestratorUrl`, `orchestratorHmacKey`, `sessionPassword` (server) and `public.appUrl` (ready for P1-26; values from env, no secrets in repo).
 
-- [ ] **Step 1: Write the failing header test**
+- [x] **Step 1: Write the failing header test**
 
 `apps/web/test/security-headers.test.ts` using `@nuxt/test-utils` `startServer()` + global `fetch('/login', { redirect: 'manual' })` (any route; use `/` since `/login` page does not exist yet):
 - `strict-transport-security` === `max-age=31536000; includeSubDomains; preload`
@@ -230,21 +230,21 @@ Branch `feat/P1-24-app-shell`; commit `feat(web): app shell layouts with skip li
 - `content-security-policy` contains `default-src 'self'`, `nonce-`, `'strict-dynamic'`, `frame-ancestors 'none'`, and `style-src` includes `'unsafe-inline'` but `script-src` does NOT
 - after server: `closeAll()` in `afterAll`.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pnpm --filter @dpdpa/web test -- security-headers`
 Expected: FAIL — headers absent (no module yet).
 
-- [ ] **Step 3: Add `nuxt-security@2.7.0` + config verbatim from security.md §8**
+- [x] **Step 3: Add `nuxt-security@2.7.0` + config verbatim from security.md §8**
 
 `pnpm --filter @dpdpa/web add nuxt-security@2.7.0` (check lockfile in `git status`). In `nuxt.config.ts` add module `'nuxt-security'` and the `security.headers` block **copied exactly from `docs/security.md` §8** (HSTS, XFO, XCTO, referrerPolicy, COOP, CORP, permissionsPolicy, full CSP including the documented `style-src 'unsafe-inline'` exception and `connect-src` allowlist). Add `corsHandler.origin: ['https://app.dpdpa-auditor.example']` per §8. Do NOT add §8.1 route-rate-limits here — those need the Redis store (P1-08/P1-18); note the deferral in the PR body. Add the `runtimeConfig` keys listed in Interfaces (env-driven; empty defaults fine locally).
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `pnpm --filter @dpdpa/web test -- security-headers` → PASS.
 Manual belt-and-braces (exit criteria of tasks.md §4.3): `pnpm --filter @dpdpa/web build && node apps/web/.output/server/index.mjs &` then `curl -I http://localhost:3000/` → paste header list into PR; kill the server.
 
-- [ ] **Step 5: Commit → PR → gates → merge**
+- [x] **Step 5: Commit → PR → gates → merge**
 
 Branch `feat/P1-23-nuxt-security`; commit `feat(web): nuxt-security headers and CSP per security.md §8`. Full gate chain.
 
@@ -260,28 +260,28 @@ Branch `feat/P1-23-nuxt-security`; commit `feat(web): nuxt-security headers and 
 - Consumes: default layout, token classes, state rules (§8: loading skeleton → content).
 - Produces: `GET /api/health` → `200 { status: 'ok', version: string, uptimeSeconds: number, timestamp: string }` (shape typed in `app/types/health.ts` as `HealthStatus`); page route `/health` (public, default layout) renders that payload.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `apps/web/test/health.test.ts`:
 - `const res = await $fetch('/api/health')` → `res.status === 'ok'`, keys exactly `['status','version','uptimeSeconds','timestamp']`, `version` matches `^\d+\.\d+\.\d+` (read from `app/package.json` via `useRuntimeConfig`-free server import)
 - page test: `mountSuspended(HealthPage)` initially shows skeleton (`aria-busy="true"` per §8), then resolved state shows "All systems operational" copy and the version — use a mocked `$fetch` or render against the real endpoint in e2e mode; simplest: extract `app/utils/formatHealth.ts` pure mapper and unit-test the page's render of a fixture payload (keeps the test hermetic).
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `pnpm --filter @dpdpa/web test -- health`
 Expected: FAIL — route not found.
 
-- [ ] **Step 3: Implement endpoint + page**
+- [x] **Step 3: Implement endpoint + page**
 
 - `server/api/health.get.ts`: `defineEventHandler` returning the shape (version from `../package.json` import, `uptimeSeconds: Math.round(process.uptime())`, ISO timestamp). Never expose env or build metadata beyond version.
 - `app/pages/health.vue`: `useFetch('/api/health')`, loading = `LoadingSkeleton` pattern (inline `aria-busy` div matching final layout), success = one `h1` "System status", calm §13 copy, version + uptime rendered in `font-mono text-xs`. Public page, default layout.
 
-- [ ] **Step 4: Run tests to verify they pass + curl exit-criteria check**
+- [x] **Step 4: Run tests to verify they pass + curl exit-criteria check**
 
 Run: `pnpm --filter @dpdpa/web test` → green.
 `curl -I` against preview server for `/health` → 200 (tasks.md exit criterion "/health returns 200").
 
-- [ ] **Step 5: Commit → PR → gates → merge**
+- [x] **Step 5: Commit → PR → gates → merge**
 
 Branch `feat/P1-28-health`; commit `feat(web): health status endpoint and page`. Full gate chain.
 
@@ -300,7 +300,7 @@ Branch `feat/P1-28-health`; commit `feat(web): health status endpoint and page`.
 - Consumes: layouts from Task 3, `auth` layout.
 - Produces: `resolveRouteAccess(path: string, ctx: { hasUser: boolean; hasOrg: boolean }): string | null` — returns `/login?redirect=<encoded path>` for `/app/**` without user, `/onboarding` for `/app/**` with user but no org, `null` otherwise (never matches `/login`, `/onboarding`, `/health`, `/`, non-`/app` paths); `useAppContext()` returning `useState` refs with keys exactly per design §7.6: `org` (`{ id, name, slug, plan, role, retentionDays } | null`), `features` (`Record<string, boolean>`), `commandPaletteOpen` (`boolean`), `lastScanId` (`string | null`); `auth.global.ts` calling the resolver for `to.path` and `navigateTo(redirect, { redirectCode: 302, replace: true })` when non-null.
 
-- [ ] **Step 1: Write the failing resolver tests**
+- [x] **Step 1: Write the failing resolver tests**
 
 `apps/web/test/resolve-route-access.test.ts` table-driven (Review Focus 4):
 | path | hasUser | hasOrg | expected |
@@ -314,24 +314,24 @@ Branch `feat/P1-28-health`; commit `feat(web): health status endpoint and page`.
 | `/` | false | false | `null` |
 | `/app` | true | false | `/onboarding` |
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `pnpm --filter @dpdpa/web test -- resolve-route-access`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Implement resolver, composable, middleware, placeholder pages**
+- [x] **Step 3: Implement resolver, composable, middleware, placeholder pages**
 
 - `resolveRouteAccess` pure function (no Nuxt imports) implementing the table.
 - `useAppContext.ts`: four `useState` calls with the exact keys/shapes from Interfaces; initial `org: null`, `features: {}`, `commandPaletteOpen: false`, `lastScanId: null`. Header comment: SSR-safe, serialises to payload, no server data in Pinia (design §7.1/§7.6).
 - `auth.global.ts`: `export default defineNuxtRouteMiddleware((to) => resolveRouteAccess(to.path, { hasUser, hasOrg }))` — `hasUser`/`hasOrg` read from `useAppContext()` (`hasUser` = a `user` useState key added by Phase 2 auth; for the skeleton use `org !== null || useState('user') presence` — implement as: user present when `useState('user')` is set; define `user` key as `unknown | null` with a TODO referencing Phase 2, so skeleton behaviour matches the table in tests via the pure resolver, and the middleware stays a thin wrapper).
 - `login.vue` / `onboarding.vue`: `auth` layout, `h1`, one line of §13 copy, no fake auth UI (Phase 2 owns real auth).
 
-- [ ] **Step 4: Run tests to verify they pass + manual redirect check**
+- [x] **Step 4: Run tests to verify they pass + manual redirect check**
 
 Run: `pnpm --filter @dpdpa/web test` → green.
 Manual: preview server, `curl -I http://localhost:3000/app` → `302` (or 401-page flow) to `/login?redirect=%2Fapp`; `curl -I http://localhost:3000/login` → `200` (no loop).
 
-- [ ] **Step 5: Commit → PR → gates → merge**
+- [x] **Step 5: Commit → PR → gates → merge**
 
 Branch `feat/P1-29-route-access`; commit `feat(web): app context useState keys and auth route middleware skeleton`. Full gate chain.
 
@@ -348,28 +348,28 @@ Branch `feat/P1-29-route-access`; commit `feat(web): app context useState keys a
 - Consumes: built app (Tasks 1–6), skip link and health page.
 - Produces: `pnpm test:e2e` runs Playwright chromium against the built preview server; `auth.storage-state.json` = `{ "cookies": [], "origins": [] }` with a `_comment` field documenting it as the Phase 2 authenticated-session stub (tests that need auth `storageState` this file); CI job `E2E` (install chromium with deps → build web → run e2e).
 
-- [ ] **Step 1: Write the failing e2e tests**
+- [x] **Step 1: Write the failing e2e tests**
 
 - `smoke.spec.ts`: (a) `/` loads, `h1` visible; (b) keyboard: press `Tab` → focused element is the skip link, press `Enter` → focus lands on `#main`; (c) `GET /health` → 200; (d) console collector asserts zero messages containing `Content Security Policy` (Review Focus 2) across `/`, `/app` (expect redirect to `/login`), `/health`.
 - `a11y.spec.ts`: `@axe-core/playwright` scan of `/` and `/health` → zero `serious`/`critical` violations (design §9 verification).
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `pnpm --filter @dpdpa/web test:e2e`
 Expected: FAIL — Playwright not installed / config missing.
 
-- [ ] **Step 3: Install and configure**
+- [x] **Step 3: Install and configure**
 
 - `pnpm --filter @dpdpa/web add -D @playwright/test@1.65.0 @axe-core/playwright`; `npx playwright install chromium` (local only, no sudo deps on this machine — if `--with-deps` needed, note it for CI only).
 - `playwright.config.ts`: `testDir: './e2e'`, `webServer: { command: 'pnpm preview', port: 3000, reuseExistingServer: !process.env.CI }` (build first in the script: `"test:e2e": "nuxt build && playwright test"`), `use: { baseURL: 'http://localhost:3000' }`.
 - `auth.storage-state.json` stub as in Interfaces.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `pnpm --filter @dpdpa/web test:e2e` → PASS (6 tests).
 Also run full local gate: `set -o pipefail; pnpm lint && pnpm typecheck && pnpm exec turbo test --force && pnpm build && pnpm security:audit`.
 
-- [ ] **Step 5: Add CI job**
+- [x] **Step 5: Add CI job**
 
 `.github/workflows/ci.yml` new job `e2e` (runs on the same triggers as `code`): setup pnpm/node with workspace cache → `pnpm install --frozen-lockfile` → `npx playwright install --with-deps chromium` → `pnpm --filter @dpdpa/web build` → `pnpm --filter @dpdpa/web exec playwright test` → upload Playwright report artifact on failure. Root `package.json` gets `"test:e2e": "pnpm --filter @dpdpa/web test:e2e"`.
 

@@ -9,3 +9,5 @@ coverage/
 **/.codescene/
 .nuxt/
 .output/
+playwright-report/
+test-results/
