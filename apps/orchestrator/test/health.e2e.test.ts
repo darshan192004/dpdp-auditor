@@ -1,0 +1,43 @@
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { NestFastifyApplication } from '@nestjs/platform-fastify';
+import { createApp } from '../src/bootstrap.js';
+import type { Env } from '../src/config/env.js';
+
+const ENV_FIXTURE: Env = { NODE_ENV: 'test', PORT: 3001 };
+let app: NestFastifyApplication;
+
+beforeAll(async () => {
+  app = await createApp(ENV_FIXTURE);
+  await app.init();
+  await app.getHttpAdapter().getInstance().ready();
+});
+
+afterAll(async () => {
+  await app.close();
+});
+
+describe('health endpoints', () => {
+  it('GET /health returns the liveness contract', async () => {
+    const res = await app.inject({ method: 'GET', url: '/health' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(Object.keys(body).sort()).toEqual(
+      ['status', 'timestamp', 'uptimeSeconds', 'version'].sort(),
+    );
+    expect(body.status).toBe('ok');
+    expect(body.version).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(body.timestamp).toBe(new Date(body.timestamp).toISOString());
+  });
+
+  it('GET /ready returns readiness', async () => {
+    const res = await app.inject({ method: 'GET', url: '/ready' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ status: 'ok', checks: { config: 'ok' } });
+  });
+
+  it('GET /internal/v1/health returns the same liveness payload', async () => {
+    const res = await app.inject({ method: 'GET', url: '/internal/v1/health' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().status).toBe('ok');
+  });
+});
