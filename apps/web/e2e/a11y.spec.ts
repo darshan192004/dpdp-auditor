@@ -14,6 +14,6 @@ for (const path of PUBLIC_PATHS) {
       (violation) => violation.impact === 'serious' || violation.impact === 'critical',
     );
 
-    expect(blocking.map((violation) => `${violation.id}: ${violation.help}`)).toEqual([]);
+    expect(blocking).toHaveLength(0);
   });
 }

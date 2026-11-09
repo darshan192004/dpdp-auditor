@@ -21,8 +21,8 @@ test('skip link is the first tab stop and moves focus to main', async ({ page })
 });
 
 test('GET /health answers 200 with the status contract', async ({ request }) => {
-  const page = await request.get('/health');
-  expect(page.status()).toBe(200);
+  const healthResponse = await request.get('/health');
+  expect(healthResponse.status()).toBe(200);
 
   const api = await request.get('/api/health');
   expect(api.status()).toBe(200);

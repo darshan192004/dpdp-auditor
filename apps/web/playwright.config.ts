@@ -7,6 +7,9 @@ export default defineConfig({
     command: 'pnpm preview',
     port: 3000,
     reuseExistingServer: !process.env.CI,
+    // Cold-start headroom: `nuxt preview` re-bootstraps modules before serving
+    // (observed 14s+ for @nuxt/ui alone on a cold cache).
+    timeout: 120_000,
   },
   use: {
     baseURL: 'http://localhost:3000',
