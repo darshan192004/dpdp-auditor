@@ -1,0 +1,5 @@
+{
+  "cookies": [],
+  "origins": [],
+  "_comment": "Phase 2 authenticated-session stub (plan Task 7, P1-30): tests that need a signed-in session pass this file to Playwright's `storageState`. It stays empty until real auth lands; do not hand-craft session cookies here."
+}

@@ -4,6 +4,15 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
+  // Document-level a11y and identity (design §9; axe `document-title` and
+  // `html-has-lang` are serious violations on every public page).
+  app: {
+    head: {
+      htmlAttrs: { lang: 'en' },
+      title: 'DPDPA Auditor',
+    },
+  },
+
   typescript: {
     strict: true,
   },
