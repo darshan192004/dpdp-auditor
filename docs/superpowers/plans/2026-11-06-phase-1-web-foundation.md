@@ -373,9 +373,11 @@ Also run full local gate: `set -o pipefail; pnpm lint && pnpm typecheck && pnpm 
 
 `.github/workflows/ci.yml` new job `e2e` (runs on the same triggers as `code`): setup pnpm/node with workspace cache → `pnpm install --frozen-lockfile` → `npx playwright install --with-deps chromium` → `pnpm --filter @dpdpa/web build` → `pnpm --filter @dpdpa/web exec playwright test` → upload Playwright report artifact on failure. Root `package.json` gets `"test:e2e": "pnpm --filter @dpdpa/web test:e2e"`.
 
-- [ ] **Step 6: Commit → PR → gates → merge, then promote check**
+- [x] **Step 6: Commit → PR → gates → merge, then promote check**
 
 Branch `feat/P1-30-playwright`; commit `test(web): Playwright harness with a11y smoke and storage-state stub`. Full gate chain; confirm the new `E2E` job is green on the PR (it is not required yet). After merge + main green: `gh api repos/darshan192004/dpdp-auditor/branches/main/protection/required_status_checks/contexts -X POST -f context=E2E` and verify the context list now has 6 entries; record in the ledger.
+
+**Done (2026-11-09):** PR #25 merged (`a7698b6`) with all 7 checks green; PR-Agent suggestions applied/declined with rationale (comment 6736395784). Promotion: the plan's `-f context=E2E` form is outdated (422 `missing required key: contexts`), and JSON via PowerShell stdin hit a 422 `data cannot be null` — the working call is `gh api -X POST .../required_status_checks/contexts --input <utf8-no-bom-file>` with `{"contexts":["E2E"]}`. Verified `count=6`: `Code CI`, `Secret scan`, `Docs lint (markdownlint)`, `Workflow lint (actionlint)`, `SAST (semgrep)`, `E2E`. Recorded in the ledger.
 
 ---
 
