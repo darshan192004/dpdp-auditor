@@ -125,7 +125,9 @@ jobs:
           HUSKY: 0
 
       - name: Install Playwright chromium
-        run: npx playwright install --with-deps chromium
+        # Via the workspace package: `npx` runs from the repo root, where the
+        # binary is not on node_modules/.bin (pnpm does not hoist it).
+        run: pnpm --filter @dpdpa/web exec playwright install --with-deps chromium
 
       - name: Build web app
         run: pnpm --filter @dpdpa/web build
