@@ -42,9 +42,10 @@ describe('buildInternalRequest', () => {
     expect(request.headers['x-org-id']).toBe('org_test');
     expect(request.headers['x-user-id']).toBe('usr_test');
     expect(request.headers['idempotency-key']).toBe('idem_1');
+    expect(request.headers['content-type']).toBe('application/json');
   });
 
-  it('signs an empty body for GET', () => {
+  it('signs an empty body for GET and does not claim a JSON body', () => {
     const request = buildInternalRequest(
       EVENT,
       { method: 'GET', path: '/internal/v1/health' },
@@ -52,6 +53,7 @@ describe('buildInternalRequest', () => {
       () => 1_762_245_120_000,
     );
     expect(request.body).toBeUndefined();
+    expect(request.headers['content-type']).toBeUndefined();
     expect(request.headers['x-internal-signature']).toBe(
       'dd01d99f9b90fba783626aa0bb7b2e6127fa67be9796449cb88a6f758af8e51b',
     );

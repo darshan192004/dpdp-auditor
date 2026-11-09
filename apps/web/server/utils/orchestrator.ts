@@ -40,29 +40,35 @@ export function buildInternalRequest(
   const body = options.body === undefined ? '' : JSON.stringify(options.body);
   const timestamp = Math.floor(now() / 1000).toString();
   const headers: Record<string, string> = {
-    'content-type': 'application/json',
     'x-internal-key': config.internalKey,
     'x-internal-timestamp': timestamp,
     'x-internal-signature': signHmac(`${timestamp}.${body}`, config.hmacKey),
     'x-request-id': getRequestId(event),
   };
+  // Only advertise a JSON body when one is actually sent; GET/DELETE carry none.
+  if (body !== '') headers['content-type'] = 'application/json';
   if (typeof event.context.orgId === 'string') headers['x-org-id'] = event.context.orgId;
   if (typeof event.context.userId === 'string') headers['x-user-id'] = event.context.userId;
   if (options.idempotencyKey !== undefined) headers['idempotency-key'] = options.idempotencyKey;
   return { body: body === '' ? undefined : body, headers };
 }
 
-function readConfig(event: { context: { requestId?: string } }): OrchestratorConfig {
+function readConfig(): OrchestratorConfig {
   const runtime = useRuntimeConfig();
-  const config = {
+  return {
     url: runtime.orchestratorUrl,
     hmacKey: runtime.orchestratorHmacKey,
     internalKey: runtime.orchestratorInternalKey,
   };
+}
+
+function assertConfig(
+  event: { context: { requestId?: string } },
+  config: OrchestratorConfig,
+): void {
   if (!config.url || !config.hmacKey || !config.internalKey) {
     apiError(event, 500, 'INTERNAL_ERROR', 'The audit service is not configured.');
   }
-  return config;
 }
 
 export async function callOrchestrator<T>(
@@ -70,10 +76,9 @@ export async function callOrchestrator<T>(
   options: OrchestratorCallOptions,
   deps: Partial<OrchestratorDeps> = {},
 ): Promise<T> {
-  const config = deps.config ?? readConfig(event);
-  if (!config.url || !config.hmacKey || !config.internalKey) {
-    apiError(event, 500, 'INTERNAL_ERROR', 'The audit service is not configured.');
-  }
+  const config = deps.config ?? readConfig();
+  // One validation path, whether the config came from runtime config or a caller.
+  assertConfig(event, config);
   const fetch = deps.fetch ?? $fetch;
   const now = deps.now ?? Date.now;
   const request = buildInternalRequest(event, options, config, now);
