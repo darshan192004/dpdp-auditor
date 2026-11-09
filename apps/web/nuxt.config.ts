@@ -94,6 +94,9 @@ export default defineNuxtConfig({
   },
 
   nitro: {
+    // Every non-2xx response uses the docs/api.md §1.4 envelope. `~~` is the
+    // Nuxt root alias (the `~` alias points at `app/` in Nuxt 4).
+    errorHandler: '~~/server/error-handler.ts',
     routeRules: {
       '/api/**': { cors: false },
       '/app/**': { headers: { 'cache-control': 'no-store' } },
