@@ -1,20 +1,36 @@
 import { describe, expect, it } from 'vitest';
 import { loadEnv } from '../src/config/env.js';
 
+const KEYS = {
+  ORCHESTRATOR_HMAC_KEY: 'a'.repeat(32),
+  ORCHESTRATOR_INTERNAL_KEY: 'b'.repeat(32),
+};
+
 describe('loadEnv', () => {
   it('applies defaults', () => {
-    expect(loadEnv({})).toEqual({ NODE_ENV: 'development', PORT: 3001 });
+    expect(loadEnv(KEYS)).toEqual({ NODE_ENV: 'development', PORT: 3001, ...KEYS });
   });
 
   it('coerces PORT', () => {
-    expect(loadEnv({ PORT: '8080' }).PORT).toBe(8080);
+    expect(loadEnv({ ...KEYS, PORT: '8080' }).PORT).toBe(8080);
   });
 
   it('rejects an invalid PORT with the field path in the message', () => {
-    expect(() => loadEnv({ PORT: 'not-a-port' })).toThrow(/PORT/);
+    expect(() => loadEnv({ ...KEYS, PORT: 'not-a-port' })).toThrow(/PORT/);
   });
 
   it('rejects an unknown NODE_ENV', () => {
-    expect(() => loadEnv({ NODE_ENV: 'staging' })).toThrow(/NODE_ENV/);
+    expect(() => loadEnv({ ...KEYS, NODE_ENV: 'staging' })).toThrow(/NODE_ENV/);
+  });
+
+  it('requires the HMAC and internal keys', () => {
+    expect(() => loadEnv({})).toThrow(/ORCHESTRATOR_HMAC_KEY/);
+    expect(loadEnv(KEYS)).toMatchObject(KEYS);
+  });
+
+  it('rejects short keys', () => {
+    expect(() => loadEnv({ ...KEYS, ORCHESTRATOR_HMAC_KEY: 'short' })).toThrow(
+      /ORCHESTRATOR_HMAC_KEY/,
+    );
   });
 });

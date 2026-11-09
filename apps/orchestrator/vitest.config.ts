@@ -8,7 +8,7 @@ export default defineConfig({
       include: ['src/**/*.ts'],
       // Entrypoint: exercised by the e2e smoke in CI, not unit tests.
       exclude: ['src/main.ts'],
-      thresholds: { lines: 80, branches: 70 },
+      thresholds: { lines: 90, branches: 85 },
     },
   },
 });

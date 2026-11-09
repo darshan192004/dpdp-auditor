@@ -4,7 +4,12 @@ import { createApp } from '../src/bootstrap.js';
 import { SERVICE_VERSION } from '../src/version.js';
 import type { Env } from '../src/config/env.js';
 
-const ENV_FIXTURE: Env = { NODE_ENV: 'test', PORT: 3001 };
+const ENV_FIXTURE: Env = {
+  NODE_ENV: 'test',
+  PORT: 3001,
+  ORCHESTRATOR_HMAC_KEY: 'a'.repeat(32),
+  ORCHESTRATOR_INTERNAL_KEY: 'b'.repeat(32),
+};
 
 describe('bootstrap', () => {
   it('keeps SERVICE_VERSION in sync with package.json', () => {

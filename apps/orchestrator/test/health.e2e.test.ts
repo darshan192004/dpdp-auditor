@@ -3,7 +3,12 @@ import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { createApp } from '../src/bootstrap.js';
 import type { Env } from '../src/config/env.js';
 
-const ENV_FIXTURE: Env = { NODE_ENV: 'test', PORT: 3001 };
+const ENV_FIXTURE: Env = {
+  NODE_ENV: 'test',
+  PORT: 3001,
+  ORCHESTRATOR_HMAC_KEY: 'a'.repeat(32),
+  ORCHESTRATOR_INTERNAL_KEY: 'b'.repeat(32),
+};
 let app: NestFastifyApplication;
 
 beforeAll(async () => {
@@ -35,9 +40,8 @@ describe('health endpoints', () => {
     expect(res.json()).toMatchObject({ status: 'ok', checks: { config: 'ok' } });
   });
 
-  it('GET /internal/v1/health returns the same liveness payload', async () => {
+  it('protects the internal health route', async () => {
     const res = await app.inject({ method: 'GET', url: '/internal/v1/health' });
-    expect(res.statusCode).toBe(200);
-    expect(res.json().status).toBe('ok');
+    expect(res.statusCode).toBe(401);
   });
 });

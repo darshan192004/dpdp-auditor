@@ -1,4 +1,5 @@
-import { Controller, Get, Inject } from '@nestjs/common';
+import { Controller, Get, Inject, UseGuards } from '@nestjs/common';
+import { InternalHmacGuard } from '../internal-auth/internal-hmac.guard.js';
 import { HealthService } from './health.service.js';
 
 @Controller()
@@ -16,6 +17,7 @@ export class HealthController {
   }
 
   @Get('internal/v1/health')
+  @UseGuards(InternalHmacGuard)
   internalHealth() {
     return this.health.liveness();
   }
