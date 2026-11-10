@@ -1,0 +1,462 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Enums (docs/database.md §3) ────────────────────────────────────────
+
+enum OrgPlan {
+  free
+  starter
+  growth
+  enterprise
+  @@map("org_plan")
+}
+
+enum MemberRole {
+  owner
+  admin
+  auditor
+  viewer
+  @@map("member_role")
+}
+
+enum MembershipStatus {
+  invited
+  active
+  suspended
+  @@map("membership_status")
+}
+
+enum RepoVisibility {
+  public
+  private
+  internal
+  @@map("repo_visibility")
+}
+
+enum ScanStatus {
+  queued
+  cloning
+  scanning
+  mapping
+  completed
+  failed
+  cancelled
+  expired
+  @@map("scan_status")
+}
+
+enum ScanTrigger {
+  manual
+  api
+  @@map("scan_trigger")
+}
+
+enum ScannerName {
+  semgrep
+  checkov
+  gitleaks
+  @@map("scanner_name")
+}
+
+enum ScannerStatus {
+  pending
+  running
+  completed
+  failed
+  timed_out
+  skipped
+  @@map("scanner_status")
+}
+
+enum FindingSeverity {
+  critical
+  high
+  medium
+  low
+  info
+  @@map("finding_severity")
+}
+
+enum FindingStatus {
+  open
+  false_positive
+  accepted_risk
+  fixed
+  reopened
+  @@map("finding_status")
+}
+
+enum MappingConfidence {
+  direct
+  inferred
+  advisory
+  @@map("mapping_confidence")
+}
+
+enum ReportStatus {
+  queued
+  rendering
+  ready
+  failed
+  expired
+  @@map("report_status")
+}
+
+enum ReportFormat {
+  pdf
+  @@map("report_format")
+}
+
+// ── Tables (docs/database.md §4) ───────────────────────────────────────
+
+model Organization {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name              String    @db.Text
+  slug              String    @unique @db.Citext
+  plan              OrgPlan   @default(free)
+  dataRegion        String    @default("ap-south-1") @db.Text
+  retentionDays     Int       @default(90)
+  scanConcurrency   Int       @default(3) @db.SmallInt
+  billingCustomerId String?   @unique @db.Text
+  settings          Json      @default("{}")
+  createdAt         DateTime  @default(now()) @db.Timestamptz
+  updatedAt         DateTime  @default(now()) @db.Timestamptz
+  deletedAt         DateTime? @db.Timestamptz
+
+  memberships     Membership[]
+  repositories    Repository[]
+  apiKeys         ApiKey[]
+  scans           Scan[]
+  scanEvents      ScanEvent[]
+  findings        ScannerFinding[]
+  remediationLogs RemediationLog[]
+  reports         Report[]
+  auditLogs       AuditLog[]
+  usageEvents     UsageEvent[]
+  sessions        Session[]
+
+  @@map("organizations")
+}
+
+model User {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email            String    @unique @db.Citext
+  name             String?   @db.Text
+  avatarUrl        String?   @db.Text
+  githubUserId     BigInt?   @unique
+  emailVerifiedAt  DateTime? @db.Timestamptz
+  lastLoginAt      DateTime? @db.Timestamptz
+  createdAt        DateTime  @default(now()) @db.Timestamptz
+  updatedAt        DateTime  @default(now()) @db.Timestamptz
+  deletedAt        DateTime? @db.Timestamptz
+
+  memberships           Membership[]
+  membershipsInvited    Membership[]     @relation("MembershipInvitedBy")
+  repositoriesConnected Repository[]     @relation("RepoConnectedBy")
+  apiKeysCreated        ApiKey[]         @relation("ApiKeyCreatedBy")
+  scansRequested        Scan[]           @relation("ScanRequestedBy")
+  remediationActor      RemediationLog[] @relation("RemediationActor")
+  reportsRequested      Report[]         @relation("ReportRequestedBy")
+  auditActs             AuditLog[]       @relation("AuditActor")
+  sessions              Session[]
+
+  @@map("users")
+}
+
+model Membership {
+  orgId     String           @db.Uuid
+  userId    String           @db.Uuid
+  role      MemberRole       @default(viewer)
+  status    MembershipStatus @default(invited)
+  invitedBy String?          @db.Uuid
+  createdAt DateTime         @default(now()) @db.Timestamptz
+  updatedAt DateTime         @default(now()) @db.Timestamptz
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  inviter      User?        @relation("MembershipInvitedBy", fields: [invitedBy], references: [id], onDelete: SetNull)
+
+  @@id([orgId, userId])
+  @@map("memberships")
+}
+
+model Repository {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId         String         @db.Uuid
+  owner         String         @db.Citext
+  name          String         @db.Citext
+  githubRepoId  BigInt?
+  fullName      String         @db.Citext
+  defaultBranch String         @default("main") @db.Text
+  visibility    RepoVisibility @default(public)
+  language      String?        @db.Text
+  sizeKb        Int?
+  isArchived    Boolean        @default(false)
+  connectedBy   String?        @db.Uuid
+  lastScannedAt DateTime?      @db.Timestamptz
+  createdAt     DateTime       @default(now()) @db.Timestamptz
+  updatedAt     DateTime       @default(now()) @db.Timestamptz
+  deletedAt     DateTime?      @db.Timestamptz
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  connector    User?        @relation("RepoConnectedBy", fields: [connectedBy], references: [id], onDelete: SetNull)
+  scans        Scan[]
+
+  @@unique([orgId, githubRepoId])
+  @@unique([orgId, fullName])
+  @@map("repositories")
+}
+
+model ApiKey {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId      String    @db.Uuid
+  name       String    @db.Text
+  keyPrefix  String    @unique @db.Text
+  keyHash    String    @unique @db.Text
+  scopes     String[]
+  createdBy  String?   @db.Uuid
+  lastUsedAt DateTime? @db.Timestamptz
+  expiresAt  DateTime? @db.Timestamptz
+  revokedAt  DateTime? @db.Timestamptz
+  createdAt  DateTime  @default(now()) @db.Timestamptz
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  creator      User?        @relation("ApiKeyCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  scans        Scan[]
+
+  @@map("api_keys")
+}
+
+model Scan {
+  id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId           String      @db.Uuid
+  repositoryId    String      @db.Uuid
+  requestedBy     String?     @db.Uuid
+  apiKeyId        String?     @db.Uuid
+  trigger         ScanTrigger @default(manual)
+  status          ScanStatus  @default(queued)
+  ref             String      @default("main") @db.Text
+  commitSha       String?     @db.Text
+  scannerVersions Json        @default("{}")
+  rulePackVersion String?     @db.Text
+  scoringVersion  String?     @db.Text
+  score           Decimal?    @db.Decimal(5, 2)
+  grade           String?     @db.Char(1)
+  sectionScores   Json        @default("{}")
+  counts          Json        @default("{}")
+  coverage        Json        @default("{}")
+  errorCode       String?     @db.Text
+  errorMessage    String?     @db.Text
+  idempotencyKey  String?     @db.Text
+  jobName         String?     @db.Text
+  secretName      String?     @db.Text
+  queuedAt        DateTime    @default(now()) @db.Timestamptz
+  startedAt       DateTime?   @db.Timestamptz
+  completedAt     DateTime?   @db.Timestamptz
+  durationMs      Int?
+  createdAt       DateTime    @default(now()) @db.Timestamptz
+  updatedAt       DateTime    @default(now()) @db.Timestamptz
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  repository   Repository   @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  requester    User?        @relation("ScanRequestedBy", fields: [requestedBy], references: [id], onDelete: SetNull)
+  apiKey       ApiKey?      @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  events       ScanEvent[]
+  findings     ScannerFinding[]
+  reports      Report[]
+  usageEvents  UsageEvent[]
+
+  @@unique([orgId, idempotencyKey])
+  @@map("scans")
+}
+
+model ScanEvent {
+  id        BigInt   @id @default(autoincrement())
+  scanId    String   @db.Uuid
+  orgId     String   @db.Uuid
+  type      String   @db.Text
+  payload   Json     @default("{}")
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  scan         Scan         @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@map("scan_events")
+}
+
+model DpdpaRule {
+  id                  String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                String          @unique @db.Text
+  section             String          @db.Text
+  title               String          @db.Text
+  summary             String          @db.Text
+  obligation          String          @db.Text
+  legalReference      String          @db.Text
+  severity            FindingSeverity
+  weight              Decimal         @default(1) @db.Decimal(4, 2)
+  appliesWhen         Json            @default("{}")
+  remediationGuidance String          @db.Text
+  version             String          @default("1.0.0") @db.Text
+  isActive            Boolean         @default(true)
+  createdAt           DateTime        @default(now()) @db.Timestamptz
+  updatedAt           DateTime        @default(now()) @db.Timestamptz
+
+  mappings RuleMapping[]
+  findings ScannerFinding[]
+
+  @@map("dpdpa_rules")
+}
+
+model RuleMapping {
+  id                  String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dpdpaRuleId         String            @db.Uuid
+  scanner             ScannerName
+  scannerRuleId       String            @db.Text
+  scannerRuleVersion  String            @default("*") @db.Text
+  confidence          MappingConfidence @default(direct)
+  rationale           String            @db.Text
+  remediationTemplate String?           @db.Text
+  isActive            Boolean           @default(true)
+  createdAt           DateTime          @default(now()) @db.Timestamptz
+  updatedAt           DateTime          @default(now()) @db.Timestamptz
+
+  rule DpdpaRule @relation(fields: [dpdpaRuleId], references: [id], onDelete: Cascade)
+
+  @@unique([scanner, scannerRuleId, scannerRuleVersion, dpdpaRuleId])
+  @@map("rule_mappings")
+}
+
+model ScannerFinding {
+  id                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  scanId             String            @db.Uuid
+  orgId              String            @db.Uuid
+  scanner            ScannerName
+  scannerRuleId      String            @db.Text
+  scannerRuleVersion String?           @db.Text
+  dpdpaRuleId        String?           @db.Uuid
+  severity           FindingSeverity
+  confidence         MappingConfidence @default(direct)
+  filePath           String?           @db.Text
+  lineStart          Int?
+  lineEnd            Int?
+  columnStart        Int?
+  columnEnd          Int?
+  message            String            @db.Text
+  evidenceRedacted   String?           @db.Text
+  evidenceHash       String?           @db.Text
+  fingerprint        String            @db.Text
+  status             FindingStatus     @default(open)
+  isNew              Boolean           @default(true)
+  firstSeenAt        DateTime          @default(now()) @db.Timestamptz
+  lastSeenAt         DateTime          @default(now()) @db.Timestamptz
+  context            Json              @default("{}")
+  createdAt          DateTime          @default(now()) @db.Timestamptz
+  updatedAt          DateTime          @default(now()) @db.Timestamptz
+
+  scan            Scan            @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  organization    Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  dpdpaRule       DpdpaRule?      @relation(fields: [dpdpaRuleId], references: [id], onDelete: SetNull)
+  remediationLogs RemediationLog[]
+
+  @@unique([scanId, fingerprint])
+  @@map("scanner_findings")
+}
+
+model RemediationLog {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  findingId   String   @db.Uuid
+  orgId       String   @db.Uuid
+  actorUserId String?  @db.Uuid
+  action      String   @db.Text
+  note        String?  @db.Text
+  externalUrl String?  @db.Text
+  createdAt   DateTime @default(now()) @db.Timestamptz
+
+  finding      ScannerFinding @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  organization Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  actor        User?          @relation("RemediationActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@map("remediation_logs")
+}
+
+model Report {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  scanId          String       @db.Uuid
+  orgId           String       @db.Uuid
+  status          ReportStatus @default(queued)
+  format          ReportFormat @default(pdf)
+  templateVersion String       @db.Text
+  storageKey      String?      @unique @db.Text
+  sha256          String?      @db.Char(64)
+  sizeBytes       BigInt?
+  requestedBy     String?      @db.Uuid
+  errorMessage    String?      @db.Text
+  expiresAt       DateTime?    @db.Timestamptz
+  createdAt       DateTime     @default(now()) @db.Timestamptz
+  updatedAt       DateTime     @default(now()) @db.Timestamptz
+
+  scan         Scan         @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  requester    User?        @relation("ReportRequestedBy", fields: [requestedBy], references: [id], onDelete: SetNull)
+
+  @@map("reports")
+}
+
+model AuditLog {
+  id           BigInt   @id @default(autoincrement())
+  orgId        String?  @db.Uuid
+  actorUserId  String?  @db.Uuid
+  actorType    String   @db.Text
+  action       String   @db.Text
+  resourceType String   @db.Text
+  resourceId   String?  @db.Uuid
+  ip           String?  @db.Inet
+  userAgent    String?  @db.Text
+  metadata     Json     @default("{}")
+  createdAt    DateTime @default(now()) @db.Timestamptz
+
+  organization Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  actor        User?         @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+}
+
+model UsageEvent {
+  id        BigInt   @id @default(autoincrement())
+  orgId     String?  @db.Uuid
+  scanId    String?  @db.Uuid
+  eventType String   @db.Text
+  eventId   String   @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quantity  Decimal  @default(1) @db.Decimal(12, 4)
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  organization Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  scan         Scan?         @relation(fields: [scanId], references: [id], onDelete: SetNull)
+
+  @@unique([orgId, eventId])
+  @@map("usage_events")
+}
+
+model Session {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String    @db.Uuid
+  activeOrgId       String?   @db.Uuid
+  ip                String?   @db.Inet
+  userAgent         String?   @db.Text
+  createdAt         DateTime  @default(now()) @db.Timestamptz
+  lastSeenAt        DateTime  @default(now()) @db.Timestamptz
+  absoluteExpiresAt DateTime  @db.Timestamptz
+  revokedAt         DateTime? @db.Timestamptz
+
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activeOrg Organization? @relation(fields: [activeOrgId], references: [id], onDelete: SetNull)
+
+  @@map("sessions")
+}

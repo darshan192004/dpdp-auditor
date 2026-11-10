@@ -4,6 +4,7 @@ import { loadEnv } from '../src/config/env.js';
 const KEYS = {
   ORCHESTRATOR_HMAC_KEY: 'a'.repeat(32),
   ORCHESTRATOR_INTERNAL_KEY: 'b'.repeat(32),
+  DATABASE_URL: 'postgresql://test:test@127.0.0.1:5432/dpdpa_test',
 };
 
 describe('loadEnv', () => {
@@ -26,6 +27,11 @@ describe('loadEnv', () => {
   it('requires the HMAC and internal keys', () => {
     expect(() => loadEnv({})).toThrow(/ORCHESTRATOR_HMAC_KEY/);
     expect(loadEnv(KEYS)).toMatchObject(KEYS);
+  });
+
+  it('requires DATABASE_URL', () => {
+    const { DATABASE_URL: _url, ...rest } = KEYS;
+    expect(() => loadEnv(rest)).toThrow(/DATABASE_URL/);
   });
 
   it('rejects short keys', () => {
