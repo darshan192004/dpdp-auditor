@@ -684,20 +684,28 @@ ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY tenant_isolation_repos ON repositories
-  USING (org_id = current_setting('app.current_org', true)::uuid);
+  USING (org_id = NULLIF(current_setting('app.current_org', true), '')::uuid);
 
 CREATE POLICY tenant_isolation_scans ON scans
-  USING (org_id = current_setting('app.current_org', true)::uuid);
+  USING (org_id = NULLIF(current_setting('app.current_org', true), '')::uuid);
 
 CREATE POLICY tenant_isolation_findings ON scanner_findings
-  USING (org_id = current_setting('app.current_org', true)::uuid);
+  USING (org_id = NULLIF(current_setting('app.current_org', true), '')::uuid);
 
 CREATE POLICY tenant_isolation_reports ON reports
-  USING (org_id = current_setting('app.current_org', true)::uuid);
+  USING (org_id = NULLIF(current_setting('app.current_org', true), '')::uuid);
 
 CREATE POLICY tenant_isolation_audit ON audit_logs
-  USING (org_id = current_setting('app.current_org', true)::uuid);
+  USING (org_id = NULLIF(current_setting('app.current_org', true), '')::uuid);
 ```
+
+The `NULLIF` guard is load-bearing: `current_setting(..., true)` returns `NULL` only while the
+setting has never been seen on the connection. After any transaction runs `SET LOCAL
+app.current_org` and commits, the setting remains present-but-empty (`''`) in the session, and
+`''::uuid` raises `22P02` on the next query of a pooled connection instead of matching zero rows.
+`NULLIF` makes a missing org context deterministically mean "no visible rows". The init migration
+applies the unguarded form; `20261111000001_rls_policy_nullif` replaces the five policies with the
+guarded form.
 
 The orchestrator sets the value per transaction:
 

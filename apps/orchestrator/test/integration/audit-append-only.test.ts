@@ -59,7 +59,7 @@ describeDb('audit_logs append-only + RLS', () => {
       runtime.auditLog.create({
         data: { actorType: 'system', action: 'x.y', resourceType: 'thing' },
       }),
-    ).rejects.toThrow();
+    ).rejects.toThrow(/row-level security|42501/);
   });
 
   it('refuses UPDATE and DELETE on audit_logs (append-only)', async () => {
