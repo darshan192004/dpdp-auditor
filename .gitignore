@@ -47,3 +47,6 @@ test-results/
 # Local database files
 prisma/*.db
 prisma/*.db-journal
+
+# Playwright MCP session artifacts (never committed)
+.playwright-mcp/
