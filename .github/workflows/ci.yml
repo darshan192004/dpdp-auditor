@@ -71,6 +71,58 @@ jobs:
       - name: Audit dependencies
         run: pnpm security:audit
 
+  migrate:
+    name: Migrations
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: dpdpa_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://test:test@localhost:5432/dpdpa_test
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          HUSKY: 0
+
+      - name: Validate schema
+        run: pnpm --filter @dpdpa/orchestrator exec prisma validate
+
+      - name: Migrate empty database
+        run: pnpm --filter @dpdpa/orchestrator exec prisma migrate deploy
+
+      - name: Create one-version-behind database
+        run: >
+          pnpm --filter @dpdpa/orchestrator exec prisma db execute
+          --url postgresql://test:test@localhost:5432/postgres
+          --stdin <<< 'CREATE DATABASE dpdpa_behind;'
+
+      - name: Upgrade database one version behind
+        run: DATABASE_URL=postgresql://test:test@localhost:5432/dpdpa_behind bash apps/orchestrator/scripts/check-migrations.sh
+
   sast:
     name: SAST (semgrep)
     runs-on: ubuntu-latest

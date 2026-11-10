@@ -13,6 +13,8 @@
     "test:e2e": "pnpm --filter @dpdpa/web test:e2e",
     "build": "turbo build",
     "format": "prettier --write .",
+    "db:migrate": "pnpm --filter @dpdpa/orchestrator exec prisma migrate dev",
+    "db:deploy": "pnpm --filter @dpdpa/orchestrator exec prisma migrate deploy",
     "security:audit": "pnpm audit --audit-level=high",
     "security:secrets": "gitleaks git --no-banner",
     "prepare": "husky"
