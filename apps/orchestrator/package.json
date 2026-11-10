@@ -12,6 +12,7 @@
     "prisma:generate": "prisma generate",
     "lint": "eslint . --config ../../eslint.config.js && prettier --check .",
     "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
@@ -32,6 +33,7 @@
     "eslint": "^10.14.0",
     "prettier": "^3.9.10",
     "prisma": "5.22.0",
+    "testcontainers": "12.2.1",
     "typescript": "~6.0",
     "vitest": "^5.1.0"
   }
