@@ -14,6 +14,7 @@ enum OrgPlan {
   starter
   growth
   enterprise
+
   @@map("org_plan")
 }
 
@@ -22,6 +23,7 @@ enum MemberRole {
   admin
   auditor
   viewer
+
   @@map("member_role")
 }
 
@@ -29,6 +31,7 @@ enum MembershipStatus {
   invited
   active
   suspended
+
   @@map("membership_status")
 }
 
@@ -36,6 +39,7 @@ enum RepoVisibility {
   public
   private
   internal
+
   @@map("repo_visibility")
 }
 
@@ -48,12 +52,14 @@ enum ScanStatus {
   failed
   cancelled
   expired
+
   @@map("scan_status")
 }
 
 enum ScanTrigger {
   manual
   api
+
   @@map("scan_trigger")
 }
 
@@ -61,6 +67,7 @@ enum ScannerName {
   semgrep
   checkov
   gitleaks
+
   @@map("scanner_name")
 }
 
@@ -71,6 +78,7 @@ enum ScannerStatus {
   failed
   timed_out
   skipped
+
   @@map("scanner_status")
 }
 
@@ -80,6 +88,7 @@ enum FindingSeverity {
   medium
   low
   info
+
   @@map("finding_severity")
 }
 
@@ -89,6 +98,7 @@ enum FindingStatus {
   accepted_risk
   fixed
   reopened
+
   @@map("finding_status")
 }
 
@@ -96,6 +106,7 @@ enum MappingConfidence {
   direct
   inferred
   advisory
+
   @@map("mapping_confidence")
 }
 
@@ -105,11 +116,13 @@ enum ReportStatus {
   ready
   failed
   expired
+
   @@map("report_status")
 }
 
 enum ReportFormat {
   pdf
+
   @@map("report_format")
 }
 
@@ -120,14 +133,14 @@ model Organization {
   name              String    @db.Text
   slug              String    @unique @db.Citext
   plan              OrgPlan   @default(free)
-  dataRegion        String    @default("ap-south-1") @db.Text
-  retentionDays     Int       @default(90)
-  scanConcurrency   Int       @default(3) @db.SmallInt
-  billingCustomerId String?   @unique @db.Text
+  dataRegion        String    @default("ap-south-1") @map("data_region") @db.Text
+  retentionDays     Int       @default(90) @map("retention_days")
+  scanConcurrency   Int       @default(3) @map("scan_concurrency") @db.SmallInt
+  billingCustomerId String?   @unique @map("billing_customer_id") @db.Text
   settings          Json      @default("{}")
-  createdAt         DateTime  @default(now()) @db.Timestamptz
-  updatedAt         DateTime  @default(now()) @db.Timestamptz
-  deletedAt         DateTime? @db.Timestamptz
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz
 
   memberships     Membership[]
   repositories    Repository[]
@@ -145,16 +158,16 @@ model Organization {
 }
 
 model User {
-  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email            String    @unique @db.Citext
-  name             String?   @db.Text
-  avatarUrl        String?   @db.Text
-  githubUserId     BigInt?   @unique
-  emailVerifiedAt  DateTime? @db.Timestamptz
-  lastLoginAt      DateTime? @db.Timestamptz
-  createdAt        DateTime  @default(now()) @db.Timestamptz
-  updatedAt        DateTime  @default(now()) @db.Timestamptz
-  deletedAt        DateTime? @db.Timestamptz
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email           String    @unique @db.Citext
+  name            String?   @db.Text
+  avatarUrl       String?   @map("avatar_url") @db.Text
+  githubUserId    BigInt?   @unique @map("github_user_id")
+  emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz
+  lastLoginAt     DateTime? @map("last_login_at") @db.Timestamptz
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz
 
   memberships           Membership[]
   membershipsInvited    Membership[]     @relation("MembershipInvitedBy")
@@ -170,13 +183,13 @@ model User {
 }
 
 model Membership {
-  orgId     String           @db.Uuid
-  userId    String           @db.Uuid
+  orgId     String           @map("org_id") @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
   role      MemberRole       @default(viewer)
   status    MembershipStatus @default(invited)
-  invitedBy String?          @db.Uuid
-  createdAt DateTime         @default(now()) @db.Timestamptz
-  updatedAt DateTime         @default(now()) @db.Timestamptz
+  invitedBy String?          @map("invited_by") @db.Uuid
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime         @default(now()) @map("updated_at") @db.Timestamptz
 
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -188,21 +201,21 @@ model Membership {
 
 model Repository {
   id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orgId         String         @db.Uuid
+  orgId         String         @map("org_id") @db.Uuid
   owner         String         @db.Citext
   name          String         @db.Citext
-  githubRepoId  BigInt?
-  fullName      String         @db.Citext
-  defaultBranch String         @default("main") @db.Text
+  githubRepoId  BigInt?        @map("github_repo_id")
+  fullName      String         @map("full_name") @db.Citext
+  defaultBranch String         @default("main") @map("default_branch") @db.Text
   visibility    RepoVisibility @default(public)
   language      String?        @db.Text
-  sizeKb        Int?
-  isArchived    Boolean        @default(false)
-  connectedBy   String?        @db.Uuid
-  lastScannedAt DateTime?      @db.Timestamptz
-  createdAt     DateTime       @default(now()) @db.Timestamptz
-  updatedAt     DateTime       @default(now()) @db.Timestamptz
-  deletedAt     DateTime?      @db.Timestamptz
+  sizeKb        Int?           @map("size_kb")
+  isArchived    Boolean        @default(false) @map("is_archived")
+  connectedBy   String?        @map("connected_by") @db.Uuid
+  lastScannedAt DateTime?      @map("last_scanned_at") @db.Timestamptz
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime       @default(now()) @map("updated_at") @db.Timestamptz
+  deletedAt     DateTime?      @map("deleted_at") @db.Timestamptz
 
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   connector    User?        @relation("RepoConnectedBy", fields: [connectedBy], references: [id], onDelete: SetNull)
@@ -215,16 +228,16 @@ model Repository {
 
 model ApiKey {
   id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orgId      String    @db.Uuid
+  orgId      String    @map("org_id") @db.Uuid
   name       String    @db.Text
-  keyPrefix  String    @unique @db.Text
-  keyHash    String    @unique @db.Text
+  keyPrefix  String    @unique @map("key_prefix") @db.Text
+  keyHash    String    @unique @map("key_hash") @db.Text
   scopes     String[]
-  createdBy  String?   @db.Uuid
-  lastUsedAt DateTime? @db.Timestamptz
-  expiresAt  DateTime? @db.Timestamptz
-  revokedAt  DateTime? @db.Timestamptz
-  createdAt  DateTime  @default(now()) @db.Timestamptz
+  createdBy  String?   @map("created_by") @db.Uuid
+  lastUsedAt DateTime? @map("last_used_at") @db.Timestamptz
+  expiresAt  DateTime? @map("expires_at") @db.Timestamptz
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
 
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   creator      User?        @relation("ApiKeyCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
@@ -235,38 +248,38 @@ model ApiKey {
 
 model Scan {
   id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orgId           String      @db.Uuid
-  repositoryId    String      @db.Uuid
-  requestedBy     String?     @db.Uuid
-  apiKeyId        String?     @db.Uuid
+  orgId           String      @map("org_id") @db.Uuid
+  repositoryId    String      @map("repository_id") @db.Uuid
+  requestedBy     String?     @map("requested_by") @db.Uuid
+  apiKeyId        String?     @map("api_key_id") @db.Uuid
   trigger         ScanTrigger @default(manual)
   status          ScanStatus  @default(queued)
   ref             String      @default("main") @db.Text
-  commitSha       String?     @db.Text
-  scannerVersions Json        @default("{}")
-  rulePackVersion String?     @db.Text
-  scoringVersion  String?     @db.Text
+  commitSha       String?     @map("commit_sha") @db.Text
+  scannerVersions Json        @default("{}") @map("scanner_versions")
+  rulePackVersion String?     @map("rule_pack_version") @db.Text
+  scoringVersion  String?     @map("scoring_version") @db.Text
   score           Decimal?    @db.Decimal(5, 2)
   grade           String?     @db.Char(1)
-  sectionScores   Json        @default("{}")
+  sectionScores   Json        @default("{}") @map("section_scores")
   counts          Json        @default("{}")
   coverage        Json        @default("{}")
-  errorCode       String?     @db.Text
-  errorMessage    String?     @db.Text
-  idempotencyKey  String?     @db.Text
-  jobName         String?     @db.Text
-  secretName      String?     @db.Text
-  queuedAt        DateTime    @default(now()) @db.Timestamptz
-  startedAt       DateTime?   @db.Timestamptz
-  completedAt     DateTime?   @db.Timestamptz
-  durationMs      Int?
-  createdAt       DateTime    @default(now()) @db.Timestamptz
-  updatedAt       DateTime    @default(now()) @db.Timestamptz
+  errorCode       String?     @map("error_code") @db.Text
+  errorMessage    String?     @map("error_message") @db.Text
+  idempotencyKey  String?     @map("idempotency_key") @db.Text
+  jobName         String?     @map("job_name") @db.Text
+  secretName      String?     @map("secret_name") @db.Text
+  queuedAt        DateTime    @default(now()) @map("queued_at") @db.Timestamptz
+  startedAt       DateTime?   @map("started_at") @db.Timestamptz
+  completedAt     DateTime?   @map("completed_at") @db.Timestamptz
+  durationMs      Int?        @map("duration_ms")
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime    @default(now()) @map("updated_at") @db.Timestamptz
 
-  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  repository   Repository   @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-  requester    User?        @relation("ScanRequestedBy", fields: [requestedBy], references: [id], onDelete: SetNull)
-  apiKey       ApiKey?      @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  organization Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  repository   Repository       @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  requester    User?            @relation("ScanRequestedBy", fields: [requestedBy], references: [id], onDelete: SetNull)
+  apiKey       ApiKey?          @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
   events       ScanEvent[]
   findings     ScannerFinding[]
   reports      Report[]
@@ -278,11 +291,11 @@ model Scan {
 
 model ScanEvent {
   id        BigInt   @id @default(autoincrement())
-  scanId    String   @db.Uuid
-  orgId     String   @db.Uuid
+  scanId    String   @map("scan_id") @db.Uuid
+  orgId     String   @map("org_id") @db.Uuid
   type      String   @db.Text
   payload   Json     @default("{}")
-  createdAt DateTime @default(now()) @db.Timestamptz
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   scan         Scan         @relation(fields: [scanId], references: [id], onDelete: Cascade)
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -297,15 +310,15 @@ model DpdpaRule {
   title               String          @db.Text
   summary             String          @db.Text
   obligation          String          @db.Text
-  legalReference      String          @db.Text
+  legalReference      String          @map("legal_reference") @db.Text
   severity            FindingSeverity
   weight              Decimal         @default(1) @db.Decimal(4, 2)
-  appliesWhen         Json            @default("{}")
-  remediationGuidance String          @db.Text
+  appliesWhen         Json            @default("{}") @map("applies_when")
+  remediationGuidance String          @map("remediation_guidance") @db.Text
   version             String          @default("1.0.0") @db.Text
-  isActive            Boolean         @default(true)
-  createdAt           DateTime        @default(now()) @db.Timestamptz
-  updatedAt           DateTime        @default(now()) @db.Timestamptz
+  isActive            Boolean         @default(true) @map("is_active")
+  createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime        @default(now()) @map("updated_at") @db.Timestamptz
 
   mappings RuleMapping[]
   findings ScannerFinding[]
@@ -315,16 +328,16 @@ model DpdpaRule {
 
 model RuleMapping {
   id                  String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  dpdpaRuleId         String            @db.Uuid
+  dpdpaRuleId         String            @map("dpdpa_rule_id") @db.Uuid
   scanner             ScannerName
-  scannerRuleId       String            @db.Text
-  scannerRuleVersion  String            @default("*") @db.Text
+  scannerRuleId       String            @map("scanner_rule_id") @db.Text
+  scannerRuleVersion  String            @default("*") @map("scanner_rule_version") @db.Text
   confidence          MappingConfidence @default(direct)
   rationale           String            @db.Text
-  remediationTemplate String?           @db.Text
-  isActive            Boolean           @default(true)
-  createdAt           DateTime          @default(now()) @db.Timestamptz
-  updatedAt           DateTime          @default(now()) @db.Timestamptz
+  remediationTemplate String?           @map("remediation_template") @db.Text
+  isActive            Boolean           @default(true) @map("is_active")
+  createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime          @default(now()) @map("updated_at") @db.Timestamptz
 
   rule DpdpaRule @relation(fields: [dpdpaRuleId], references: [id], onDelete: Cascade)
 
@@ -334,34 +347,34 @@ model RuleMapping {
 
 model ScannerFinding {
   id                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  scanId             String            @db.Uuid
-  orgId              String            @db.Uuid
+  scanId             String            @map("scan_id") @db.Uuid
+  orgId              String            @map("org_id") @db.Uuid
   scanner            ScannerName
-  scannerRuleId      String            @db.Text
-  scannerRuleVersion String?           @db.Text
-  dpdpaRuleId        String?           @db.Uuid
+  scannerRuleId      String            @map("scanner_rule_id") @db.Text
+  scannerRuleVersion String?           @map("scanner_rule_version") @db.Text
+  dpdpaRuleId        String?           @map("dpdpa_rule_id") @db.Uuid
   severity           FindingSeverity
   confidence         MappingConfidence @default(direct)
-  filePath           String?           @db.Text
-  lineStart          Int?
-  lineEnd            Int?
-  columnStart        Int?
-  columnEnd          Int?
+  filePath           String?           @map("file_path") @db.Text
+  lineStart          Int?              @map("line_start")
+  lineEnd            Int?              @map("line_end")
+  columnStart        Int?              @map("column_start")
+  columnEnd          Int?              @map("column_end")
   message            String            @db.Text
-  evidenceRedacted   String?           @db.Text
-  evidenceHash       String?           @db.Text
+  evidenceRedacted   String?           @map("evidence_redacted") @db.Text
+  evidenceHash       String?           @map("evidence_hash") @db.Text
   fingerprint        String            @db.Text
   status             FindingStatus     @default(open)
-  isNew              Boolean           @default(true)
-  firstSeenAt        DateTime          @default(now()) @db.Timestamptz
-  lastSeenAt         DateTime          @default(now()) @db.Timestamptz
+  isNew              Boolean           @default(true) @map("is_new")
+  firstSeenAt        DateTime          @default(now()) @map("first_seen_at") @db.Timestamptz
+  lastSeenAt         DateTime          @default(now()) @map("last_seen_at") @db.Timestamptz
   context            Json              @default("{}")
-  createdAt          DateTime          @default(now()) @db.Timestamptz
-  updatedAt          DateTime          @default(now()) @db.Timestamptz
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime          @default(now()) @map("updated_at") @db.Timestamptz
 
-  scan            Scan            @relation(fields: [scanId], references: [id], onDelete: Cascade)
-  organization    Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  dpdpaRule       DpdpaRule?      @relation(fields: [dpdpaRuleId], references: [id], onDelete: SetNull)
+  scan            Scan             @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  organization    Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  dpdpaRule       DpdpaRule?       @relation(fields: [dpdpaRuleId], references: [id], onDelete: SetNull)
   remediationLogs RemediationLog[]
 
   @@unique([scanId, fingerprint])
@@ -370,13 +383,13 @@ model ScannerFinding {
 
 model RemediationLog {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  findingId   String   @db.Uuid
-  orgId       String   @db.Uuid
-  actorUserId String?  @db.Uuid
+  findingId   String   @map("finding_id") @db.Uuid
+  orgId       String   @map("org_id") @db.Uuid
+  actorUserId String?  @map("actor_user_id") @db.Uuid
   action      String   @db.Text
   note        String?  @db.Text
-  externalUrl String?  @db.Text
-  createdAt   DateTime @default(now()) @db.Timestamptz
+  externalUrl String?  @map("external_url") @db.Text
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   finding      ScannerFinding @relation(fields: [findingId], references: [id], onDelete: Cascade)
   organization Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -387,19 +400,19 @@ model RemediationLog {
 
 model Report {
   id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  scanId          String       @db.Uuid
-  orgId           String       @db.Uuid
+  scanId          String       @map("scan_id") @db.Uuid
+  orgId           String       @map("org_id") @db.Uuid
   status          ReportStatus @default(queued)
   format          ReportFormat @default(pdf)
-  templateVersion String       @db.Text
-  storageKey      String?      @unique @db.Text
+  templateVersion String       @map("template_version") @db.Text
+  storageKey      String?      @unique @map("storage_key") @db.Text
   sha256          String?      @db.Char(64)
-  sizeBytes       BigInt?
-  requestedBy     String?      @db.Uuid
-  errorMessage    String?      @db.Text
-  expiresAt       DateTime?    @db.Timestamptz
-  createdAt       DateTime     @default(now()) @db.Timestamptz
-  updatedAt       DateTime     @default(now()) @db.Timestamptz
+  sizeBytes       BigInt?      @map("size_bytes")
+  requestedBy     String?      @map("requested_by") @db.Uuid
+  errorMessage    String?      @map("error_message") @db.Text
+  expiresAt       DateTime?    @map("expires_at") @db.Timestamptz
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime     @default(now()) @map("updated_at") @db.Timestamptz
 
   scan         Scan         @relation(fields: [scanId], references: [id], onDelete: Cascade)
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -410,16 +423,16 @@ model Report {
 
 model AuditLog {
   id           BigInt   @id @default(autoincrement())
-  orgId        String?  @db.Uuid
-  actorUserId  String?  @db.Uuid
-  actorType    String   @db.Text
+  orgId        String?  @map("org_id") @db.Uuid
+  actorUserId  String?  @map("actor_user_id") @db.Uuid
+  actorType    String   @map("actor_type") @db.Text
   action       String   @db.Text
-  resourceType String   @db.Text
-  resourceId   String?  @db.Uuid
+  resourceType String   @map("resource_type") @db.Text
+  resourceId   String?  @map("resource_id") @db.Uuid
   ip           String?  @db.Inet
-  userAgent    String?  @db.Text
+  userAgent    String?  @map("user_agent") @db.Text
   metadata     Json     @default("{}")
-  createdAt    DateTime @default(now()) @db.Timestamptz
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   organization Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
   actor        User?         @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
@@ -429,13 +442,13 @@ model AuditLog {
 
 model UsageEvent {
   id        BigInt   @id @default(autoincrement())
-  orgId     String?  @db.Uuid
-  scanId    String?  @db.Uuid
-  eventType String   @db.Text
-  eventId   String   @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId     String?  @map("org_id") @db.Uuid
+  scanId    String?  @map("scan_id") @db.Uuid
+  eventType String   @map("event_type") @db.Text
+  eventId   String   @default(dbgenerated("gen_random_uuid()")) @map("event_id") @db.Uuid
   quantity  Decimal  @default(1) @db.Decimal(12, 4)
   metadata  Json     @default("{}")
-  createdAt DateTime @default(now()) @db.Timestamptz
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   organization Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
   scan         Scan?         @relation(fields: [scanId], references: [id], onDelete: SetNull)
@@ -446,14 +459,14 @@ model UsageEvent {
 
 model Session {
   id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId            String    @db.Uuid
-  activeOrgId       String?   @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  activeOrgId       String?   @map("active_org_id") @db.Uuid
   ip                String?   @db.Inet
-  userAgent         String?   @db.Text
-  createdAt         DateTime  @default(now()) @db.Timestamptz
-  lastSeenAt        DateTime  @default(now()) @db.Timestamptz
-  absoluteExpiresAt DateTime  @db.Timestamptz
-  revokedAt         DateTime? @db.Timestamptz
+  userAgent         String?   @map("user_agent") @db.Text
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  lastSeenAt        DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz
+  absoluteExpiresAt DateTime  @map("absolute_expires_at") @db.Timestamptz
+  revokedAt         DateTime? @map("revoked_at") @db.Timestamptz
 
   user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   activeOrg Organization? @relation(fields: [activeOrgId], references: [id], onDelete: SetNull)

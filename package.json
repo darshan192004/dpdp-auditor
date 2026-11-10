@@ -15,6 +15,7 @@
     "format": "prettier --write .",
     "db:migrate": "pnpm --filter @dpdpa/orchestrator exec prisma migrate dev",
     "db:deploy": "pnpm --filter @dpdpa/orchestrator exec prisma migrate deploy",
+    "test:integration": "turbo run test:integration",
     "security:audit": "pnpm audit --audit-level=high",
     "security:secrets": "gitleaks git --no-banner",
     "prepare": "husky"
