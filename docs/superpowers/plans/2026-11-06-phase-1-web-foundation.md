@@ -1,6 +1,6 @@
 # Phase 1 Web Foundation Implementation Plan
 
-> **Status (2026-11-06):** Task 1 (P1-22) complete — PR #19, all gates green, merged to `main`. Next: Task 2 (P1-25 token lint). Tasks 2–7 untouched. P1-26/P1-27 blocked on backend P1-15. Keep this file in the repo as the cross-machine source of truth; mirror checkbox updates here when tasks land.
+> **Status (2026-11-10):** Tasks 1-7 (P1-22…P1-30) complete and merged. Backend foundation plan complete: P1-11 (#27), P1-15 (#29), P1-26 (#30), P1-27 (#31) are on `main` at `ec5bc5a` — **P1-26/P1-27 are no longer blocked**. Keep this file in the repo as the cross-machine source of truth; mirror checkbox updates here when tasks land.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -383,7 +383,7 @@ Branch `feat/P1-30-playwright`; commit `test(web): Playwright harness with a11y 
 
 ## Out of scope (recorded, not forgotten)
 
-- **P1-26 / P1-27** (`callOrchestrator` + Nitro error handler): blocked on backend **P1-15** (HMAC guard) — next plan after backend foundation.
+- **P1-26 / P1-27** (`callOrchestrator` + Nitro error handler): **done** in the backend foundation plan — merged as PR #30 (`bcbe53a`) and PR #31 (`ec5bc5a`).
 - **P1-08…P1-10, P1-31…P1-34**: Platform/cloud track — deferred per standing local-only decision.
 - **Backend P1-11…P1-21**: separate plan; needed before P1-26/27 and Phase 2.
 - §8.1 route rate limits (Redis-backed) — deferred with P1-18.

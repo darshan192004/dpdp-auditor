@@ -1,12 +1,12 @@
 # Phase 1 Backend Foundation Implementation Plan
 
-> **Status (2026-11-09):** Not started. Written to unblock the 33 remaining frontend tasks. Four tasks, four gated PRs: P1-11 → P1-15 → P1-26 → P1-27.
+> **Status (2026-11-10):** **Complete.** Four gated PRs merged to `main`: P1-11 (#27, `a23a1b4`) → P1-15 (#29, `6e407dc`) → P1-26 (#30, `bcbe53a`) → P1-27 (#31, `ec5bc5a`). All required checks and PR-Agent reviews passed; the 33 remaining frontend tasks are unblocked.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Stand up the private orchestrator service (NestJS + Fastify) with validated configuration, graceful shutdown and health endpoints; add the HMAC guard for `/internal/v1`; then add the Nitro-side `callOrchestrator` client and the global error handler so the web app can talk to it. This unblocks every remaining Phase 1 frontend task.
 
-**Architecture:** A new pnpm workspace package `apps/orchestrator` (`@dpdpa/orchestrator`) compiled with `tsc` to CommonJS. NestJS modules stay thin: `config` (Zod-validated env), `modules/health`, `modules/internal-auth` (HMAC guard). The web side adds pure server utils under `apps/web/server/utils/` plus a Nitro request-id middleware and a custom Nitro error handler. HMAC is duplicated deliberately (sign in Nitro, verify in Nest) so the client bundle never imports `node:crypto`; a shared fixed test vector in both suites keeps the two implementations honest.
+**Architecture:** A new pnpm workspace package `apps/orchestrator` (`@dpdpa/orchestrator`) compiled with `tsc` to **ESM** (`"type": "module"`, `module: nodenext`; the NestJS 12 packages are ESM-only, so relative imports keep explicit `.js` specifiers). NestJS modules stay thin: `config` (Zod-validated env), `modules/health`, `modules/internal-auth` (HMAC guard). The web side adds pure server utils under `apps/web/server/utils/` plus a Nitro request-id middleware and a custom Nitro error handler. HMAC is duplicated deliberately (sign in Nitro, verify in Nest) so the client bundle never imports `node:crypto`; a shared fixed test vector in both suites keeps the two implementations honest.
 
 **Tech Stack:** Node 22, pnpm 9.15.9, Turborepo 2, TypeScript 6 (strict base config), NestJS 12 (`@nestjs/core`/`common`/`platform-fastify` 12.4.1), Fastify 5.12.8, Zod 4, Vitest 5 + v8 coverage, Nitro/Nuxt 4.6.4, `h3` + `ofetch`.
 
@@ -50,7 +50,7 @@
 - Consumes: workspace globs (`pnpm-workspace.yaml` already includes `apps/*`), root `tsconfig.base.json`, root lint config.
 - Produces: package `@dpdpa/orchestrator` with scripts `build`, `start`, `typecheck`, `lint`, `test`, `test:coverage`; `createApp(env)` (exported from `src/bootstrap.ts`) used by every later test; env token `ENV` and type `Env`; `GET /health`, `GET /ready`, `GET /internal/v1/health`; `HealthService` (extended in Task 2, given a DB check in P1-12).
 
-- [ ] **Step 1: Scaffold the package and wire the workspace**
+- [x] **Step 1: Scaffold the package and wire the workspace**
 
 `apps/orchestrator/package.json`:
 
@@ -136,7 +136,7 @@ export default defineConfig({
 
 Run `. "$env:LOCALAPPDATA\Temp\opencode\use-node22.ps1"` then `pnpm install` from the repo root. Commit the updated `pnpm-lock.yaml`.
 
-- [ ] **Step 2: Write the failing config test**
+- [x] **Step 2: Write the failing config test**
 
 `apps/orchestrator/test/env.test.ts`:
 
@@ -163,7 +163,7 @@ describe('loadEnv', () => {
 });
 ```
 
-- [ ] **Step 3: Implement the Zod config**
+- [x] **Step 3: Implement the Zod config**
 
 `apps/orchestrator/src/config/env.ts`:
 
@@ -210,7 +210,7 @@ export class ConfigModule {
 
 Run `pnpm --filter @dpdpa/orchestrator test` — the config tests pass.
 
-- [ ] **Step 4: Write the failing health/bootstrap tests**
+- [x] **Step 4: Write the failing health/bootstrap tests**
 
 `apps/orchestrator/test/health.e2e.test.ts`:
 
@@ -293,7 +293,7 @@ describe('bootstrap', () => {
 
 > The shutdown-hook assertion is intentionally weak at this layer; Task 2's guard e2e reuses `createApp` and `app.close()`, and the `HealthService.onApplicationShutdown` flip is asserted there once the guard suite owns a second app instance. Do not add process signal tests that kill the test runner.
 
-- [ ] **Step 5: Implement version, health module, app module, bootstrap, main**
+- [x] **Step 5: Implement version, health module, app module, bootstrap, main**
 
 `apps/orchestrator/src/version.ts`:
 
@@ -451,7 +451,7 @@ pnpm --filter @dpdpa/orchestrator build
 pnpm lint
 ```
 
-- [ ] **Step 6: Verify the compiled server boots and answers**
+- [x] **Step 6: Verify the compiled server boots and answers**
 
 ```powershell
 . "$env:LOCALAPPDATA\Temp\opencode\use-node22.ps1"
@@ -468,7 +468,7 @@ try {
 
 Expected: two JSON payloads, `status: "ok"`.
 
-- [ ] **Step 7: Local gate, commit, PR, review, merge**
+- [x] **Step 7: Local gate, commit, PR, review, merge**
 
 ```powershell
 . "$env:LOCALAPPDATA\Temp\opencode\use-node22.ps1"
@@ -503,7 +503,7 @@ Create the PR with `C:\Users\darsh\AppData\Local\Temp\opencode\ghw.ps1` (pass ar
 - Consumes: `ENV` token/`Env` from Task 1; `errorEnvelopeSchema` from `@dpdpa/contracts`.
 - Produces: `computeSignature(secret, timestamp, rawBody)`, `verifyInternalRequest(input): VerifyResult`, `InternalHmacGuard` (exported by `InternalAuthModule` for every future `/internal/v1` controller), `internalErrorBody(code, message, requestId)`, `resolveRequestId(headers)`.
 
-- [ ] **Step 1: Extend the config test, then the schema**
+- [x] **Step 1: Extend the config test, then the schema**
 
 Add to `test/env.test.ts`:
 
@@ -536,7 +536,7 @@ export const envSchema = z.object({
 
 Update both test fixtures to `{ NODE_ENV: 'test', PORT: 3001, ...KEYS }`.
 
-- [ ] **Step 2: Write the failing pure-HMAC tests**
+- [x] **Step 2: Write the failing pure-HMAC tests**
 
 `apps/orchestrator/test/hmac.test.ts`:
 
@@ -637,7 +637,7 @@ describe('verifyInternalRequest', () => {
 });
 ```
 
-- [ ] **Step 3: Implement the pure HMAC verifier**
+- [x] **Step 3: Implement the pure HMAC verifier**
 
 `apps/orchestrator/src/common/hmac.ts`:
 
@@ -697,7 +697,7 @@ export function verifyInternalRequest(input: VerifyInput): VerifyResult {
 }
 ```
 
-- [ ] **Step 4: Implement request-id and envelope helpers, then the guard**
+- [x] **Step 4: Implement request-id and envelope helpers, then the guard**
 
 `apps/orchestrator/src/common/request-id.ts`:
 
@@ -804,7 +804,7 @@ Update `health.module.ts` to import `InternalAuthModule`; add `@UseGuards(Intern
 internalHealth() { return this.health.liveness(); }
 ```
 
-- [ ] **Step 5: Write and run the e2e guard test**
+- [x] **Step 5: Write and run the e2e guard test**
 
 `apps/orchestrator/test/internal-hmac-guard.e2e.test.ts`:
 
@@ -891,7 +891,7 @@ describe('InternalHmacGuard', () => {
 
 Run `pnpm --filter @dpdpa/orchestrator test:coverage` and `typecheck`. If Fastify's `req.rawBody` is `undefined` for GET, confirm `{ rawBody: true }` reached the adapter; for POST coverage add a POST test route in a future task (no POST routes exist yet).
 
-- [ ] **Step 6: Local gate, commit, PR, review, merge**
+- [x] **Step 6: Local gate, commit, PR, review, merge**
 
 Same procedure as Task 1. PR title: `feat(orchestrator): HMAC guard for /internal/v1 with skew and constant-time compare (P1-15)`. Body must state: 300 s boundary tested at exactly ±300 (accepted) and ±301 (rejected), uppercase hex accepted, all failure bodies match `errorEnvelopeSchema`, and the deliberate duplication of the HMAC algorithm with the cross-package vector.
 
@@ -915,7 +915,7 @@ Same procedure as Task 1. PR title: `feat(orchestrator): HMAC guard for /interna
 
 > **Note on task boundary:** `apiError` lands here because `callOrchestrator` must map upstream failures through it (code_style §6.1). Task 4 (P1-27) adds the global Nitro error handler and proves `apiError` reaches the wire.
 
-- [ ] **Step 1: Write the failing request-id and api-error tests**
+- [x] **Step 1: Write the failing request-id and api-error tests**
 
 `apps/web/test/request-id.test.ts`:
 
@@ -988,7 +988,7 @@ describe('apiError', () => {
 });
 ```
 
-- [ ] **Step 2: Implement request-id, middleware and apiError**
+- [x] **Step 2: Implement request-id, middleware and apiError**
 
 `apps/web/server/utils/request-id.ts`:
 
@@ -1052,7 +1052,7 @@ export function apiError(
 
 Add to `apps/web/package.json` dependencies: `"@dpdpa/contracts": "workspace:*"`, `"h3": "^1.15.4"`, `"ofetch": "^1.4.1"` (versions must match what Nuxt 4.6.4 already resolved in the lockfile — check `pnpm why h3` and pin the resolved ranges).
 
-- [ ] **Step 3: Write the failing orchestrator-client tests**
+- [x] **Step 3: Write the failing orchestrator-client tests**
 
 `apps/web/test/orchestrator.test.ts`:
 
@@ -1149,7 +1149,7 @@ describe('callOrchestrator', () => {
 });
 ```
 
-- [ ] **Step 4: Implement the orchestrator client**
+- [x] **Step 4: Implement the orchestrator client**
 
 `apps/web/server/utils/orchestrator.ts`:
 
@@ -1255,7 +1255,7 @@ Update `apps/web/nuxt.config.ts` runtimeConfig:
 
 Run `pnpm --filter @dpdpa/web test`, `pnpm --filter @dpdpa/web typecheck`.
 
-- [ ] **Step 5: Local gate, commit, PR, review, merge**
+- [x] **Step 5: Local gate, commit, PR, review, merge**
 
 Same procedure. PR title: `feat(web): callOrchestrator server util with HMAC signing and timeout (P1-26)`. Body must include the cross-package vector proof and note that `apiError` lands here so Task 4 can consume it.
 
@@ -1275,7 +1275,7 @@ Same procedure. PR title: `feat(web): callOrchestrator server util with HMAC sig
 - Consumes: `getRequestId`/`REQUEST_ID_PATTERN`, `apiError` (Task 3), `ERROR_CODES` type from `@dpdpa/contracts`.
 - Produces: `toErrorEnvelope(error, requestId): { status, body }`, the default-exported Nitro error handler, and a global guarantee that every non-2xx response is `{ error: { code, message, requestId, details? } }`.
 
-- [ ] **Step 1: Write the failing mapper tests**
+- [x] **Step 1: Write the failing mapper tests**
 
 `apps/web/test/error-envelope.test.ts`:
 
@@ -1332,7 +1332,7 @@ describe('toErrorEnvelope', () => {
 });
 ```
 
-- [ ] **Step 2: Implement the mapper and handler**
+- [x] **Step 2: Implement the mapper and handler**
 
 `apps/web/server/utils/error-envelope.ts`:
 
@@ -1437,7 +1437,7 @@ Update `nuxt.config.ts`:
 
 If Nitro cannot resolve `~/error-handler`, the fallback is to move the file to `apps/web/server/error.ts` and delete the `errorHandler` key (Nitro's default is `~/error`).
 
-- [ ] **Step 3: Write the failing e2e test**
+- [x] **Step 3: Write the failing e2e test**
 
 `apps/web/test/error-handler.e2e.test.ts`:
 
@@ -1473,7 +1473,7 @@ Update `apps/web/vitest.config.ts`:
 
 Run `pnpm --filter @dpdpa/web test` (the e2e project builds Nitro once) and `pnpm --filter @dpdpa/web typecheck`.
 
-- [ ] **Step 4: Local gate, commit, PR, review, merge**
+- [x] **Step 4: Local gate, commit, PR, review, merge**
 
 Same procedure. PR title: `feat(web): global Nitro error handler and apiError helper (P1-27)`. Body must show the unknown-route e2e output and confirm no upstream URL/stack appears in a 5xx.
 
@@ -1481,17 +1481,17 @@ Same procedure. PR title: `feat(web): global Nitro error handler and apiError he
 
 ## Final Verification
 
-- [ ] `pnpm lint` green at root.
-- [ ] `pnpm typecheck` green (turbo builds contracts first).
-- [ ] `pnpm test:coverage` green; orchestrator ≥ 80/70 in Task 1 and ≥ 90/85 after Task 2; web unchanged floors.
-- [ ] `pnpm build` green (orchestrator emits `dist/main.js`, web emits `.output/`).
-- [ ] All four PRs merged; `origin/main` contains `apps/orchestrator`, `server/utils/orchestrator.ts`, `server/utils/api-error.ts`, `server/error-handler.ts`.
-- [ ] Update `docs/superpowers/plans/2026-11-06-phase-1-web-foundation.md` status line: P1-26/P1-27 are no longer blocked.
-- [ ] Append evidence to `.superpowers/sdd/2026-11-06-phase-1-web-foundation/ledger.md` (or a new ledger for this plan) and `docs/memory.md` if a pin changed.
+- [x] `pnpm lint` green at root.
+- [x] `pnpm typecheck` green (turbo builds contracts first).
+- [x] `pnpm test:coverage` green; orchestrator ≥ 80/70 in Task 1 and ≥ 90/85 after Task 2; web unchanged floors.
+- [x] `pnpm build` green (orchestrator emits `dist/main.js`, web emits `.output/`).
+- [x] All four PRs merged; `origin/main` (`ec5bc5a`) contains `apps/orchestrator`, `server/utils/orchestrator.ts`, `server/utils/api-error.ts`, `server/error-handler.ts`.
+- [x] Update `docs/superpowers/plans/2026-11-06-phase-1-web-foundation.md` status line: P1-26/P1-27 are no longer blocked.
+- [x] Append evidence to `.superpowers/sdd/2026-11-06-phase-1-web-foundation/ledger.md` (or a new ledger for this plan) and `docs/memory.md` if a pin changed.
 
 ## Execution Log
 
-- [ ] Task 1 (P1-11) — branch, PR #, checks, merge SHA
-- [ ] Task 2 (P1-15) — branch, PR #, checks, merge SHA
-- [ ] Task 3 (P1-26) — branch, PR #, checks, merge SHA
-- [ ] Task 4 (P1-27) — branch, PR #, checks, merge SHA
+- [x] Task 1 (P1-11) - branch `feat/P1-11-orchestrator-bootstrap`, PR #27, 6/6 required checks, merged `a23a1b4`
+- [x] Task 2 (P1-15) - branch `feat/P1-15-internal-hmac-guard`, PR #29, 7/7 checks, merged `6e407dc`
+- [x] Task 3 (P1-26) - branch `feat/P1-26-call-orchestrator`, PR #30, 7/7 checks, merged `bcbe53a`
+- [x] Task 4 (P1-27) - branch `feat/P1-27-nitro-error-handler`, PR #31, 7/7 checks, merged `ec5bc5a`
