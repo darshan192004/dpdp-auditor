@@ -9,6 +9,7 @@ import {
   PinoLoggerService,
   requestLogFields,
 } from './common/logger.js';
+import { recordHttpRequest } from './common/metrics.js';
 import { loadEnv, type Env } from './config/env.js';
 
 export async function createApp(env: Env = loadEnv()): Promise<NestFastifyApplication> {
@@ -27,6 +28,12 @@ export async function createApp(env: Env = loadEnv()): Promise<NestFastifyApplic
   });
   fastify.addHook('onResponse', (request, reply, done) => {
     logger.info(requestLogFields(request, reply.statusCode), 'request completed');
+    recordHttpRequest(
+      request.routeOptions?.url ?? 'unmatched',
+      request.method,
+      reply.statusCode,
+      reply.elapsedTime / 1000,
+    );
     done();
   });
   app.enableShutdownHooks();
