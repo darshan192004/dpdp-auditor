@@ -1,15 +1,13 @@
 import {
-  HttpException,
   Inject,
   Injectable,
+  UnauthorizedException,
   type CanActivate,
   type ExecutionContext,
   type RawBodyRequest,
 } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
-import { internalErrorBody } from '../../common/api-error.js';
 import { verifyInternalRequest } from '../../common/hmac.js';
-import { resolveRequestId } from '../../common/request-id.js';
 import { ENV, type Env } from '../../config/env.js';
 
 function header(value: string | string[] | undefined): string | undefined {
@@ -34,16 +32,9 @@ export class InternalHmacGuard implements CanActivate {
       maxSkewSeconds: 300,
     });
     if (!result.ok) {
-      // P1-14 replaces this with the global exception filter; the body is
-      // already the contract envelope so clients are unaffected.
-      throw new HttpException(
-        internalErrorBody(
-          'UNAUTHENTICATED',
-          'The internal request could not be authenticated.',
-          resolveRequestId(headers),
-        ),
-        401,
-      );
+      // The envelope (code, requestId) is built by ApiExceptionFilter (P1-14);
+      // clients see the same contract body as before.
+      throw new UnauthorizedException('The internal request could not be authenticated.');
     }
     return true;
   }
