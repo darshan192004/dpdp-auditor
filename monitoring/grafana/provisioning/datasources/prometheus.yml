@@ -1,0 +1,16 @@
+# Grafana datasource provisioning (P1-31). The `prometheus` uid is referenced
+# by monitoring/grafana/provisioning/alerting/burn-rate.yml and dashboards.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      httpMethod: POST
+      timeInterval: 30s
+      manageAlerts: false

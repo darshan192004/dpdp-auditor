@@ -1,0 +1,123 @@
+# Service level objectives as code (tasks.md P1-31).
+#
+# Authority: docs/operations.md §1 (targets, windows, measurement, exclusions)
+# and §4 (alert routing). PRD §8 owns the numbers; this file mirrors them so
+# Prometheus/Grafana provisioning and CI drift checks read one source.
+#
+# Parsed and validated by packages/contracts/src/slo.ts.
+version: 1
+
+exclusions:
+  - id: planned-maintenance
+    description: >-
+      Planned maintenance windows announced at least 48 h ahead.
+  - id: customer-error
+    description: >-
+      Failures caused by the customer: bad URL, private or nonexistent repo,
+      plan quota exhaustion (e.g. REPO_NOT_FOUND, VALIDATION_ERROR).
+  - id: waf-rate-limit
+    description: >-
+      Requests rejected by the WAF or rate limits before reaching the app.
+
+slos:
+  - id: web-api-availability
+    name: Availability — web + public API
+    kind: ratio
+    target: 0.995
+    window: calendar_month
+    measurement: Successful non-5xx responses / total requests (synthetic + real)
+    # OTel histogram exported by apps/orchestrator/src/common/metrics.ts:
+    # api_request_duration_seconds_count{status_class="2xx"|"3xx"|"4xx"|"5xx"}.
+    expression: >-
+      1 - (
+        sum(rate(api_request_duration_seconds_count{status_class="5xx"}[WINDOW]))
+        /
+        sum(rate(api_request_duration_seconds_count[WINDOW]))
+      )
+    exclusions:
+      - planned-maintenance
+      - customer-error
+      - waf-rate-limit
+
+  - id: scan-execution-availability
+    name: Availability — scan execution
+    kind: ratio
+    target: 0.99
+    window: calendar_month
+    measurement: >-
+      Completed (incl. partial) scans / scans started, excluding user error
+      (REPO_NOT_FOUND, VALIDATION_ERROR)
+    # scan_failure_rate is the orchestrator-computed ratio gauge; the
+    # user_error label carries the §1 exclusion.
+    expression: 'avg_over_time(scan_failure_rate{user_error="false"}[WINDOW])'
+    exclusions:
+      - planned-maintenance
+      - customer-error
+
+  - id: scan-latency
+    name: Scan latency
+    kind: latency
+    percentile: 95
+    thresholdMs: 600000
+    metric: scan_duration_seconds
+    window: rolling_7d
+    measurement: >-
+      p95 < 10 min for repos ≤ 100 MB; queue wait excluded from the slow end
+      once submitted
+    exclusions:
+      - planned-maintenance
+
+  - id: api-latency
+    name: API latency
+    kind: latency
+    percentile: 95
+    thresholdMs: 400
+    metric: api_request_duration_seconds
+    window: rolling_7d
+    measurement: p95 < 400 ms
+    exclusions:
+      - planned-maintenance
+      - waf-rate-limit
+
+  - id: queue-wait
+    name: Queue wait
+    kind: latency
+    percentile: 95
+    thresholdMs: 60000
+    metric: scan_queue_wait_seconds
+    window: rolling_7d
+    measurement: p95 < 60 s, measured enqueue → job start
+    exclusions:
+      - planned-maintenance
+
+  - id: pdf-render
+    name: PDF render
+    kind: latency
+    percentile: 95
+    thresholdMs: 10000
+    metric: report_render_duration_seconds
+    window: rolling_7d
+    measurement: p95 < 10 s
+    exclusions:
+      - planned-maintenance
+
+# docs/operations.md §1: "2%/1h fast, 5%/6h slow". Burn rate 1 exhausts the
+# 30-day budget over the whole SLO window, so multiplier = budgetFraction ×
+# sloWindowHours / windowHours → 14.4× fast, 6× slow. Threshold per SLO is
+# multiplier × allowed-failure-fraction (1 − target, or 1 − percentile/100).
+errorBudget:
+  sloWindowHours: 720
+  fast:
+    budgetFraction: 0.02
+    windowHours: 1
+    severity: P1
+    confirmation:
+      short: 5m
+      long: 1h
+  slow:
+    budgetFraction: 0.05
+    windowHours: 6
+    severity: P2
+    confirmation:
+      short: 30m
+      long: 6h
