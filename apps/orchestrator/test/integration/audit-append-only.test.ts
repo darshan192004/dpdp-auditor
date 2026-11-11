@@ -62,6 +62,36 @@ describeDb('audit_logs append-only + RLS', () => {
     ).rejects.toThrow(/row-level security|42501/);
   });
 
+  it('fails closed on an explicit null orgId (insert and read)', async () => {
+    // The policy has no separate WITH CHECK, so USING applies to INSERTs too:
+    // org_id IS NULL never satisfies `org_id = <uuid>` — not even with the
+    // org context set. org_id is nullable by spec (ON DELETE SET NULL keeps
+    // audit history when an org is deleted), so this path must fail closed.
+    await expect(
+      runtime.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT set_config('app.current_org', ${orgId}, true)`;
+        return tx.auditLog.create({
+          data: { orgId: null, actorType: 'system', action: 'x.y', resourceType: 'thing' },
+        });
+      }),
+    ).rejects.toThrow(/row-level security|42501/);
+
+    // A null-org row written by the privileged owner is invisible to the
+    // runtime role under any org context — readable by no tenant, not all.
+    const orphan = await owner.auditLog.create({
+      data: { orgId: null, actorType: 'system', action: 'x.y', resourceType: 'thing' },
+    });
+    try {
+      const visible = await runtime.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT set_config('app.current_org', ${orgId}, true)`;
+        return tx.auditLog.findMany({ where: { id: orphan.id } });
+      });
+      expect(visible).toEqual([]);
+    } finally {
+      await owner.auditLog.delete({ where: { id: orphan.id } });
+    }
+  });
+
   it('refuses UPDATE and DELETE on audit_logs (append-only)', async () => {
     // SELECT needs the org context (RLS USING); UPDATE/DELETE are refused by
     // the missing table privilege (42501) before RLS is even evaluated.
