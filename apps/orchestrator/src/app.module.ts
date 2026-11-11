@@ -4,13 +4,14 @@ import { loadEnv, type Env } from './config/env.js';
 import { AuditModule } from './modules/audit/audit.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
+import { QueueModule } from './queue/queue.module.js';
 
 @Module({})
 export class AppModule {
   static forRoot(env: Env = loadEnv()): DynamicModule {
     return {
       module: AppModule,
-      imports: [ConfigModule.forRoot(env), PrismaModule, AuditModule, HealthModule],
+      imports: [ConfigModule.forRoot(env), PrismaModule, AuditModule, HealthModule, QueueModule],
     };
   }
 }
