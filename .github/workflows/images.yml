@@ -1,0 +1,112 @@
+name: Images
+
+# App image build pipeline (tasks.md P1-34): build, Trivy scan, CycloneDX SBOM,
+# and cosign signing. PRs build/scan/SBOM without pushing; main pushes to GHCR
+# and signs the digest (security.md §11, architecture.md §11 release flow).
+#
+# The renderer image joins this matrix when P5-17 lands apps/renderer; there is
+# no renderer source to build yet.
+
+on:
+  pull_request:
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'docker/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.dockerignore'
+      - '.github/workflows/images.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'docker/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.dockerignore'
+      - '.github/workflows/images.yml'
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+  images:
+    name: Image (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: web
+            dockerfile: docker/web.Dockerfile
+          - name: orchestrator
+            dockerfile: docker/orchestrator.Dockerfile
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build ${{ matrix.name }} image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          # PRs load locally for scanning; main pushes the digest-pinned image.
+          load: ${{ github.event_name != 'push' }}
+          push: ${{ github.event_name == 'push' }}
+          tags: ghcr.io/${{ github.repository }}/${{ matrix.name }}:${{ github.sha }}
+          # Attestations only exist on the registry export; PR builds load locally.
+          provenance: ${{ github.event_name == 'push' && 'mode=max' || 'false' }}
+          sbom: ${{ github.event_name == 'push' }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+      - name: Smoke test ${{ matrix.name }} image
+        run: >
+          docker run --rm
+          ghcr.io/${{ github.repository }}/${{ matrix.name }}:${{ github.sha }}
+          -e "console.log('image ok')"
+
+      - name: Scan ${{ matrix.name }} image (Trivy)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ghcr.io/${{ github.repository }}/${{ matrix.name }}:${{ github.sha }}
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          format: table
+
+      - name: Generate CycloneDX SBOM (${{ matrix.name }})
+        uses: anchore/sbom-action@v0
+        with:
+          image: ghcr.io/${{ github.repository }}/${{ matrix.name }}:${{ github.sha }}
+          format: cyclonedx-json
+          artifact-name: sbom-${{ matrix.name }}.cdx.json
+          output-file: sbom-${{ matrix.name }}.cdx.json
+          upload-artifact: true
+
+      - name: Install cosign
+        if: github.event_name == 'push'
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign ${{ matrix.name }} image (keyless)
+        if: github.event_name == 'push'
+        run: >
+          cosign sign --yes
+          ghcr.io/${{ github.repository }}/${{ matrix.name }}@${{ steps.build.outputs.digest }}
