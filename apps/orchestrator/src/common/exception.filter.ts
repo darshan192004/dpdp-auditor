@@ -37,7 +37,7 @@ export class ApiExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<FastifyReply>();
     const request = host.switchToHttp().getRequest<FastifyRequest>();
-    const requestId = resolveRequestId(request.headers);
+    const requestId = request.requestId ?? resolveRequestId(request.headers);
 
     let status: number;
     let message: string;
