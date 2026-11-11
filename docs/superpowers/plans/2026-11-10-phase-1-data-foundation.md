@@ -1,5 +1,7 @@
 # Phase 1 Data Foundation Implementation Plan
 
+> **Status (2026-11-11):** **Complete.** Four gated PRs merged to `main`: P1-12 (#33, `bff6bc0`) → P1-13 (#34, `df0a9fd`) → P1-20 (#35, `587d67b`) → P1-21 (#36, `7c7195a`). All required checks and PR-Agent reviews passed; the P1-21 security finding was declined with fail-closed test evidence (`a7f62b9`). The PR-Agent runs also caught and fixed two real Task-1 defects (missing field `@map`s, RLS `NULLIF` guard). The follow-up backend tasks (P1-14, P1-16, P1-17, P1-18, P1-19) are unblocked.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 > Checkboxes are filled in by the closing docs-only PR (repo convention, see PR #32).
 
@@ -43,7 +45,7 @@ Each task = one branch → one PR → gate chain → merge. Order: P1-12 → P1-
 **Interfaces:**
 - Produces: `PrismaService` (extends `PrismaClient`, constructor `@Inject(ENV) env: Env`, `super({ datasourceUrl: env.DATABASE_URL })`, `onModuleDestroy()` → `$disconnect()`), exported from global `PrismaModule`; `Env.DATABASE_URL: string` (required, `z.string().url()`); DB objects per `docs/database.md`.
 
-- [ ] **Step 1: Add dependencies and scripts**
+- [x] **Step 1: Add dependencies and scripts**
 
 ```powershell
 . "$env:LOCALAPPDATA\Temp\opencode\use-node22.ps1"
@@ -62,7 +64,7 @@ In `apps/orchestrator/package.json` scripts add:
 
 Pin both prisma deps to exact versions in package.json (drop any `^`).
 
-- [ ] **Step 2: Write the failing schema test** — `apps/orchestrator/test/schema.test.ts`:
+- [x] **Step 2: Write the failing schema test** — `apps/orchestrator/test/schema.test.ts`:
 
 ```ts
 import { readFileSync } from 'node:fs';
@@ -133,12 +135,12 @@ describe('prisma schema mirrors docs/database.md', () => {
 });
 ```
 
-- [ ] **Step 3: Run to verify it fails**
+- [x] **Step 3: Run to verify it fails**
 
 Run: `pnpm --filter @dpdpa/orchestrator exec vitest run test/schema.test.ts`
 Expected: FAIL (files missing).
 
-- [ ] **Step 4: Write `prisma/schema.prisma`**
+- [x] **Step 4: Write `prisma/schema.prisma`**
 
 Full content (Prisma 5, exact):
 
@@ -609,7 +611,7 @@ model Session {
 
 If `prisma validate` rejects a construct (e.g. `@default(["scan:read"])` omitted above, `@default(1)` for Decimal, or enum `@@map`), fix by the minimal change that validates and note it in the PR body — the hand-authored SQL in Step 5 is authoritative for the database either way.
 
-- [ ] **Step 5: Write `prisma/migrations/migration_lock.toml` and the init migration**
+- [x] **Step 5: Write `prisma/migrations/migration_lock.toml` and the init migration**
 
 `prisma/migrations/migration_lock.toml`:
 
@@ -629,13 +631,13 @@ provider = "postgresql"
 
 (§4.4 is "No table" — skip it.) Verify with: `Select-String -Path apps\orchestrator\prisma\migrations\20261110000000_init\migration.sql -Pattern 'CREATE TABLE'` → 15 hits.
 
-- [ ] **Step 6: Run schema test + `prisma validate`**
+- [x] **Step 6: Run schema test + `prisma validate`**
 
 Run: `pnpm --filter @dpdpa/orchestrator exec vitest run test/schema.test.ts` → PASS.
 Run: `pnpm --filter @dpdpa/orchestrator exec prisma validate` → valid.
 Run: `pnpm --filter @dpdpa/orchestrator exec prisma generate` → client generated.
 
-- [ ] **Step 7: Env + Prisma module (failing tests first)**
+- [x] **Step 7: Env + Prisma module (failing tests first)**
 
 Add `test/prisma.service.test.ts`:
 
@@ -717,7 +719,7 @@ import { PrismaModule } from './prisma/prisma.module.js';
 // imports: [ConfigModule.forRoot(env), PrismaModule, HealthModule],
 ```
 
-- [ ] **Step 8: Update every Env fixture**
+- [x] **Step 8: Update every Env fixture**
 
 Grep `ORCHESTRATOR_INTERNAL_KEY` in `apps/orchestrator/test` (4 files: `env.test.ts` KEYS, `bootstrap.test.ts`, `health.e2e.test.ts`, `internal-hmac-guard.e2e.test.ts` ENV_FIXTUREs). In each object add the line:
 
@@ -733,13 +735,13 @@ In `env.test.ts` also add a case:
   });
 ```
 
-- [ ] **Step 9: Full verification**
+- [x] **Step 9: Full verification**
 
 Run tests: `pnpm --filter @dpdpa/orchestrator exec vitest run` → all PASS.
 Run coverage: `pnpm --filter @dpdpa/orchestrator test:coverage` → thresholds 90/85 hold.
 Run full gate: stop port 3000, then `powershell -File C:\Users\darsh\AppData\Local\Temp\opencode\worktree-gate.ps1` → `GATE RESULT: ALL GREEN` (restart preview afterwards).
 
-- [ ] **Step 10: Commit, PR, merge**
+- [x] **Step 10: Commit, PR, merge**
 
 ```powershell
 git checkout -b feat/p1-12-prisma-schema
@@ -758,7 +760,7 @@ PR body includes: scope, down note ("drop schema: `DROP SCHEMA public CASCADE; C
 - Consumes: `prisma/schema.prisma`, `prisma/migrations/` from Task 1.
 - Produces: CI job `Migrations` (check name), root scripts `db:migrate` / `db:deploy`, `apps/orchestrator/scripts/check-migrations.sh`.
 
-- [ ] **Step 1: `check-migrations.sh`**
+- [x] **Step 1: `check-migrations.sh`**
 
 ```bash
 #!/usr/bin/env bash
@@ -785,7 +787,7 @@ pnpm exec prisma migrate deploy
 pnpm exec prisma migrate status
 ```
 
-- [ ] **Step 2: CI job** — append to `.github/workflows/ci.yml` `jobs:` (after `code`), mirroring existing step styles:
+- [x] **Step 2: CI job** — append to `.github/workflows/ci.yml` `jobs:` (after `code`), mirroring existing step styles:
 
 ```yaml
   migrate:
@@ -838,20 +840,20 @@ pnpm exec prisma migrate status
         run: DATABASE_URL=postgresql://test:test@localhost:5432/dpdpa_behind bash apps/orchestrator/scripts/check-migrations.sh
 ```
 
-- [ ] **Step 3: root scripts** — root `package.json` scripts add:
+- [x] **Step 3: root scripts** — root `package.json` scripts add:
 
 ```json
 "db:migrate": "pnpm --filter @dpdpa/orchestrator exec prisma migrate dev",
 "db:deploy": "pnpm --filter @dpdpa/orchestrator exec prisma migrate deploy"
 ```
 
-- [ ] **Step 4: Verify locally**
+- [x] **Step 4: Verify locally**
 
 Run: `pnpm exec prettier --write .github/workflows/ci.yml package.json` then `pnpm lint` (actionlint runs in CI; local lint covers prettier/eslint).
 Run: `pnpm --filter @dpdpa/orchestrator exec prisma validate` → valid.
 Full gate → ALL GREEN.
 
-- [ ] **Step 5: Commit, PR, merge** — branch `feat/p1-13-migration-ci`, message `feat(ci): migration job runs prisma migrate deploy and one-version-behind upgrade (P1-13)`. PR body notes the job validates empty-DB apply + one-version-behind; Argo CD pre-sync hook wiring lands with P1-06 (Platform, no Argo manifests exist yet). Same merge criteria.
+- [x] **Step 5: Commit, PR, merge** — branch `feat/p1-13-migration-ci`, message `feat(ci): migration job runs prisma migrate deploy and one-version-behind upgrade (P1-13)`. PR body notes the job validates empty-DB apply + one-version-behind; Argo CD pre-sync hook wiring lands with P1-06 (Platform, no Argo manifests exist yet). Same merge criteria.
 
 ---
 
@@ -864,7 +866,7 @@ Full gate → ALL GREEN.
   - Root command `pnpm test:integration`; CI step "Integration tests" in the `code` job.
   - `process.env.TEST_DATABASE_URL` / `process.env.REDIS_TEST_URL` set by `test/integration/global-setup.ts`.
 
-- [ ] **Step 1: deps + scripts**
+- [x] **Step 1: deps + scripts**
 
 ```powershell
 pnpm add -D --filter @dpdpa/orchestrator testcontainers
@@ -878,7 +880,7 @@ Pin the installed version exactly in `apps/orchestrator/package.json`. Add orche
 
 Root `package.json`: `"test:integration": "turbo run test:integration"`. `turbo.json` tasks add: `"test:integration": {}`.
 
-- [ ] **Step 2: unit test for the resolver (failing first)** — `apps/orchestrator/test/resolve-db-url.test.ts`:
+- [x] **Step 2: unit test for the resolver (failing first)** — `apps/orchestrator/test/resolve-db-url.test.ts`:
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -906,7 +908,7 @@ describe('planDatabase', () => {
 
 Run → FAIL (helper missing).
 
-- [ ] **Step 3: implement resolver + helpers**
+- [x] **Step 3: implement resolver + helpers**
 
 `test/integration/helpers/resolve-db-url.ts`:
 
@@ -945,7 +947,7 @@ export function makeClient(): PrismaClient {
 
 Run: `pnpm --filter @dpdpa/orchestrator exec vitest run test/resolve-db-url.test.ts` → PASS.
 
-- [ ] **Step 4: vitest configs**
+- [x] **Step 4: vitest configs**
 
 `vitest.integration.config.ts`:
 
@@ -971,7 +973,7 @@ Modify `vitest.config.ts` `test` to exclude integration from the unit run:
     exclude: ['test/integration/**', 'node_modules/**', 'dist/**', 'coverage/**'],
 ```
 
-- [ ] **Step 5: global setup** — `test/integration/global-setup.ts`:
+- [x] **Step 5: global setup** — `test/integration/global-setup.ts`:
 
 ```ts
 import { execFileSync } from 'node:child_process';
@@ -1037,7 +1039,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
 }
 ```
 
-- [ ] **Step 6: integration tests** — `test/integration/migrations.test.ts`:
+- [x] **Step 6: integration tests** — `test/integration/migrations.test.ts`:
 
 ```ts
 import { afterAll, describe, expect, it } from 'vitest';
@@ -1158,21 +1160,21 @@ const redisUrl = process.env.REDIS_TEST_URL || null;
 });
 ```
 
-- [ ] **Step 7: CI wiring** — in `.github/workflows/ci.yml` `code` job after `Test with coverage`:
+- [x] **Step 7: CI wiring** — in `.github/workflows/ci.yml` `code` job after `Test with coverage`:
 
 ```yaml
       - name: Integration tests
         run: pnpm test:integration
 ```
 
-- [ ] **Step 8: Verify**
+- [x] **Step 8: Verify**
 
 Run: `pnpm lint` (prettier on new files first) → green.
 Run: `pnpm --filter @dpdpa/orchestrator exec vitest run` → unit suite still green (integration excluded).
 Run: `pnpm --filter @dpdpa/orchestrator test:integration` locally → prints `skipping: TEST_DATABASE_URL is unset...` and exits 0 (no Docker locally) — this proves the skip path.
 Full gate → ALL GREEN. In CI the job runs the real path (Docker present on ubuntu runners).
 
-- [ ] **Step 9: Commit, PR, merge** — branch `feat/p1-20-db-test-harness`, message `test(orchestrator): postgres/redis integration harness with Testcontainers (P1-20)`. Merge criteria as before.
+- [x] **Step 9: Commit, PR, merge** — branch `feat/p1-20-db-test-harness`, message `test(orchestrator): postgres/redis integration harness with Testcontainers (P1-20)`. Merge criteria as before.
 
 ---
 
@@ -1182,7 +1184,7 @@ Full gate → ALL GREEN. In CI the job runs the real path (Docker present on ubu
 - Consumes: `PrismaService` (Task 1), harness `makeClient`/`describeDb` (Task 3).
 - Produces: `AuditService.record(entry: AuditEntryInput, tx?: Prisma.TransactionClient): Promise<AuditEntry>`; `auditEntrySchema` (Zod); DB roles `dpdpa_migrate` (owner, BYPASSRLS) and `dpdpa_runtime` (LOGIN, RLS-subject, INSERT+SELECT on `audit_logs`, no UPDATE/DELETE anywhere on append-only tables).
 
-- [ ] **Step 1: schema test for the service (failing first)** — `apps/orchestrator/test/audit.service.test.ts`:
+- [x] **Step 1: schema test for the service (failing first)** — `apps/orchestrator/test/audit.service.test.ts`:
 
 ```ts
 import { describe, expect, it, vi } from 'vitest';
@@ -1249,7 +1251,7 @@ describe('AuditService', () => {
 
 Run → FAIL (service missing).
 
-- [ ] **Step 2: implement the audit module**
+- [x] **Step 2: implement the audit module**
 
 `src/modules/audit/audit-entry.schema.ts`:
 
@@ -1324,7 +1326,7 @@ export class AuditModule {}
 
 Run: `pnpm --filter @dpdpa/orchestrator exec vitest run test/audit.service.test.ts` → PASS. (If `z.uuid()`/`z.ip()` differ in the installed Zod 4 minor, use `z.string().uuid()` / `z.string().ip()` — verify with `pnpm --filter @dpdpa/orchestrator exec vitest run test/audit.service.test.ts`.)
 
-- [ ] **Step 3: roles migration** — `prisma/migrations/20261111000000_runtime_roles/migration.sql`:
+- [x] **Step 3: roles migration** — `prisma/migrations/20261111000000_runtime_roles/migration.sql`:
 
 ```sql
 -- Roles (docs/database.md §7; docs/security.md §13 audit trail).
@@ -1373,7 +1375,7 @@ TO dpdpa_runtime;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO dpdpa_runtime;
 ```
 
-- [ ] **Step 4: integration test** — `test/integration/audit-append-only.test.ts`:
+- [x] **Step 4: integration test** — `test/integration/audit-append-only.test.ts`:
 
 ```ts
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -1453,14 +1455,14 @@ describeDb('audit_logs append-only + RLS', () => {
 
 Notes: `ALTER ROLE ... PASSWORD` uses a literal inside the tagged template (no parameters allowed in DDL; the marker value keeps gitleaks quiet — the gate verifies). If `url.username =` mutation on a `URL` with an existing userinfo fails on Windows Node, build the URL by string surgery: `` `postgresql://dpdpa_runtime:${RUNTIME_PASSWORD}@${url.host}${url.pathname}` ``.
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 Run: `pnpm --filter @dpdpa/orchestrator exec vitest run` → unit green.
 Run coverage → thresholds hold (audit + prisma files covered).
 Run: `pnpm --filter @dpdpa/orchestrator test:integration` → skips locally without Docker; runs in CI.
 Full gate → ALL GREEN.
 
-- [ ] **Step 6: Commit, PR, merge** — branch `feat/p1-21-audit-service`, message `feat(orchestrator): append-only audit log service and runtime DB roles (P1-21)`. PR body carries the down note for the roles migration (`REVOKE ... ; DROP ROLE IF EXISTS dpdpa_runtime; DROP ROLE IF EXISTS dpdpa_migrate;` — ownership must be transferred back first: `ALTER TABLE ... OWNER TO test` as the CI superuser, or `DROP OWNED BY` per role in a dev database).
+- [x] **Step 6: Commit, PR, merge** — branch `feat/p1-21-audit-service`, message `feat(orchestrator): append-only audit log service and runtime DB roles (P1-21)`. PR body carries the down note for the roles migration (`REVOKE ... ; DROP ROLE IF EXISTS dpdpa_runtime; DROP ROLE IF EXISTS dpdpa_migrate;` — ownership must be transferred back first: `ALTER TABLE ... OWNER TO test` as the CI superuser, or `DROP OWNED BY` per role in a dev database).
 
 ---
 
