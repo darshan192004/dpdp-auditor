@@ -5,6 +5,7 @@ const KEYS = {
   ORCHESTRATOR_HMAC_KEY: 'a'.repeat(32),
   ORCHESTRATOR_INTERNAL_KEY: 'b'.repeat(32),
   DATABASE_URL: 'postgresql://test:test@127.0.0.1:5432/dpdpa_test',
+  REDIS_URL: 'redis://127.0.0.1:6379',
 };
 
 describe('loadEnv', () => {
@@ -32,6 +33,12 @@ describe('loadEnv', () => {
   it('requires DATABASE_URL', () => {
     const { DATABASE_URL: _url, ...rest } = KEYS;
     expect(() => loadEnv(rest)).toThrow(/DATABASE_URL/);
+  });
+
+  it('requires REDIS_URL', () => {
+    const { REDIS_URL: _redis, ...rest } = KEYS;
+    expect(() => loadEnv(rest)).toThrow(/REDIS_URL/);
+    expect(loadEnv(KEYS).REDIS_URL).toBe('redis://127.0.0.1:6379');
   });
 
   it('rejects short keys', () => {
