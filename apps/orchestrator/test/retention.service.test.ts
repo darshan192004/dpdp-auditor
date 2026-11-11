@@ -76,6 +76,8 @@ describe('RetentionService', () => {
     expect(calls[1]!.sql).toContain('UPDATE scans');
     expect(calls[1]!.sql).toContain("status IN ('completed', 'failed', 'cancelled')");
     expect(calls[1]!.sql).toContain('make_interval(days =>');
+    // Prisma binds the JS number as bigint; make_interval wants int (CI 42883).
+    expect(calls[1]!.sql).toContain('::int');
     expect(calls[1]!.sql).toContain("SET status = 'expired', updated_at = now()");
     expect(calls[1]!.values).toEqual([90]);
 

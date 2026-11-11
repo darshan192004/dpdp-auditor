@@ -42,7 +42,7 @@ export class RetentionService {
           UPDATE scans
           SET status = 'expired', updated_at = now()
           WHERE status IN ('completed', 'failed', 'cancelled')
-            AND completed_at < now() - make_interval(days => ${org.retentionDays})`;
+            AND completed_at < now() - make_interval(days => ${org.retentionDays}::int)`;
 
         const deleted = await tx.$executeRaw`
           DELETE FROM scans
