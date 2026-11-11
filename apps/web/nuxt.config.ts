@@ -29,6 +29,9 @@ export default defineNuxtConfig({
     sessionPassword: process.env.NUXT_SESSION_PASSWORD ?? '',
     public: {
       appUrl: process.env.NUXT_PUBLIC_APP_URL ?? '',
+      // P1-32: empty in dev/CI → telemetry plugins never load.
+      sentryDsn: process.env.NUXT_PUBLIC_SENTRY_DSN ?? '',
+      posthogKey: process.env.NUXT_PUBLIC_POSTHOG_KEY ?? '',
     },
   },
 

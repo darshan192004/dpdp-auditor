@@ -6,6 +6,7 @@ import { HealthModule } from './modules/health/health.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { QueueModule } from './queue/queue.module.js';
 import { RetentionModule } from './modules/retention/retention.module.js';
+import { FeatureFlagsModule } from './modules/feature-flags/feature-flags.module.js';
 
 @Module({})
 export class AppModule {
@@ -19,6 +20,7 @@ export class AppModule {
         HealthModule,
         QueueModule,
         RetentionModule,
+        FeatureFlagsModule,
       ],
     };
   }

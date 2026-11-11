@@ -7,6 +7,8 @@ export const envSchema = z.object({
   REDIS_URL: z.string().url(),
   ORCHESTRATOR_HMAC_KEY: z.string().min(32),
   ORCHESTRATOR_INTERNAL_KEY: z.string().min(32),
+  // JSON `flag -> boolean`; parsed/validated by FeatureFlagsService (P1-33).
+  FEATURE_FLAGS: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
