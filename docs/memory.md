@@ -557,7 +557,7 @@ Every report includes: "This report provides technical evidence, not legal advic
 - **`NULL` idempotency keys** are distinct in PostgreSQL, so UI scans without a key do not collide. API clients must send one.
 - **`commit_sha`** accepts SHA-1 (40 hex) or SHA-256 (64 hex) object IDs.
 - **`citext`** requires the extension; Prisma needs a raw migration for it.
-- **RLS** uses `current_setting('app.current_org', true)::uuid`. The runtime role must not bypass RLS; the migration role does.
+- **RLS** uses `NULLIF(current_setting('app.current_org', true), '')::uuid` (the `NULLIF` guard is required: after a `SET LOCAL` transaction ends, `current_setting` returns `''`, and `''::uuid` raises `22P02` on pooled connections). The runtime role must not bypass RLS; the migration role does.
 - **Job Secret ordering:** create the Secret first with a deterministic name, then the Job with `envFrom`; delete the Secret if Job creation fails. Add a cleanup finalizer.
 - **`emptyDir` is deleted with the pod**, which is why zero-retention is structural rather than a cron.
 - **Cancellation** must delete both Job and Secret and reject late callbacks.

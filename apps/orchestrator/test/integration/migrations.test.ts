@@ -69,9 +69,18 @@ describeDb('initial migration', () => {
       WHERE n.nspname = 'public' AND c.relrowsecurity`;
     for (const t of RLS_TABLES) expect(rls.map((r) => r.relname)).toContain(t);
 
-    const policies = await prisma.$queryRaw<{ policyname: string }[]>`
-      SELECT policyname FROM pg_policies WHERE schemaname = 'public'`;
+    const policies = await prisma.$queryRaw<{ policyname: string; qual: string }[]>`
+      SELECT policyname, qual FROM pg_policies WHERE schemaname = 'public'`;
     expect(policies.length).toBe(5);
+    // The NULLIF guard keeps a spent org GUC ('' after a SET LOCAL transaction
+    // ends) from raising 22P02 on pooled connections (20261111000001).
+    // pg_policies deparse may render NULLIF as its CASE equivalent.
+    for (const p of policies) {
+      if (p.policyname.startsWith('tenant_isolation_')) {
+        const qual = p.qual.toLowerCase();
+        expect(qual.includes('nullif') || qual.includes('case when')).toBe(true);
+      }
+    }
   });
 
   it('enum values in the database match schema.prisma exactly', async () => {
