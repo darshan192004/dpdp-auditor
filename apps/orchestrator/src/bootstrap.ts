@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from './app.module.js';
+import { ApiExceptionFilter } from './common/exception.filter.js';
 import { loadEnv, type Env } from './config/env.js';
 
 export async function createApp(env: Env = loadEnv()): Promise<NestFastifyApplication> {
@@ -11,6 +12,7 @@ export async function createApp(env: Env = loadEnv()): Promise<NestFastifyApplic
     // Required so InternalHmacGuard can verify the exact bytes signed by Nitro.
     { rawBody: true },
   );
+  app.useGlobalFilters(new ApiExceptionFilter());
   app.enableShutdownHooks();
   return app;
 }
