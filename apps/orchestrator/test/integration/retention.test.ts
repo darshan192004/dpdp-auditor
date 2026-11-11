@@ -71,6 +71,7 @@ describeDb('retention job (database.md §9)', () => {
           orgId,
           repositoryId: repoId,
           status: 'completed',
+          ref: 'retention-old',
           completedAt: new Date(Date.now() - 91 * DAY),
         },
       })
@@ -82,6 +83,7 @@ describeDb('retention job (database.md §9)', () => {
           orgId,
           repositoryId: repoId,
           status: 'expired',
+          ref: 'retention-expired',
           updatedAt: new Date(Date.now() - 25 * HOUR),
         },
       })
@@ -106,6 +108,7 @@ describeDb('retention job (database.md §9)', () => {
           orgId,
           repositoryId: repoId,
           status: 'completed',
+          ref: 'retention-fresh',
           completedAt: new Date(Date.now() - 10 * DAY),
         },
       })
@@ -117,6 +120,7 @@ describeDb('retention job (database.md §9)', () => {
           orgId,
           repositoryId: repoId,
           status: 'queued',
+          ref: 'retention-stale-key',
           idempotencyKey: 'stale-key',
           createdAt: new Date(Date.now() - 8 * DAY),
         },
@@ -124,7 +128,13 @@ describeDb('retention job (database.md §9)', () => {
     ).id;
     freshKeyScanId = (
       await owner.scan.create({
-        data: { orgId, repositoryId: repoId, status: 'queued', idempotencyKey: 'fresh-key' },
+        data: {
+          orgId,
+          repositoryId: repoId,
+          status: 'queued',
+          ref: 'retention-fresh-key',
+          idempotencyKey: 'fresh-key',
+        },
       })
     ).id;
 
@@ -247,6 +257,7 @@ describeDb('retention job (database.md §9)', () => {
             orgId,
             repositoryId: repoId,
             status: 'completed',
+            ref: 'retention-worker',
             completedAt: new Date(Date.now() - 91 * DAY),
           },
         })
