@@ -55,7 +55,20 @@ Per `docs/architecture.md`: OTel spans **Nitro → orchestrator → Kubernetes J
   (p95 vs `budgets.json` `scanP95Ms`), scanner exit codes, PDF render duration (vs
   `pdfP95Ms`). Budgets are read from root `budgets.json` via `budgetsSchema`.
 
+## SDK wiring (P1-17)
+
+- `startTelemetry()` (`apps/orchestrator/src/telemetry.ts`) runs from `main.ts` only —
+  `createApp` and every test stay telemetry-free.
+- **HTTP instrumentation** (W3C `traceparent` in/out) + `service.name=orchestrator`.
+- **Traces:** batch-exported to OTLP when `OTEL_EXPORTER_OTLP_ENDPOINT` (or
+  `..._TRACES_ENDPOINT`) is set; otherwise spans are recorded and dropped — propagation still
+  works, nothing dials a missing collector.
+- **Metrics endpoint:** Prometheus text on `0.0.0.0:9464/metrics`. `api_request_duration_seconds`
+  histogram with `route`/`method`/`status_class` labels and seconds buckets (0.005 s – 10 s,
+  incl. the 0.4 s §13 alert threshold); `api_5xx_rate` is derived at query time from
+  `api_request_duration_seconds_count{status_class="5xx"}`. Queue/scanner/render metrics land
+  with their producers (P1-18+).
+
 ## What is deferred
 
-- SDK installation and the metrics endpoint: P1-17 (tasks.md).
 - Collector/Tempo/Grafana deployment: `operations.md` runbooks, Phase 6.
