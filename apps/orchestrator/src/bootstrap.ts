@@ -3,6 +3,12 @@ import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from './app.module.js';
 import { ApiExceptionFilter } from './common/exception.filter.js';
+import {
+  attachRequestContext,
+  logger,
+  PinoLoggerService,
+  requestLogFields,
+} from './common/logger.js';
 import { loadEnv, type Env } from './config/env.js';
 
 export async function createApp(env: Env = loadEnv()): Promise<NestFastifyApplication> {
@@ -13,6 +19,16 @@ export async function createApp(env: Env = loadEnv()): Promise<NestFastifyApplic
     { rawBody: true },
   );
   app.useGlobalFilters(new ApiExceptionFilter());
+  app.useLogger(new PinoLoggerService());
+  const fastify = app.getHttpAdapter().getInstance();
+  fastify.addHook('onRequest', (request, _reply, done) => {
+    attachRequestContext(request);
+    done();
+  });
+  fastify.addHook('onResponse', (request, reply, done) => {
+    logger.info(requestLogFields(request, reply.statusCode), 'request completed');
+    done();
+  });
   app.enableShutdownHooks();
   return app;
 }
