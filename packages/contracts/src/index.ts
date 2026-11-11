@@ -9,3 +9,4 @@ export * from './fingerprint';
 export * from './finding';
 export * from './golden-manifest';
 export * from './budgets';
+export * from './slo';

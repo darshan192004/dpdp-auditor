@@ -1,0 +1,218 @@
+# Prometheus recording + alerting rules for the SLOs in monitoring/slos.yaml.
+# Authority: docs/operations.md §1 (SLOs, burn policy) and §4 (alert routing).
+#
+# Thresholds are burnRateMultiplier × allowed-failure-fraction:
+#   fast = 14.4× (2% of the monthly budget in 1 h)
+#   slow =  6.0× (5% of the monthly budget in 6 h)
+# → 99.5% availability: 7.2% / 3.0% error ratio
+# → 99.0% availability: 14.4% / 6.0% error ratio
+# Latency SLOs allow 5% of samples past p95, so their budget is a breach ratio.
+#
+# Metric names follow docs/operations.md §3. Histogram bucket boundaries must
+# include each latency threshold so `le` lookups are exact (P6-11 verifies).
+groups:
+  - name: slo-error-ratios
+    interval: 30s
+    rules:
+      # 99.5% web + public API availability.
+      - record: slo:web_api_availability:error_ratio5m
+        expr: |
+          1 - (
+            sum(rate(api_request_duration_seconds_count{status_class!="5xx"}[5m]))
+            /
+            sum(rate(api_request_duration_seconds_count[5m]))
+          )
+      - record: slo:web_api_availability:error_ratio1h
+        expr: |
+          1 - (
+            sum(rate(api_request_duration_seconds_count{status_class!="5xx"}[1h]))
+            /
+            sum(rate(api_request_duration_seconds_count[1h]))
+          )
+      - record: slo:web_api_availability:error_ratio30m
+        expr: |
+          1 - (
+            sum(rate(api_request_duration_seconds_count{status_class!="5xx"}[30m]))
+            /
+            sum(rate(api_request_duration_seconds_count[30m]))
+          )
+      - record: slo:web_api_availability:error_ratio6h
+        expr: |
+          1 - (
+            sum(rate(api_request_duration_seconds_count{status_class!="5xx"}[6h]))
+            /
+            sum(rate(api_request_duration_seconds_count[6h]))
+          )
+
+      # 99.0% scan execution availability (user errors excluded at the source).
+      - record: slo:scan_execution_availability:error_ratio5m
+        expr: avg_over_time(scan_failure_rate{user_error="false"}[5m])
+      - record: slo:scan_execution_availability:error_ratio1h
+        expr: avg_over_time(scan_failure_rate{user_error="false"}[1h])
+      - record: slo:scan_execution_availability:error_ratio30m
+        expr: avg_over_time(scan_failure_rate{user_error="false"}[30m])
+      - record: slo:scan_execution_availability:error_ratio6h
+        expr: avg_over_time(scan_failure_rate{user_error="false"}[6h])
+
+  - name: slo-burn-rates
+    interval: 30s
+    rules:
+      - record: slo:web_api_availability:burn_rate5m
+        expr: slo:web_api_availability:error_ratio5m / 0.005
+      - record: slo:web_api_availability:burn_rate1h
+        expr: slo:web_api_availability:error_ratio1h / 0.005
+      - record: slo:web_api_availability:burn_rate30m
+        expr: slo:web_api_availability:error_ratio30m / 0.005
+      - record: slo:web_api_availability:burn_rate6h
+        expr: slo:web_api_availability:error_ratio6h / 0.005
+
+      - record: slo:scan_execution_availability:burn_rate5m
+        expr: slo:scan_execution_availability:error_ratio5m / 0.01
+      - record: slo:scan_execution_availability:burn_rate1h
+        expr: slo:scan_execution_availability:error_ratio1h / 0.01
+      - record: slo:scan_execution_availability:burn_rate30m
+        expr: slo:scan_execution_availability:error_ratio30m / 0.01
+      - record: slo:scan_execution_availability:burn_rate6h
+        expr: slo:scan_execution_availability:error_ratio6h / 0.01
+
+  - name: slo-latency
+    interval: 30s
+    rules:
+      - record: slo:scan_latency:p95_seconds
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(scan_duration_seconds_bucket[5m]))
+          )
+      - record: slo:api_latency:p95_seconds
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(api_request_duration_seconds_bucket[5m]))
+          )
+      - record: slo:queue_wait:p95_seconds
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(scan_queue_wait_seconds_bucket[5m]))
+          )
+      - record: slo:pdf_render:p95_seconds
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(report_render_duration_seconds_bucket[5m]))
+          )
+
+  - name: slo-alerts
+    interval: 30s
+    rules:
+      # Fast burn: both the short and long confirmation windows exceed 14.4×.
+      - alert: SloErrorBudgetBurnFast
+        expr: |
+          slo:web_api_availability:burn_rate5m > 0.072
+          and
+          slo:web_api_availability:burn_rate1h > 0.072
+        for: 1m
+        labels:
+          severity: P1
+          slo_id: web-api-availability
+          runbook: runbooks/error-budget.md
+        annotations:
+          summary: 'Web + public API is burning its 99.5% error budget 14.4× too fast'
+          description: >-
+            2% of the monthly budget was consumed in the last hour. Error ratio
+            is {{ $value | humanizePercentage }} against a 7.2% fast-burn threshold.
+
+      - alert: SloErrorBudgetBurnSlow
+        expr: |
+          slo:web_api_availability:burn_rate30m > 0.03
+          and
+          slo:web_api_availability:burn_rate6h > 0.03
+        for: 1m
+        labels:
+          severity: P2
+          slo_id: web-api-availability
+          runbook: runbooks/error-budget.md
+        annotations:
+          summary: 'Web + public API is burning its 99.5% error budget 6× too fast'
+          description: >-
+            5% of the monthly budget was consumed in the last 6 hours. Error
+            ratio is {{ $value | humanizePercentage }} against a 3% slow-burn threshold.
+
+      - alert: SloErrorBudgetBurnFast
+        expr: |
+          slo:scan_execution_availability:burn_rate5m > 0.144
+          and
+          slo:scan_execution_availability:burn_rate1h > 0.144
+        for: 1m
+        labels:
+          severity: P1
+          slo_id: scan-execution-availability
+          runbook: runbooks/error-budget.md
+        annotations:
+          summary: 'Scan execution is burning its 99.0% error budget 14.4× too fast'
+          description: >-
+            2% of the monthly budget was consumed in the last hour. Failure
+            ratio is {{ $value | humanizePercentage }} against a 14.4% fast-burn
+            threshold. The canary rollback gate (architecture.md §11) applies.
+
+      - alert: SloErrorBudgetBurnSlow
+        expr: |
+          slo:scan_execution_availability:burn_rate30m > 0.06
+          and
+          slo:scan_execution_availability:burn_rate6h > 0.06
+        for: 1m
+        labels:
+          severity: P2
+          slo_id: scan-execution-availability
+          runbook: runbooks/error-budget.md
+        annotations:
+          summary: 'Scan execution is burning its 99.0% error budget 6× too fast'
+          description: >-
+            5% of the monthly budget was consumed in the last 6 hours. Failure
+            ratio is {{ $value | humanizePercentage }} against a 6% slow-burn threshold.
+
+      # Latency SLOs: page when p95 breaches the target for the §4 duration.
+      - alert: SloLatencyBreach
+        expr: slo:scan_latency:p95_seconds > 600
+        for: 15m
+        labels:
+          severity: P2
+          slo_id: scan-latency
+          runbook: runbooks/scan-slow.md
+        annotations:
+          summary: 'Scan p95 latency above 10 min for 15 min'
+          description: 'p95 is {{ $value | humanizeDuration }} (target < 10 min).'
+
+      - alert: SloLatencyBreach
+        expr: slo:api_latency:p95_seconds > 0.4
+        for: 10m
+        labels:
+          severity: P2
+          slo_id: api-latency
+          runbook: runbooks/api-degraded.md
+        annotations:
+          summary: 'API p95 latency above 400 ms for 10 min'
+          description: 'p95 is {{ $value | humanizeDuration }} (target < 400 ms).'
+
+      - alert: SloLatencyBreach
+        expr: slo:queue_wait:p95_seconds > 60
+        for: 15m
+        labels:
+          severity: P2
+          slo_id: queue-wait
+          runbook: runbooks/queue-backlog.md
+        annotations:
+          summary: 'Queue wait p95 above 60 s for 15 min'
+          description: 'p95 is {{ $value | humanizeDuration }} (target < 60 s).'
+
+      - alert: SloLatencyBreach
+        expr: slo:pdf_render:p95_seconds > 10
+        for: 15m
+        labels:
+          severity: P2
+          slo_id: pdf-render
+          runbook: runbooks/report-render-slow.md
+        annotations:
+          summary: 'PDF render p95 above 10 s for 15 min'
+          description: 'p95 is {{ $value | humanizeDuration }} (target < 10 s).'

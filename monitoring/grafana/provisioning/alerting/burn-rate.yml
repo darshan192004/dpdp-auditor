@@ -1,0 +1,143 @@
+# Grafana-managed mirrors of the Prometheus burn-rate alerts in
+# monitoring/prometheus/rules.yml (P1-31). Grafana keeps them so on-call sees
+# the same paging rules even when the Prometheus rule files are not loaded
+# (e.g. Grafana Cloud). Keep thresholds in sync with monitoring/slos.yaml.
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: slo-error-budget-burn
+    folder: SLOs
+    interval: 1m
+    rules:
+      - uid: slo-burn-web-api-fast
+        title: SLO error budget burn — web + public API (fast)
+        condition: A
+        for: 1m
+        noDataState: OK
+        execErrState: Error
+        isPaused: false
+        labels:
+          severity: P1
+          slo_id: web-api-availability
+          runbook: runbooks/error-budget.md
+        annotations:
+          summary: 'Web + public API is burning its 99.5% error budget 14.4× too fast'
+          description: >-
+            2% of the monthly budget consumed in 1 h (threshold 7.2% error
+            ratio on both the 5m and 1h windows).
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              editorMode: code
+              expr: >-
+                slo:web_api_availability:burn_rate5m > 0.072
+                and
+                slo:web_api_availability:burn_rate1h > 0.072
+              instant: true
+              intervalMs: 30000
+              legendFormat: __auto
+              refId: A
+
+      - uid: slo-burn-web-api-slow
+        title: SLO error budget burn — web + public API (slow)
+        condition: A
+        for: 1m
+        noDataState: OK
+        execErrState: Error
+        isPaused: false
+        labels:
+          severity: P2
+          slo_id: web-api-availability
+          runbook: runbooks/error-budget.md
+        annotations:
+          summary: 'Web + public API is burning its 99.5% error budget 6× too fast'
+          description: >-
+            5% of the monthly budget consumed in 6 h (threshold 3% error ratio
+            on both the 30m and 6h windows).
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 21600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              editorMode: code
+              expr: >-
+                slo:web_api_availability:burn_rate30m > 0.03
+                and
+                slo:web_api_availability:burn_rate6h > 0.03
+              instant: true
+              intervalMs: 30000
+              legendFormat: __auto
+              refId: A
+
+      - uid: slo-burn-scan-execution-fast
+        title: SLO error budget burn — scan execution (fast)
+        condition: A
+        for: 1m
+        noDataState: OK
+        execErrState: Error
+        isPaused: false
+        labels:
+          severity: P1
+          slo_id: scan-execution-availability
+          runbook: runbooks/error-budget.md
+        annotations:
+          summary: 'Scan execution is burning its 99.0% error budget 14.4× too fast'
+          description: >-
+            2% of the monthly budget consumed in 1 h (threshold 14.4% failure
+            ratio on both the 5m and 1h windows). Canary rollback gate applies.
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              editorMode: code
+              expr: >-
+                slo:scan_execution_availability:burn_rate5m > 0.144
+                and
+                slo:scan_execution_availability:burn_rate1h > 0.144
+              instant: true
+              intervalMs: 30000
+              legendFormat: __auto
+              refId: A
+
+      - uid: slo-burn-scan-execution-slow
+        title: SLO error budget burn — scan execution (slow)
+        condition: A
+        for: 1m
+        noDataState: OK
+        execErrState: Error
+        isPaused: false
+        labels:
+          severity: P2
+          slo_id: scan-execution-availability
+          runbook: runbooks/error-budget.md
+        annotations:
+          summary: 'Scan execution is burning its 99.0% error budget 6× too fast'
+          description: >-
+            5% of the monthly budget consumed in 6 h (threshold 6% failure
+            ratio on both the 30m and 6h windows).
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 21600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              editorMode: code
+              expr: >-
+                slo:scan_execution_availability:burn_rate30m > 0.06
+                and
+                slo:scan_execution_availability:burn_rate6h > 0.06
+              instant: true
+              intervalMs: 30000
+              legendFormat: __auto
+              refId: A
