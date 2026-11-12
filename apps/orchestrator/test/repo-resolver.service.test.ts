@@ -5,6 +5,7 @@ import {
   repoSizeCapBytes,
   RepoResolverService,
   type GithubFetch,
+  type GithubRepoMetadata,
   type GitRunner,
 } from '../src/modules/repos/repo-resolver.service.js';
 
@@ -20,7 +21,7 @@ const METADATA = {
   language: 'TypeScript',
 };
 
-function make(metadata = METADATA, stdout = 'ref: refs/heads/develop\tHEAD\n') {
+function make(metadata: GithubRepoMetadata = METADATA, stdout = 'ref: refs/heads/develop\tHEAD\n') {
   const git = vi.fn<GitRunner>().mockResolvedValue(stdout);
   const fetchRepo = vi.fn<GithubFetch>().mockResolvedValue(metadata);
   const service = new RepoResolverService(git, fetchRepo);
