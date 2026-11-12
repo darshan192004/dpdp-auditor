@@ -1,3 +1,6 @@
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { loadRulePack } from '../src/modules/rule-pack/rule-pack.loader.js';
@@ -72,5 +75,17 @@ describe('validateCatalog (P4-13)', () => {
         catalog(),
       ),
     ).toEqual([]);
+  });
+
+  it('names the file when the catalog is malformed', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'dpdpa-catalog-'));
+    try {
+      await writeFile(join(dir, 'scanner-catalog.json'), '{ not json');
+      await expect(loadScannerCatalog(dir)).rejects.toThrow(
+        /scanner-catalog\.json is not valid JSON/,
+      );
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });

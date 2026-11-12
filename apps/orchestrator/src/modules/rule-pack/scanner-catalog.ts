@@ -41,6 +41,15 @@ export function validateCatalog(mappings: readonly Mapping[], catalog: ScannerCa
 }
 
 export async function loadScannerCatalog(dir: string): Promise<ScannerCatalog> {
-  const raw = await readFile(join(dir, SCANNER_CATALOG), 'utf8');
-  return JSON.parse(raw) as ScannerCatalog;
+  const path = join(dir, SCANNER_CATALOG);
+  const raw = await readFile(path, 'utf8');
+  try {
+    return JSON.parse(raw) as ScannerCatalog;
+  } catch (error) {
+    // The catalog is a CI artifact: name the file so a malformed edit is
+    // obvious in the job log instead of surfacing as a bare SyntaxError.
+    throw new Error(`scanner catalog ${path} is not valid JSON: ${(error as Error).message}`, {
+      cause: error,
+    });
+  }
 }
