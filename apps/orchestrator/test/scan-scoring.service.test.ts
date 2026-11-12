@@ -420,10 +420,13 @@ describe('ScanScoringService (P4-06, P4-10, P4-11)', () => {
 });
 
 describe('coverageFor', () => {
-  it('is full when every scanner completed and partial otherwise', () => {
+  it('is full when every reported scanner completed and partial otherwise', () => {
     expect(coverageFor({ semgrep: 'completed' })).toBe('full');
-    expect(coverageFor({})).toBe('full');
-    expect(coverageFor(null)).toBe('full');
     expect(coverageFor({ semgrep: 'completed', gitleaks: 'timed_out' })).toBe('partial');
+  });
+
+  it('is partial when no scanner status was recorded', () => {
+    expect(coverageFor({})).toBe('partial');
+    expect(coverageFor(null)).toBe('partial');
   });
 });

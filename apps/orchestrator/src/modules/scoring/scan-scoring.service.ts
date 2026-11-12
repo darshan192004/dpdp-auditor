@@ -324,11 +324,15 @@ export class ScanScoringService {
   }
 }
 
-/** rules.md §9.5: any non-completed scanner makes the scan partial. */
+/**
+ * rules.md §9.5: any non-completed scanner makes the scan partial. A scan with
+ * no recorded scanner status cannot attest that coverage was complete, so it is
+ * treated as partial and the grade is withheld.
+ */
 export function coverageFor(coverage: unknown): 'full' | 'partial' {
-  if (coverage === null || typeof coverage !== 'object') return 'full';
+  if (coverage === null || typeof coverage !== 'object') return 'partial';
   const values = Object.values(coverage as Record<string, unknown>);
-  if (values.length === 0) return 'full';
+  if (values.length === 0) return 'partial';
   return values.every((value) => value === 'completed') ? 'full' : 'partial';
 }
 
