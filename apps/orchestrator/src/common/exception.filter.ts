@@ -2,6 +2,7 @@ import { ArgumentsHost, Catch, HttpException, Logger } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { ERROR_CODES, type ErrorCode, type ErrorEnvelope } from '@dpdpa/contracts';
 import { ZodError } from 'zod';
+import { ApiError } from './api-error.js';
 import { resolveRequestId } from './request-id.js';
 
 // First registry entry wins, so the generic code for each status is listed
@@ -40,11 +41,13 @@ export class ApiExceptionFilter {
     const requestId = request.requestId ?? resolveRequestId(request.headers);
 
     let status: number;
+    let code: ErrorCode;
     let message: string;
     let details: { path: string; message: string }[] | undefined;
 
     if (exception instanceof ZodError) {
       status = 422;
+      code = codeForStatus(status);
       message = 'The request body is invalid.';
       details = exception.issues.map((issue) => ({
         path: issue.path.join('.'),
@@ -52,6 +55,7 @@ export class ApiExceptionFilter {
       }));
     } else if (exception instanceof HttpException) {
       status = exception.getStatus();
+      code = exception instanceof ApiError ? exception.code : codeForStatus(status);
       message = httpMessage(exception);
     } else {
       // Fastify-level errors (e.g. unparseable JSON) reach the filter with
@@ -60,12 +64,14 @@ export class ApiExceptionFilter {
       const fastifyCode = fastifyStatus(exception);
       if (fastifyCode !== undefined && fastifyCode < 500) {
         status = fastifyCode;
+        code = codeForStatus(status);
         message =
           exception instanceof Error && exception.message
             ? exception.message
             : 'The request could not be parsed.';
       } else {
         status = 500;
+        code = 'INTERNAL_ERROR';
         message = 'An unexpected error occurred.';
         this.logger.error(exception instanceof Error ? exception.stack : String(exception));
       }
@@ -73,7 +79,7 @@ export class ApiExceptionFilter {
 
     const body: ErrorEnvelope = {
       error: {
-        code: codeForStatus(status),
+        code,
         message,
         requestId,
         ...(details ? { details } : {}),
