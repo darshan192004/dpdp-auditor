@@ -9,7 +9,6 @@ FROM ${NODE_IMAGE} AS build
 ENV PNPM_HOME=/pnpm \
     PATH=/pnpm:$PATH \
     HUSKY=0 \
-    NODE_ENV=production \
     NUXT_TELEMETRY_DISABLED=1
 RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 WORKDIR /repo
@@ -18,7 +17,7 @@ RUN pnpm install --frozen-lockfile
 # `...` builds @dpdpa/contracts and any other workspace dependency first.
 RUN pnpm exec turbo build --filter=@dpdpa/web...
 
-FROM gcr.io/distroless/nodejs22-debian12:nonroot@sha256:13593b7570658e8477de39e2f4a1dd25db2f836d68a0ba771251572d23bb4f8e AS runtime
+FROM gcr.io/distroless/nodejs22-debian13:nonroot@sha256:34985bab6fd6981259f18ab7555995a911ca3bee4b0d38bacdc63932df1dc6cb AS runtime
 ENV NODE_ENV=production \
     NITRO_HOST=0.0.0.0 \
     NITRO_PORT=3000

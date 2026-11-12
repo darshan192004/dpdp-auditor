@@ -15,11 +15,14 @@ COPY . .
 RUN pnpm install --frozen-lockfile
 # Builds @dpdpa/contracts + @dpdpa/observability first, and runs prisma generate.
 RUN pnpm exec turbo build --filter=@dpdpa/orchestrator...
-# Prune dev dependencies now that the build is done. The generated Prisma
-# client lives in the virtual store and survives the prod install.
-RUN pnpm install --prod --frozen-lockfile
+# Drop the dev tree, then install a production-only tree. pnpm does not remove
+# already-installed devDependencies, so the node_modules dirs are cleared first.
+# --ignore-scripts skips the root `prepare: husky` hook (husky is a dev dep).
+RUN rm -rf node_modules apps/*/node_modules packages/*/node_modules
+RUN pnpm install --prod --frozen-lockfile --ignore-scripts
+RUN pnpm --filter @dpdpa/orchestrator exec prisma generate
 
-FROM gcr.io/distroless/nodejs22-debian12:nonroot@sha256:13593b7570658e8477de39e2f4a1dd25db2f836d68a0ba771251572d23bb4f8e AS runtime
+FROM gcr.io/distroless/nodejs22-debian13:nonroot@sha256:34985bab6fd6981259f18ab7555995a911ca3bee4b0d38bacdc63932df1dc6cb AS runtime
 ENV NODE_ENV=production \
     PORT=3001
 WORKDIR /app
@@ -40,4 +43,4 @@ COPY --from=build --chown=nonroot:nonroot /repo/packages/observability/dist ./pa
 COPY --from=build --chown=nonroot:nonroot /repo/packages/observability/node_modules ./packages/observability/node_modules
 USER nonroot
 EXPOSE 3001
-CMD ["dist/main.js"]
+CMD ["apps/orchestrator/dist/main.js"]
