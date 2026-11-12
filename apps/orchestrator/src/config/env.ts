@@ -9,6 +9,10 @@ export const envSchema = z.object({
   ORCHESTRATOR_INTERNAL_KEY: z.string().min(32),
   // JSON `flag -> boolean`; parsed/validated by FeatureFlagsService (P1-33).
   FEATURE_FLAGS: z.string().optional(),
+  // P4-02: directory containing manifest.yaml + the YAML rule pack.
+  RULE_PACK_DIR: z.string().min(1).optional(),
+  // P4-02: Ed25519 public key (PEM). When set, an unsigned pack fails closed.
+  RULE_PACK_PUBLIC_KEY: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

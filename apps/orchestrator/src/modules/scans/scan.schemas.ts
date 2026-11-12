@@ -112,6 +112,13 @@ export const scannerReportSchema = z.strictObject({
   findings: z.number().int().nonnegative().default(0),
 });
 
+/** rules.md §13: repository facts arrive with the completion callback. */
+export const repoFactsSchema = z.strictObject({
+  languages: z.array(z.string().trim().min(1).max(64)).max(100).default([]),
+  frameworks: z.array(z.string().trim().min(1).max(64)).max(100).default([]),
+  resourceTypes: z.array(z.string().trim().min(1).max(128)).max(500).default([]),
+});
+
 export const completeScanSchema = z.strictObject({
   scanners: z.array(scannerReportSchema).min(1).max(3),
   commitSha: z
@@ -119,6 +126,7 @@ export const completeScanSchema = z.strictObject({
     .regex(/^[0-9a-f]{40}$/, 'commitSha must be a 40-character lowercase hex SHA.')
     .optional(),
   workspaceBytes: z.number().int().nonnegative().optional(),
+  facts: repoFactsSchema.default({ languages: [], frameworks: [], resourceTypes: [] }),
 });
 export type CompleteScanInput = z.input<typeof completeScanSchema>;
 export type CompleteScan = z.output<typeof completeScanSchema>;

@@ -1,0 +1,82 @@
+# Gitleaks (secrets) mappings (rules.md §6.3).
+version: 1
+pack: dpdpa-2026.10.1
+
+mappings:
+  - scanner: gitleaks
+    ruleId: aws-access-token
+    control: DPDPA-8.4-SECRET-01
+    confidence: direct
+    rationale: >-
+      A long-lived cloud credential in source is readable by anyone with
+      repository access.
+    remediationTemplate: >-
+      Revoke the key, rotate to short-lived credentials, and load them from a
+      managed secret store.
+
+  - scanner: gitleaks
+    ruleId: github-pat
+    control: DPDPA-8.4-SECRET-01
+    confidence: direct
+    rationale: >-
+      A repository access credential in source grants code access to anyone who
+      can read the repository.
+    remediationTemplate: >-
+      Revoke the token and replace it with a scoped GitHub App installation.
+
+  - scanner: gitleaks
+    ruleId: generic-api-key
+    control: DPDPA-8.4-SECRET-01
+    confidence: direct
+    rationale: >-
+      A service credential in source can authenticate to a third-party service.
+    remediationTemplate: >-
+      Revoke the key and load it from a managed secret store at runtime.
+
+  - scanner: gitleaks
+    ruleId: private-key
+    control: DPDPA-8.4-SECRET-01
+    confidence: direct
+    rationale: >-
+      Private key material in source compromises every identity that trusts the
+      corresponding public key.
+    remediationTemplate: >-
+      Rotate the key pair and store the private key in a managed secret store.
+
+  - scanner: gitleaks
+    ruleId: gcp-service-account
+    control: DPDPA-8.4-SECRET-01
+    confidence: direct
+    rationale: >-
+      A service-account credential in source grants the account's cloud
+      permissions.
+    remediationTemplate: >-
+      Disable the key and switch to workload identity federation.
+
+  - scanner: gitleaks
+    ruleId: stripe-access-token
+    control: DPDPA-8.4-SECRET-01
+    confidence: direct
+    rationale: >-
+      A payment credential in source can move funds or read payment data.
+    remediationTemplate: >-
+      Roll the key immediately and move it to a managed secret store.
+
+  - scanner: gitleaks
+    ruleId: slack-access-token
+    control: DPDPA-8.4-SECRET-01
+    confidence: direct
+    rationale: >-
+      A Slack token in source grants access to workspace messages and files.
+    remediationTemplate: >-
+      Revoke the token and install a scoped app instead.
+
+  - scanner: gitleaks
+    ruleId: jwt
+    control: DPDPA-8.4-SECRET-01
+    confidence: inferred
+    rationale: >-
+      A JWT may be a session or signing secret, or a short-lived test token; the
+      value alone does not prove it is live.
+    remediationTemplate: >-
+      Confirm whether the token is live, then revoke and rotate if it is.

@@ -1,0 +1,36 @@
+# Scoring configuration (rules.md §9.3, §9.4).
+#
+# Weights are relative importance across sections; a section that is not
+# assessed is excluded from both numerator and denominator. Grade bands are
+# inclusive on both ends and use half-up rounding at two decimals.
+version: 1
+pack: dpdpa-2026.10.1
+scoringVersion: 1.0.0
+
+sectionWeights:
+  '8(4)': 30
+  '6': 20
+  '5': 10
+  '7': 10
+  '9': 10
+  '10': 5
+  '13': 5
+  '8(5)': 5
+  '16': 5
+
+grades:
+  - grade: A
+    min: 90
+    max: 100
+  - grade: B
+    min: 80
+    max: 89.99
+  - grade: C
+    min: 70
+    max: 79.99
+  - grade: D
+    min: 60
+    max: 69.99
+  - grade: F
+    min: 0
+    max: 59.99

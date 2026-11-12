@@ -76,4 +76,14 @@ export class InternalScansController {
   ) {
     return { data: await this.scans.complete(orgIdFrom(orgHeader), scanId, body) };
   }
+
+  /** P4-24: derive a fresh score without rewriting the completed scan. */
+  @Post(':scanId/rescore')
+  @HttpCode(200)
+  async rescore(
+    @Headers('x-org-id') orgHeader: string | undefined,
+    @Param('scanId') scanId: string,
+  ) {
+    return { data: await this.scans.rescore(orgIdFrom(orgHeader), scanId) };
+  }
 }

@@ -1,0 +1,16 @@
+version: 1
+pack: dpdpa-2026.10.1
+generatedAt: '2026-11-12T05:59:37.472Z'
+files:
+  - path: dpdpa-controls.yaml
+    sha256: fbeea60aca0b8193c98d06f4167ccc80b215f672371a131d3cdbafe0c0887ee9
+  - path: mappings/checkov.yaml
+    sha256: b0c46f89830be2d9f184e7f559a4fd786b93358fca2a388b7cc93b7007840585
+  - path: mappings/gitleaks.yaml
+    sha256: 64be3b54d45289a233ea2910785190ed459ec6cc43903b6c0e76450c4439f5b1
+  - path: mappings/semgrep.yaml
+    sha256: 0b24f3a8297a9e9feecf0b5a119f0ca0971141811b78aea8c4031a545d70270e
+  - path: scoring.yaml
+    sha256: fa247645b7a224557fd9eb1c7d3baac424e351d32f1e1bf3c0f8154d8e7a8fdf
+  - path: suppressions.yaml
+    sha256: 84a9c91b01e910af2fd1d4fc1bc3ce6a889b95ec2cea7eb3fb3a57deb397b6a1

@@ -1,0 +1,9 @@
+{
+  "name": "@dpdpa/rule-packs",
+  "version": "2026.10.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "manifest": "node scripts/generate-manifest.mjs"
+  }
+}

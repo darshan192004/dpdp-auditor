@@ -1,0 +1,132 @@
+# Checkov (IaC) mappings (rules.md §6.1).
+version: 1
+pack: dpdpa-2026.10.1
+
+mappings:
+  - scanner: checkov
+    ruleId: CKV_AWS_19
+    control: DPDPA-8.4-ENC-01
+    confidence: direct
+    rationale: >-
+      CKV_AWS_19 fails when an S3 bucket has no server-side encryption
+      configuration, which is direct evidence that data at rest is unencrypted.
+    remediationTemplate: >-
+      Set server_side_encryption_configuration with sse_algorithm = "aws:kms"
+      and a customer-managed key on the bucket.
+
+  - scanner: checkov
+    ruleId: CKV_AWS_145
+    control: DPDPA-8.4-ENC-01
+    confidence: direct
+    rationale: >-
+      Default SSE-S3 is weaker than a customer-managed KMS key and does not
+      meet the key-control expectation for personal data.
+    remediationTemplate: >-
+      Switch the bucket default encryption to aws:kms with a customer-managed
+      key and restrict key administration.
+
+  - scanner: checkov
+    ruleId: CKV_AWS_20
+    control: DPDPA-8.4-ACCESS-01
+    confidence: direct
+    rationale: >-
+      A public-read ACL makes the object store readable from the internet.
+    remediationTemplate: >-
+      Remove public ACLs, enable Block Public Access, and serve objects through
+      an authenticated endpoint.
+
+  - scanner: checkov
+    ruleId: CKV_AWS_18
+    control: DPDPA-8.4-MON-01
+    confidence: direct
+    rationale: >-
+      Without access logging there is no record of who read the data store.
+    remediationTemplate: >-
+      Enable server access logging to a restricted, retention-controlled bucket.
+
+  - scanner: checkov
+    ruleId: CKV_AWS_21
+    control: DPDPA-8.4-BACKUP-01
+    confidence: direct
+    rationale: >-
+      Versioning is the recovery control for accidental deletion or ransomware.
+    remediationTemplate: >-
+      Enable bucket versioning and lifecycle rules consistent with the retention
+      policy.
+
+  - scanner: checkov
+    ruleId: CKV_AWS_16
+    control: DPDPA-8.4-ENC-01
+    confidence: direct
+    rationale: >-
+      An unencrypted database instance exposes stored personal data to anyone
+      with access to the underlying storage.
+    remediationTemplate: >-
+      Enable storage encryption on the instance and require encrypted snapshots.
+
+  - scanner: checkov
+    ruleId: CKV_AWS_17
+    control: DPDPA-8.4-ACCESS-01
+    confidence: direct
+    rationale: >-
+      A publicly accessible database is reachable outside the private network.
+    remediationTemplate: >-
+      Disable public accessibility and place the database in private subnets.
+
+  - scanner: checkov
+    ruleId: CKV_AWS_24
+    control: DPDPA-8.4-ACCESS-01
+    confidence: direct
+    rationale: >-
+      SSH open to 0.0.0.0/0 exposes administrative access to the internet.
+    remediationTemplate: >-
+      Restrict ingress on port 22 to known administrative networks or a bastion.
+
+  - scanner: checkov
+    ruleId: CKV_AWS_25
+    control: DPDPA-8.4-ACCESS-01
+    confidence: direct
+    rationale: >-
+      RDP open to 0.0.0.0/0 exposes remote desktop access to the internet.
+    remediationTemplate: >-
+      Restrict ingress on port 3389 to known administrative networks.
+
+  - scanner: checkov
+    ruleId: CKV_AWS_79
+    control: DPDPA-8.4-ACCESS-01
+    confidence: inferred
+    rationale: >-
+      IMDSv1 is a credential-theft path from an application vulnerability; the
+      exploitability depends on the workload.
+    remediationTemplate: >-
+      Require IMDSv2 on the instance metadata service.
+
+  - scanner: checkov
+    ruleId: CKV_AWS_144
+    control: DPDPA-16-XBORDER-01
+    confidence: inferred
+    rationale: >-
+      Cross-region replication may move personal data outside the chosen
+      region; the destination and transfer basis need confirmation.
+    remediationTemplate: >-
+      Confirm the replication destination and transfer basis, or disable
+      replication.
+
+  - scanner: checkov
+    ruleId: CKV_AWS_23
+    control: DPDPA-8.4-MON-01
+    confidence: advisory
+    rationale: >-
+      Missing rule descriptions are a hygiene signal, not direct evidence of a
+      compliance gap.
+    remediationTemplate: >-
+      Add a description to each security group rule documenting its purpose.
+
+  - scanner: checkov
+    ruleId: CKV_K8S_20
+    control: DPDPA-8.4-ACCESS-01
+    confidence: inferred
+    rationale: >-
+      A privileged container can escape its isolation and reach other workloads.
+    remediationTemplate: >-
+      Drop privileged mode and grant only the capabilities the workload needs.
