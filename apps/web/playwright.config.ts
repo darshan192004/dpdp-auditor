@@ -7,6 +7,9 @@ export default defineConfig({
     command: 'pnpm preview',
     port: 3000,
     reuseExistingServer: !process.env.CI,
+    // Fixtures keep the workbench verifiable without Docker, Postgres, or the
+    // Phase 2 session. The flag is opt-in and absent from production.
+    env: { NUXT_FIXTURES: '1' },
     // Cold-start headroom: `nuxt preview` re-bootstraps modules before serving
     // (observed 14s+ for @nuxt/ui alone on a cold cache).
     timeout: 120_000,
