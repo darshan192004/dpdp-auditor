@@ -63,7 +63,7 @@ const emit = defineEmits<{ toggleSidebar: [] }>();
       <button
         type="button"
         class="border-ink-200 text-ink-600 hover:bg-ink-50 focus-visible:ring-brand-500 hidden items-center gap-1 rounded-[var(--radius-control)] border px-2.5 py-1.5 font-mono text-xs focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none sm:inline-flex"
-        aria-label="Open command palette"
+        aria-label="Open command palette ⌘K"
       >
         <span aria-hidden="true">⌘K</span>
       </button>
@@ -71,7 +71,7 @@ const emit = defineEmits<{ toggleSidebar: [] }>();
       <button
         type="button"
         class="bg-ink-100 text-ink-700 hover:bg-ink-200 focus-visible:ring-brand-500 inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius-pill)] text-xs font-semibold focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-        aria-label="Account menu"
+        aria-label="Account menu, DS"
       >
         <span aria-hidden="true">DS</span>
       </button>

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Prisma, Repository, Scan } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import type { Repository, Scan } from '@prisma/client';
 import type { OrgPlan } from '@prisma/client';
 import {
   ScansService,
@@ -99,6 +100,7 @@ function make(options?: { scan?: Scan | null; repo?: Repository | null; org?: ty
     create: vi.fn().mockResolvedValue(scan()),
     countCreatedSince: vi.fn().mockResolvedValue(0),
     findActiveForRef: vi.fn().mockResolvedValue(null),
+    findPreviousCompletedScore: vi.fn().mockResolvedValue(null),
     list: vi.fn().mockResolvedValue({ items: [], total: 0 }),
     update: vi.fn().mockResolvedValue(scan()),
     appendEvent: vi.fn().mockResolvedValue({}),
@@ -346,6 +348,43 @@ describe('ScansService reads', () => {
     await expect(service.detail(ORG_ID, SCAN_ID)).resolves.toMatchObject({
       error: { code: 'INTERNAL_ERROR', message: 'boom' },
     });
+  });
+
+  it('adds the previous completed score to a completed scan', async () => {
+    const { service, scans } = make({
+      scan: scan({ status: 'completed', score: new Prisma.Decimal(72.5), grade: 'C' }),
+    });
+    scans.findPreviousCompletedScore.mockResolvedValue({
+      score: new Prisma.Decimal(68.3),
+    });
+
+    await expect(service.detail(ORG_ID, SCAN_ID)).resolves.toMatchObject({
+      score: 72.5,
+      grade: 'C',
+      previousScore: 68.3,
+    });
+    expect(scans.findPreviousCompletedScore).toHaveBeenCalledWith(
+      ORG_ID,
+      expect.objectContaining({ id: SCAN_ID, repositoryId: REPO_ID }),
+    );
+  });
+
+  it('reports no previous score for the first completed scan', async () => {
+    const { service } = make({
+      scan: scan({ status: 'completed', score: new Prisma.Decimal(72.5), grade: 'C' }),
+    });
+
+    await expect(service.detail(ORG_ID, SCAN_ID)).resolves.toMatchObject({
+      previousScore: null,
+    });
+  });
+
+  it('does not look up a previous score for an unfinished scan', async () => {
+    const { service, scans } = make();
+
+    await service.detail(ORG_ID, SCAN_ID);
+
+    expect(scans.findPreviousCompletedScore).not.toHaveBeenCalled();
   });
 
   it('rejects an unknown scan', async () => {
