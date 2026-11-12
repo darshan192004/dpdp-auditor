@@ -6,6 +6,9 @@
   (Checkov 13, Semgrep 12, Gitleaks 8), scoring config v1.0.0.
 - No suppressions are shipped; secret findings require a hash-scoped
   suppression with a written reason and expiry.
+- `scanner-catalog.json` pins the scanner rule IDs the pack may map (Semgrep
+  1.95.0, Checkov 3.2.0, Gitleaks 8.21.0). CI rejects a mapping that references
+  an uncatalogued rule, and `mapping_miss_total` tracks drift at runtime.
 
 Packs are immutable once published. A change requires a version bump per
 `docs/rules.md` §12.2 and regenerating `manifest.yaml`.
