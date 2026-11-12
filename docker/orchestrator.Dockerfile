@@ -15,11 +15,14 @@ COPY . .
 RUN pnpm install --frozen-lockfile
 # Builds @dpdpa/contracts + @dpdpa/observability first, and runs prisma generate.
 RUN pnpm exec turbo build --filter=@dpdpa/orchestrator...
-# Drop the dev tree, then install a production-only tree. pnpm does not remove
-# already-installed devDependencies, so the node_modules dirs are cleared first.
+# Drop the dev tree, then install a production-only tree for the orchestrator
+# and its workspace dependencies. The filter matters: an unfiltered prod
+# install also keeps the web workspace's runtime deps (Nuxt modules and their
+# bundled binaries) in the shared store, which bloats this image and drags in
+# unrelated CVEs.
 # --ignore-scripts skips the root `prepare: husky` hook (husky is a dev dep).
 RUN rm -rf node_modules apps/*/node_modules packages/*/node_modules
-RUN pnpm install --prod --frozen-lockfile --ignore-scripts
+RUN pnpm install --prod --frozen-lockfile --ignore-scripts --filter=@dpdpa/orchestrator...
 RUN pnpm --filter @dpdpa/orchestrator exec prisma generate
 # `pnpm install --prod` only creates node_modules for workspaces that still have
 # runtime dependencies. @dpdpa/observability has none, so its directory is
