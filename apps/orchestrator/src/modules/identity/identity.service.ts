@@ -3,6 +3,7 @@ import type { Membership, Organization, User } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { ApiError } from '../../common/api-error.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { AuditService } from '../audit/audit.service.js';
 import {
   addMembershipSchema,
   changeRoleSchema,
@@ -33,6 +34,7 @@ export class IdentityService {
     private readonly users: UsersRepository,
     private readonly organizations: OrganizationsRepository,
     private readonly memberships: MembershipsRepository,
+    private readonly audit: AuditService,
   ) {}
 
   /**
@@ -48,7 +50,7 @@ export class IdentityService {
     return this.prisma.$transaction(async (tx) => {
       const byGithubId = await this.users.findByGithubId(profile.githubUserId, tx);
       if (byGithubId) {
-        return this.users.updateProfile(
+        const user = await this.users.updateProfile(
           byGithubId.id,
           {
             email: profile.email,
@@ -59,11 +61,13 @@ export class IdentityService {
           },
           tx,
         );
+        await this.recordLogin(user, tx);
+        return user;
       }
 
       const byEmail = await this.users.findByEmail(profile.email, tx);
       if (byEmail) {
-        return this.users.updateProfile(
+        const user = await this.users.updateProfile(
           byEmail.id,
           {
             githubUserId: profile.githubUserId,
@@ -74,9 +78,11 @@ export class IdentityService {
           },
           tx,
         );
+        await this.recordLogin(user, tx);
+        return user;
       }
 
-      return this.users.create(
+      const user = await this.users.create(
         {
           email: profile.email,
           name: profile.name ?? null,
@@ -85,6 +91,8 @@ export class IdentityService {
         },
         tx,
       );
+      await this.recordLogin(user, tx);
+      return user;
     });
   }
 
@@ -117,6 +125,18 @@ export class IdentityService {
           },
           tx,
         );
+        await this.audit.record(
+          {
+            orgId: organization.id,
+            actorType: 'user',
+            actorUserId: owner.id,
+            action: 'org.created',
+            resourceType: 'organization',
+            resourceId: organization.id,
+            metadata: { slug: organization.slug, name: organization.name },
+          },
+          tx,
+        );
         return { organization, membership };
       } catch (error) {
         // The pre-check above is advisory; the unique index is authoritative.
@@ -140,7 +160,7 @@ export class IdentityService {
       if (existing) throw new ApiError('CONFLICT', 'The user is already a member.');
 
       try {
-        return await this.memberships.create(
+        const membership = await this.memberships.create(
           {
             orgId: input.orgId,
             userId: input.userId,
@@ -150,6 +170,19 @@ export class IdentityService {
           },
           tx,
         );
+        await this.audit.record(
+          {
+            orgId: input.orgId,
+            actorType: input.invitedBy ? 'user' : 'system',
+            actorUserId: input.invitedBy ?? null,
+            action: 'member.invited',
+            resourceType: 'membership',
+            resourceId: membership.userId,
+            metadata: { role: membership.role, status: membership.status },
+          },
+          tx,
+        );
+        return membership;
       } catch (error) {
         if (isUniqueViolation(error)) {
           throw new ApiError('CONFLICT', 'The user is already a member.');
@@ -168,7 +201,19 @@ export class IdentityService {
       if (membership.role === 'owner' && membership.status === 'active' && input.role !== 'owner') {
         await this.assertNotLastOwner(input.orgId, tx);
       }
-      return this.memberships.updateRole(input.orgId, input.userId, input.role, tx);
+      const updated = await this.memberships.updateRole(input.orgId, input.userId, input.role, tx);
+      await this.audit.record(
+        {
+          orgId: input.orgId,
+          actorType: 'system',
+          action: 'member.role_changed',
+          resourceType: 'membership',
+          resourceId: input.userId,
+          metadata: { from: membership.role, to: input.role },
+        },
+        tx,
+      );
+      return updated;
     });
   }
 
@@ -180,6 +225,17 @@ export class IdentityService {
         await this.assertNotLastOwner(orgId, tx);
       }
       await this.memberships.delete(orgId, userId, tx);
+      await this.audit.record(
+        {
+          orgId,
+          actorType: 'system',
+          action: 'member.removed',
+          resourceType: 'membership',
+          resourceId: userId,
+          metadata: { role: membership.role },
+        },
+        tx,
+      );
     });
   }
 
@@ -201,6 +257,21 @@ export class IdentityService {
 
   getMembership(orgId: string, userId: string): Promise<Membership | null> {
     return this.memberships.find(orgId, userId);
+  }
+
+  private async recordLogin(user: User, tx: Prisma.TransactionClient): Promise<void> {
+    await this.audit.record(
+      {
+        orgId: null,
+        actorType: 'user',
+        actorUserId: user.id,
+        action: 'auth.login',
+        resourceType: 'user',
+        resourceId: user.id,
+        metadata: { method: 'github' },
+      },
+      tx,
+    );
   }
 
   private async requireMembership(

@@ -6,6 +6,6 @@ import { UsersRepository } from './users.repository.js';
 
 @Module({
   providers: [IdentityService, UsersRepository, OrganizationsRepository, MembershipsRepository],
-  exports: [IdentityService],
+  exports: [IdentityService, UsersRepository, OrganizationsRepository, MembershipsRepository],
 })
 export class IdentityModule {}

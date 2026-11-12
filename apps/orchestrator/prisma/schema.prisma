@@ -153,6 +153,7 @@ model Organization {
   auditLogs       AuditLog[]
   usageEvents     UsageEvent[]
   sessions        Session[]
+  invites         MembershipInvite[]
 
   @@map("organizations")
 }
@@ -178,6 +179,7 @@ model User {
   reportsRequested      Report[]         @relation("ReportRequestedBy")
   auditActs             AuditLog[]       @relation("AuditActor")
   sessions              Session[]
+  invitesSent           MembershipInvite[] @relation("MembershipInviteInvitedBy")
 
   @@map("users")
 }
@@ -197,6 +199,24 @@ model Membership {
 
   @@id([orgId, userId])
   @@map("memberships")
+}
+
+model MembershipInvite {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId      String    @map("org_id") @db.Uuid
+  email      String    @db.Citext
+  role       MemberRole @default(viewer)
+  tokenHash  String    @unique @map("token_hash") @db.Text
+  invitedBy  String?   @map("invited_by") @db.Uuid
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz
+  acceptedAt DateTime? @map("accepted_at") @db.Timestamptz
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  inviter      User?        @relation("MembershipInviteInvitedBy", fields: [invitedBy], references: [id], onDelete: SetNull)
+
+  @@index([orgId, email])
+  @@map("membership_invites")
 }
 
 model Repository {
