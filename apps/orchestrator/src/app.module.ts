@@ -13,6 +13,8 @@ import { PrismaModule } from './prisma/prisma.module.js';
 import { QueueModule } from './queue/queue.module.js';
 import { RetentionModule } from './modules/retention/retention.module.js';
 import { FeatureFlagsModule } from './modules/feature-flags/feature-flags.module.js';
+import { FindingsModule } from './modules/findings/findings.module.js';
+import { RulesModule } from './modules/rules/rules.module.js';
 
 @Module({})
 export class AppModule {
@@ -33,6 +35,8 @@ export class AppModule {
         InvitesModule,
         ScansModule,
         RulePackModule,
+        FindingsModule,
+        RulesModule,
       ],
     };
   }
