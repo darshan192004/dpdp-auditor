@@ -21,6 +21,10 @@ RUN pnpm exec turbo build --filter=@dpdpa/orchestrator...
 RUN rm -rf node_modules apps/*/node_modules packages/*/node_modules
 RUN pnpm install --prod --frozen-lockfile --ignore-scripts
 RUN pnpm --filter @dpdpa/orchestrator exec prisma generate
+# `pnpm install --prod` only creates node_modules for workspaces that still have
+# runtime dependencies. @dpdpa/observability has none, so its directory is
+# absent and the COPY below would fail; create it explicitly.
+RUN mkdir -p apps/orchestrator/node_modules packages/contracts/node_modules packages/observability/node_modules
 
 FROM gcr.io/distroless/nodejs22-debian13:nonroot@sha256:34985bab6fd6981259f18ab7555995a911ca3bee4b0d38bacdc63932df1dc6cb AS runtime
 ENV NODE_ENV=production \
