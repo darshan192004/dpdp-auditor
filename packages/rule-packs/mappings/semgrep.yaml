@@ -1,0 +1,123 @@
+# Semgrep (application code) mappings (rules.md §6.2).
+version: 1
+pack: dpdpa-2026.10.1
+
+mappings:
+  - scanner: semgrep
+    ruleId: dpdpa.python.pii-in-logs
+    control: DPDPA-8.4-LOG-01
+    confidence: direct
+    rationale: >-
+      A PII-shaped value is passed to a logger, which widens access beyond the
+      collection purpose.
+    remediationTemplate: >-
+      Remove the personal data from the log call and log a salted hash or an
+      internal identifier instead.
+
+  - scanner: semgrep
+    ruleId: dpdpa.javascript.pii-in-logs
+    control: DPDPA-8.4-LOG-01
+    confidence: direct
+    rationale: >-
+      A request body or user object is logged, exposing personal data to log
+      readers.
+    remediationTemplate: >-
+      Remove the personal data from the log call and log a salted hash or an
+      internal identifier instead.
+
+  - scanner: semgrep
+    ruleId: dpdpa.generic.hardcoded-credential
+    control: DPDPA-8.4-SECRET-01
+    confidence: direct
+    rationale: >-
+      A credential literal in source is readable by anyone with repository
+      access.
+    remediationTemplate: >-
+      Revoke the credential and load it from a managed secret store at runtime.
+
+  - scanner: semgrep
+    ruleId: dpdpa.python.no-consent-check
+    control: DPDPA-6-CONSENT-01
+    confidence: inferred
+    rationale: >-
+      A write path touches personal data without a consent dependency; the
+      runtime flow may still enforce consent elsewhere.
+    remediationTemplate: >-
+      Gate the write path on a recorded consent state before processing.
+
+  - scanner: semgrep
+    ruleId: dpdpa.javascript.no-consent-check
+    control: DPDPA-6-CONSENT-01
+    confidence: inferred
+    rationale: >-
+      A Node write path touches personal data without a consent dependency; the
+      runtime flow may still enforce consent elsewhere.
+    remediationTemplate: >-
+      Gate the write path on a recorded consent state before processing.
+
+  - scanner: semgrep
+    ruleId: dpdpa.generic.overcollection
+    control: DPDPA-6-MIN-01
+    confidence: inferred
+    rationale: >-
+      The schema or DTO collects fields beyond the stated purpose.
+    remediationTemplate: >-
+      Remove unnecessary personal data fields and document the purpose for each
+      remaining field.
+
+  - scanner: semgrep
+    ruleId: dpdpa.python.consent-withdrawal-missing
+    control: DPDPA-6-WD-01
+    confidence: inferred
+    rationale: >-
+      A consent record has no withdrawal path, so withdrawal cannot be honoured.
+    remediationTemplate: >-
+      Add a withdrawal endpoint that records the event and stops processing.
+
+  - scanner: semgrep
+    ruleId: dpdpa.generic.unbounded-retention
+    control: DPDPA-8.4-RET-01
+    confidence: inferred
+    rationale: >-
+      Rows or objects are stored without a TTL or delete path.
+    remediationTemplate: >-
+      Add a retention policy or TTL and a scheduled job that enforces it.
+
+  - scanner: semgrep
+    ruleId: dpdpa.generic.hard-delete-missing
+    control: DPDPA-13-ERASE-01
+    confidence: inferred
+    rationale: >-
+      User deletion only sets a flag, leaving personal data in place.
+    remediationTemplate: >-
+      Implement a hard-delete path and propagate erasure to derived stores.
+
+  - scanner: semgrep
+    ruleId: dpdpa.javascript.cross-border-sdk
+    control: DPDPA-16-XBORDER-01
+    confidence: inferred
+    rationale: >-
+      A third-party SDK defaults to a region outside India, which may transfer
+      personal data without a recorded basis.
+    remediationTemplate: >-
+      Pin the SDK to an approved region or disable the transfer.
+
+  - scanner: semgrep
+    ruleId: dpdpa.generic.children-data-no-age-gate
+    control: DPDPA-9-CHILD-01
+    confidence: advisory
+    rationale: >-
+      A child-directed feature lacks an age gate; applicability depends on the
+      product audience.
+    remediationTemplate: >-
+      Add an age gate and a verifiable parental consent flow.
+
+  - scanner: semgrep
+    ruleId: dpdpa.generic.privacy-notice-missing
+    control: DPDPA-5-NOTICE-01
+    confidence: advisory
+    rationale: >-
+      A collection endpoint has no notice link; the notice may be rendered by a
+      shared layout.
+    remediationTemplate: >-
+      Link the privacy notice from the collection endpoint.

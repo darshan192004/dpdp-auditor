@@ -7,6 +7,7 @@ import { HealthModule } from './modules/health/health.module.js';
 import { IdentityModule } from './modules/identity/identity.module.js';
 import { InvitesModule } from './modules/invites/invites.module.js';
 import { ReposModule } from './modules/repos/repos.module.js';
+import { RulePackModule } from './modules/rule-pack/rule-pack.module.js';
 import { ScansModule } from './modules/scans/scans.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { QueueModule } from './queue/queue.module.js';
@@ -31,6 +32,7 @@ export class AppModule {
         ReposModule,
         InvitesModule,
         ScansModule,
+        RulePackModule,
       ],
     };
   }

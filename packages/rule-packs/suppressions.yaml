@@ -1,0 +1,9 @@
+# Rule-level suppressions (rules.md §5.3, §11).
+#
+# Path globs alone never suppress a secret: a secret is suppressed only by an
+# exact evidence hash plus a written reason and an expiry date. Reviewed
+# suppressions are added here with a CHANGELOG entry, not per tenant.
+version: 1
+pack: dpdpa-2026.10.1
+
+suppressions: []

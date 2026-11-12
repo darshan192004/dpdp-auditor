@@ -1,0 +1,464 @@
+# DPDPA control catalog (rules.md §4, §5.1).
+#
+# `scored: false` controls are excluded from both the numerator and the
+# denominator of every section score. `appliesWhen` predicates evaluate against
+# repository facts (languages, frameworks, resourceTypes) delivered by the
+# runner; an empty predicate means the control always applies.
+version: 1
+pack: dpdpa-2026.10.1
+effectiveFrom: 2026-10-15
+
+controls:
+  - code: DPDPA-5-NOTICE-01
+    section: '5'
+    title: Privacy notice is present and linked at collection
+    summary: >-
+      The collection surface links to a privacy notice that states the purpose
+      and categories of personal data processed.
+    obligation: >-
+      A Data Fiduciary must give the Data Principal a notice describing the
+      personal data collected, the purpose, and how to exercise rights.
+    legalReference: DPDPA Section 5
+    severity: medium
+    weight: 2
+    evidenceStrength: advisory
+    scored: true
+    appliesWhen:
+      any:
+        - language: python
+        - language: javascript
+        - language: typescript
+    remediation: >-
+      Link the privacy notice from every collection endpoint and keep the notice
+      version referenced in code.
+    tags: [notice, transparency]
+
+  - code: DPDPA-6-CONSENT-01
+    section: '6'
+    title: Consent is captured before personal data processing
+    summary: >-
+      Write paths that touch personal data depend on a recorded consent state
+      rather than processing unconditionally.
+    obligation: >-
+      Processing requires the consent of the Data Principal or a specified
+      legitimate use, requested through a clear affirmative action.
+    legalReference: DPDPA Section 6
+    severity: high
+    weight: 5
+    evidenceStrength: inferred
+    scored: true
+    appliesWhen:
+      any:
+        - language: python
+        - language: javascript
+        - language: typescript
+    remediation: >-
+      Gate collection handlers on a consent check and persist the consent
+      artefact with a timestamp and purpose.
+    tags: [consent, collection]
+
+  - code: DPDPA-6-MIN-01
+    section: '6'
+    title: Only necessary personal data fields are collected
+    summary: >-
+      Request schemas and DTOs collect fields that are necessary for the stated
+      purpose, without open-ended personal data capture.
+    obligation: >-
+      A Data Fiduciary must limit collection to the personal data necessary for
+      the specified purpose.
+    legalReference: DPDPA Section 6
+    severity: high
+    weight: 4
+    evidenceStrength: inferred
+    scored: true
+    appliesWhen:
+      any:
+        - language: python
+        - language: javascript
+        - language: typescript
+    remediation: >-
+      Remove unused personal data fields from request schemas and document the
+      purpose for each remaining field.
+    tags: [minimisation, collection]
+
+  - code: DPDPA-6-WD-01
+    section: '6'
+    title: Consent withdrawal is implemented
+    summary: >-
+      A consent record exposes a withdrawal path that stops further processing.
+    obligation: >-
+      The Data Principal may withdraw consent at any time, and withdrawal must
+      be as easy as giving consent.
+    legalReference: DPDPA Section 6
+    severity: medium
+    weight: 3
+    evidenceStrength: inferred
+    scored: true
+    appliesWhen:
+      any:
+        - language: python
+        - language: javascript
+        - language: typescript
+    remediation: >-
+      Add a withdrawal endpoint that records the event and stops downstream
+      processing for the affected purpose.
+    tags: [consent, withdrawal]
+
+  - code: DPDPA-7-LAWFUL-01
+    section: '7'
+    title: A lawful basis is recorded for processing
+    summary: >-
+      Processing paths record the lawful basis or legitimate use they rely on.
+    obligation: >-
+      Personal data may be processed only for a lawful purpose with a valid
+      basis under the Act.
+    legalReference: DPDPA Section 7
+    severity: medium
+    weight: 2
+    evidenceStrength: advisory
+    scored: true
+    appliesWhen:
+      any:
+        - language: python
+        - language: javascript
+        - language: typescript
+    remediation: >-
+      Attach a lawful-basis identifier to processing jobs and document it in the
+      data inventory.
+    tags: [lawful-basis]
+
+  - code: DPDPA-8.4-ENC-01
+    section: '8(4)'
+    title: Personal data is encrypted at rest
+    summary: >-
+      Storage and database resources that can hold personal data enable
+      encryption at rest.
+    obligation: >-
+      A Data Fiduciary must implement reasonable security safeguards to prevent
+      a personal data breach.
+    legalReference: DPDPA Section 8(4)
+    severity: high
+    weight: 5
+    evidenceStrength: direct
+    scored: true
+    appliesWhen:
+      any:
+        - resourceType: aws_s3_bucket
+        - resourceType: aws_db_instance
+        - resourceType: azurerm_storage_account
+        - resourceType: google_storage_bucket
+    remediation: >-
+      Enable default encryption with a customer-managed KMS key, restrict key
+      administration, and verify that new resources inherit the policy.
+    tags: [encryption, storage, at-rest]
+
+  - code: DPDPA-8.4-TLS-01
+    section: '8(4)'
+    title: Personal data is encrypted in transit
+    summary: >-
+      Services that receive personal data terminate TLS and reject plaintext
+      transport.
+    obligation: >-
+      A Data Fiduciary must implement reasonable security safeguards to prevent
+      a personal data breach.
+    legalReference: DPDPA Section 8(4)
+    severity: high
+    weight: 5
+    evidenceStrength: direct
+    scored: true
+    appliesWhen:
+      any:
+        - language: python
+        - language: javascript
+        - language: typescript
+        - resourceType: aws_lb_listener
+        - resourceType: aws_cloudfront_distribution
+    remediation: >-
+      Enforce HTTPS on every listener and redirect plaintext traffic; disable
+      legacy TLS versions.
+    tags: [encryption, transport, tls]
+
+  - code: DPDPA-8.4-ACCESS-01
+    section: '8(4)'
+    title: Data stores and services are not publicly exposed
+    summary: >-
+      Storage, databases, and administrative interfaces are not reachable from
+      the public internet without an access control layer.
+    obligation: >-
+      A Data Fiduciary must implement reasonable security safeguards to prevent
+      a personal data breach.
+    legalReference: DPDPA Section 8(4)
+    severity: critical
+    weight: 8
+    evidenceStrength: direct
+    scored: true
+    appliesWhen:
+      any:
+        - resourceType: aws_s3_bucket
+        - resourceType: aws_db_instance
+        - resourceType: aws_security_group
+        - resourceType: aws_instance
+        - resourceType: azurerm_storage_account
+        - resourceType: google_storage_bucket
+        - resourceType: kubernetes_deployment
+    remediation: >-
+      Remove public ACLs, restrict ingress to known networks, and require
+      authenticated access for administrative ports.
+    tags: [exposure, access-control]
+
+  - code: DPDPA-8.4-SECRET-01
+    section: '8(4)'
+    title: No credentials or secrets are hardcoded
+    summary: >-
+      Credential material is not committed to the repository in source, config,
+      or test fixtures.
+    obligation: >-
+      A Data Fiduciary must implement reasonable security safeguards to prevent
+      a personal data breach.
+    legalReference: DPDPA Section 8(4)
+    severity: critical
+    weight: 8
+    evidenceStrength: direct
+    scored: true
+    appliesWhen: {}
+    remediation: >-
+      Revoke the exposed credential, move it to a managed secret store, and add
+      a pre-commit secret scan.
+    tags: [secrets, credentials]
+
+  - code: DPDPA-8.4-LOG-01
+    section: '8(4)'
+    title: Personal data is not written to logs
+    summary: >-
+      Log statements do not receive request bodies, user objects, or fields that
+      carry personal data.
+    obligation: >-
+      A Data Fiduciary must implement reasonable security safeguards to prevent
+      a personal data breach.
+    legalReference: DPDPA Section 8(4)
+    severity: critical
+    weight: 7
+    evidenceStrength: direct
+    scored: true
+    appliesWhen:
+      any:
+        - language: python
+        - language: javascript
+        - language: typescript
+    remediation: >-
+      Remove personal data from log calls; log a salted hash or an internal
+      identifier instead.
+    tags: [logging, personal-data]
+
+  - code: DPDPA-8.4-MON-01
+    section: '8(4)'
+    title: Access and audit logging is enabled
+    summary: >-
+      Data stores and services emit access logs that support detection and
+      investigation.
+    obligation: >-
+      A Data Fiduciary must implement reasonable security safeguards to prevent
+      a personal data breach.
+    legalReference: DPDPA Section 8(4)
+    severity: medium
+    weight: 3
+    evidenceStrength: direct
+    scored: true
+    appliesWhen:
+      any:
+        - resourceType: aws_s3_bucket
+        - resourceType: aws_cloudtrail
+        - resourceType: azurerm_monitor_diagnostic_setting
+        - resourceType: google_storage_bucket
+    remediation: >-
+      Enable access logging and ship logs to a retention-controlled,
+      access-restricted destination.
+    tags: [monitoring, audit]
+
+  - code: DPDPA-8.4-BACKUP-01
+    section: '8(4)'
+    title: Backups and versioning protect availability
+    summary: >-
+      Storage and database resources enable versioning or automated backups.
+    obligation: >-
+      A Data Fiduciary must implement reasonable security safeguards to prevent
+      a personal data breach.
+    legalReference: DPDPA Section 8(4)
+    severity: medium
+    weight: 2
+    evidenceStrength: direct
+    scored: true
+    appliesWhen:
+      any:
+        - resourceType: aws_s3_bucket
+        - resourceType: aws_db_instance
+        - resourceType: azurerm_storage_account
+        - resourceType: google_storage_bucket
+    remediation: >-
+      Enable versioning or automated backups and align retention with the
+      documented policy.
+    tags: [availability, backup]
+
+  - code: DPDPA-8.4-RET-01
+    section: '8(4)'
+    title: Retention limits are enforced in code
+    summary: >-
+      Stored personal data has a TTL, lifecycle rule, or scheduled deletion path.
+    obligation: >-
+      Personal data must be erased when the purpose is served, unless retention
+      is required by law.
+    legalReference: DPDPA Section 8(4)
+    severity: high
+    weight: 4
+    evidenceStrength: inferred
+    scored: true
+    appliesWhen:
+      any:
+        - language: python
+        - language: javascript
+        - language: typescript
+        - resourceType: aws_s3_bucket
+        - resourceType: aws_db_instance
+    remediation: >-
+      Add a retention policy or TTL to each personal data store and a scheduled
+      job that enforces it.
+    tags: [retention, deletion]
+
+  - code: DPDPA-8.5-BREACH-01
+    section: '8(5)'
+    title: Breach detection and alerting hooks exist
+    summary: >-
+      The codebase contains alerting or notification hooks for security events.
+    obligation: >-
+      A Data Fiduciary must notify the Data Protection Board and affected Data
+      Principals of a personal data breach.
+    legalReference: DPDPA Section 8(5)
+    severity: medium
+    weight: 3
+    evidenceStrength: inferred
+    scored: true
+    appliesWhen:
+      any:
+        - language: python
+        - language: javascript
+        - language: typescript
+    remediation: >-
+      Wire security events to an alerting channel and document the breach
+      notification runbook.
+    tags: [breach, notification]
+
+  - code: DPDPA-9-CHILD-01
+    section: '9'
+    title: Children's data processing includes verifiable consent
+    summary: >-
+      Child-directed flows verify age and obtain verifiable parental consent.
+    obligation: >-
+      Processing children's data requires verifiable parental consent and must
+      not use behavioural tracking or targeted advertising.
+    legalReference: DPDPA Section 9
+    severity: high
+    weight: 4
+    evidenceStrength: advisory
+    scored: true
+    appliesWhen:
+      any:
+        - language: python
+        - language: javascript
+        - language: typescript
+    remediation: >-
+      Add an age gate and a verifiable parental consent flow before processing
+      children's data.
+    tags: [children, consent]
+
+  - code: DPDPA-10-SDF-01
+    section: '10'
+    title: SDF governance artifacts are present
+    summary: >-
+      The repository references the governance artefacts required of a
+      Significant Data Fiduciary.
+    obligation: >-
+      A Significant Data Fiduciary must appoint a Data Protection Officer,
+      conduct impact assessments, and audit its processing.
+    legalReference: DPDPA Section 10
+    severity: low
+    weight: 1
+    evidenceStrength: advisory
+    scored: true
+    appliesWhen: {}
+    remediation: >-
+      Link the DPO contact, DPIA, and audit records from the repository
+      documentation.
+    tags: [governance, sdf]
+
+  - code: DPDPA-12-ACCESS-01
+    section: '12'
+    title: Data access and export endpoint exists
+    summary: >-
+      The service exposes a path for a Data Principal to request a summary of
+      their personal data.
+    obligation: >-
+      A Data Principal may request a summary of the personal data processed and
+      the identities of the Data Fiduciaries with whom it was shared.
+    legalReference: DPDPA Section 12
+    severity: medium
+    weight: 0
+    evidenceStrength: advisory
+    scored: false
+    appliesWhen:
+      any:
+        - language: python
+        - language: javascript
+        - language: typescript
+    remediation: >-
+      Add an authenticated data-access endpoint that returns the stored personal
+      data for the requesting principal.
+    tags: [rights, access]
+
+  - code: DPDPA-13-ERASE-01
+    section: '13'
+    title: Correction and erasure are implemented
+    summary: >-
+      Deletion paths remove personal data rather than only setting a flag.
+    obligation: >-
+      A Data Principal may request correction, completion, updating, and erasure
+      of personal data.
+    legalReference: DPDPA Section 13
+    severity: high
+    weight: 4
+    evidenceStrength: inferred
+    scored: true
+    appliesWhen:
+      any:
+        - language: python
+        - language: javascript
+        - language: typescript
+    remediation: >-
+      Implement a hard-delete path for personal data and propagate erasure to
+      derived stores.
+    tags: [rights, erasure]
+
+  - code: DPDPA-16-XBORDER-01
+    section: '16'
+    title: Cross-border transfer is restricted or disclosed
+    summary: >-
+      The codebase does not silently replicate personal data to regions outside
+      the approved transfer basis.
+    obligation: >-
+      A Data Fiduciary must not transfer personal data outside India except as
+      notified by the Central Government.
+    legalReference: DPDPA Section 16
+    severity: high
+    weight: 4
+    evidenceStrength: inferred
+    scored: true
+    appliesWhen:
+      any:
+        - language: python
+        - language: javascript
+        - language: typescript
+        - resourceType: aws_s3_bucket
+        - resourceType: aws_db_instance
+    remediation: >-
+      Confirm the destination region and transfer basis, then pin resources and
+      SDKs to an approved region.
+    tags: [cross-border, transfer]
