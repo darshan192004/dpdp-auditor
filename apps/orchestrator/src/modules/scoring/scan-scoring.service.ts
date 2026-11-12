@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma, type Scan } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { recordMappingMiss } from '../../common/metrics.js';
 import type { Control, Mapping, Severity } from '../rule-pack/rule-pack.schemas.js';
 import { RulePackService } from '../rule-pack/rule-pack.service.js';
 import type { LoadedRulePack } from '../rule-pack/rule-pack.loader.js';
@@ -178,8 +179,10 @@ export class ScanScoringService {
 
         currentFingerprints.add(finding.fingerprint);
         scored.push({ controlCode: finding.controlCode, severity: finding.severity, status });
-        if (finding.controlCode === null) tally.unmapped += 1;
-        else tally.mapped += 1;
+        if (finding.controlCode === null) {
+          tally.unmapped += 1;
+          recordMappingMiss(row.scanner, row.scannerRuleId);
+        } else tally.mapped += 1;
         if (seen.isNew) tally.new += 1;
         else if (seen.status === 'reopened') tally.reopened += 1;
         else tally.persistent += 1;

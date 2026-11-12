@@ -14,7 +14,7 @@ import {
   traceSpanProcessors,
   type TelemetryHandle,
 } from '../src/telemetry.js';
-import { recordHttpRequest, statusClass } from '../src/common/metrics.js';
+import { recordHttpRequest, recordMappingMiss, statusClass } from '../src/common/metrics.js';
 
 const METRICS_PORT = 19464; // fixed so the scrape assertion can address it; only this file binds it
 const OTLP_ENV = ['OTEL_EXPORTER_OTLP_ENDPOINT', 'OTEL_EXPORTER_OTLP_TRACES_ENDPOINT'] as const;
@@ -116,6 +116,15 @@ describe('telemetry', () => {
     // View buckets (not the ms-scaled OTel defaults) so p95 > 400 ms is expressible.
     expect(res.body).toContain('le="0.005"');
     expect(res.body).toContain('le="0.4"');
+  });
+
+  it('serves the P4-13 mapping-miss counter on /metrics', async () => {
+    recordMappingMiss('semgrep', 'dpdpa.python.removed');
+    const res = await scrapeWithRetry('/metrics');
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toContain('mapping_miss_total');
+    expect(res.body).toContain('scanner="semgrep"');
+    expect(res.body).toContain('rule_id="dpdpa.python.removed"');
   });
 
   it('exposes the default Prometheus port as a constant', () => {

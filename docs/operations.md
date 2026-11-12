@@ -70,6 +70,7 @@ The launch metric set in `architecture.md` §13 is a subset of this catalog; eve
 | `scanner_partial_rate` | ratio | orchestrator |
 | `api_request_duration_seconds` | histogram | Nitro |
 | `api_5xx_rate` | ratio | Nitro |
+| `mapping_miss_total{scanner,rule_id}` | counter | orchestrator mapping (a spike blocks the rule-pack release) |
 | `report_render_duration_seconds` | histogram | renderer queue |
 | `job_oom_total` | counter | Kubernetes events |
 | `job_failure_total{org}` | counter | Job watcher |
