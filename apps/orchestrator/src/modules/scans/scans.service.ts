@@ -16,6 +16,7 @@ import { OrganizationsRepository } from '../identity/organizations.repository.js
 // Value imports: `emitDecoratorMetadata` needs runtime refs for Nest DI.
 import { RepoResolverService } from '../repos/repo-resolver.service.js';
 import { RepositoriesRepository } from '../repos/repositories.repository.js';
+import { factsFrom } from '../scoring/applicability.js';
 import { ScanScoringService } from '../scoring/scan-scoring.service.js';
 import {
   ACTIVE_SCAN_STATUSES,
@@ -367,6 +368,62 @@ export class ScansService {
       grade: result.grade,
       counts: result.counts,
     };
+  }
+
+  /**
+   * P4-24. Recompute the score from the persisted findings without rewriting
+   * history: the scan keeps its original score, and the derived score is
+   * recorded as a `score_recomputed` event plus an audit row.
+   */
+  async rescore(orgId: string, scanId: string) {
+    const scan = await this.requireScan(orgId, scanId);
+    if (scan.status !== 'completed') {
+      throw new ApiError('INVALID_STATE_TRANSITION', 'Only a completed scan can be rescored.');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const { result } = await this.scoring.scorePersisted(scan, factsFrom(scan.facts), tx);
+      const derived = {
+        score: result.score,
+        grade: result.grade,
+        coverage: result.coverage,
+        sectionScores: result.sectionScores,
+        counts: {
+          critical: result.counts.critical,
+          high: result.counts.high,
+          medium: result.counts.medium,
+          low: result.counts.low,
+          info: result.counts.info,
+          total: result.counts.total,
+        },
+      };
+      const original = {
+        score: scan.score === null ? null : Number(scan.score),
+        grade: scan.grade,
+        sectionScores: scan.sectionScores,
+        counts: scan.counts,
+      };
+
+      await this.scans.appendEvent(scan.id, orgId, 'score_recomputed', { original, derived }, tx);
+      await this.audit.record(
+        {
+          orgId,
+          actorType: 'system',
+          action: 'scan.rescored',
+          resourceType: 'scan',
+          resourceId: scan.id,
+          metadata: {
+            originalScore: original.score,
+            originalGrade: original.grade,
+            derivedScore: derived.score,
+            derivedGrade: derived.grade,
+          },
+        },
+        tx,
+      );
+
+      return { scanId: scan.id, status: scan.status, original, derived };
+    });
   }
 
   private async resolveRepository(

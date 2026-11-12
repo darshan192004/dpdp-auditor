@@ -4,7 +4,7 @@ import { ApiError } from '../../common/api-error.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { ScansRepository } from '../scans/scans.repository.js';
-import type { RepoFacts } from '../scoring/applicability.js';
+import { factsFrom } from '../scoring/applicability.js';
 import { ScanScoringService } from '../scoring/scan-scoring.service.js';
 import { FindingsRepository } from './findings.repository.js';
 import {
@@ -14,7 +14,7 @@ import {
   type TriageFindingInput,
 } from './findings.schemas.js';
 
-type FindingWithRule = ScannerFinding & { dpdpaRule: DpdpaRule | null };
+export type FindingWithRule = ScannerFinding & { dpdpaRule: DpdpaRule | null };
 
 /** api.md §4. P4-17 list, P4-18 triage with transactional audit + rescore. */
 @Injectable()
@@ -191,21 +191,6 @@ export function sectionOf(controlCode: string): string {
   const parts = controlCode.replace(/^DPDPA-/, '').split('-');
   const section = parts[0] ?? '';
   return section.includes('.') ? section.replace('.', '(') + ')' : section;
-}
-
-export function factsFrom(value: Prisma.JsonValue): RepoFacts {
-  const record = asRecord(value);
-  return {
-    languages: strings(record.languages),
-    frameworks: strings(record.frameworks),
-    resourceTypes: strings(record.resourceTypes),
-  };
-}
-
-function strings(value: unknown): string[] {
-  return Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === 'string')
-    : [];
 }
 
 function asRecord(value: Prisma.JsonValue | unknown): Record<string, unknown> {

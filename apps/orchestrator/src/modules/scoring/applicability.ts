@@ -6,6 +6,28 @@ export interface RepoFacts {
   resourceTypes?: readonly string[] | undefined;
 }
 
+/** rules.md §13: repository facts arrive with the completion callback. */
+export function factsFrom(value: unknown): RepoFacts {
+  const record = asRecord(value);
+  return {
+    languages: strings(record.languages),
+    frameworks: strings(record.frameworks),
+    resourceTypes: strings(record.resourceTypes),
+  };
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function strings(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : [];
+}
+
 /** P4-05. `applies_when` is evaluated against runner facts, never findings. */
 export function isApplicable(predicate: Predicate, facts: RepoFacts): boolean {
   if ('any' in predicate) {

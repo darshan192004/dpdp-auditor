@@ -121,6 +121,7 @@ function make(previous: Row[] | null = null, current: Row[] = [row()]) {
         creates.push(data);
         return { ...data, id: `f${creates.length + 1}` };
       }),
+      delete: vi.fn().mockResolvedValue({}),
     },
     dpdpaRule: {
       upsert: vi.fn(async ({ create }: { create: { code: string } }) => ({
@@ -311,6 +312,110 @@ describe('ScanScoringService (P4-06, P4-10, P4-11)', () => {
 
     expect(harness.tx.dpdpaRule.upsert).toHaveBeenCalledTimes(pack.controls.length);
     expect(harness.tx.ruleMapping.upsert).toHaveBeenCalledTimes(pack.mappings.length);
+  });
+
+  it('drops a fully suppressed finding and counts it (P4-19)', async () => {
+    const harness = make(null, [
+      row({
+        scanner: 'gitleaks',
+        scannerRuleId: 'aws-access-token',
+        filePath: 'services/tests/fixtures/key.py',
+        evidenceHash: 'sha256:abc',
+        fingerprint: 'fpt_secret',
+      }),
+    ]);
+    harness.setPack({
+      ...pack,
+      suppressions: [
+        {
+          id: 'fixture-keys',
+          paths: ['**/tests/fixtures/**'],
+          scanners: ['gitleaks'],
+          controls: ['DPDPA-8.4-SECRET-01'],
+          matchHashes: ['sha256:abc'],
+          reason: 'A reviewed fake fixture key that cannot authenticate.',
+          reviewedBy: 'security@example.com',
+          expiresAt: '2027-01-01',
+        },
+      ],
+    });
+
+    const result = await harness.service.mapAndScore(
+      scan(),
+      FACTS,
+      { gitleaks: 'completed' },
+      harness.tx as unknown as Prisma.TransactionClient,
+    );
+
+    expect(harness.tx.scannerFinding.delete).toHaveBeenCalledWith({ where: { id: 'f1' } });
+    expect(harness.updates).toHaveLength(0);
+    expect(result.findings).toMatchObject({ mapped: 0, suppressed: 1 });
+  });
+
+  it('keeps a secret whose evidence hash is not suppressed', async () => {
+    const harness = make(null, [
+      row({
+        scanner: 'gitleaks',
+        scannerRuleId: 'aws-access-token',
+        filePath: 'services/tests/fixtures/key.py',
+        evidenceHash: 'sha256:other',
+        fingerprint: 'fpt_secret',
+      }),
+    ]);
+    harness.setPack({
+      ...pack,
+      suppressions: [
+        {
+          id: 'fixture-keys',
+          paths: ['**/tests/fixtures/**'],
+          scanners: ['gitleaks'],
+          controls: ['DPDPA-8.4-SECRET-01'],
+          matchHashes: ['sha256:abc'],
+          reason: 'A reviewed fake fixture key that cannot authenticate.',
+          reviewedBy: 'security@example.com',
+          expiresAt: '2027-01-01',
+        },
+      ],
+    });
+
+    const result = await harness.service.mapAndScore(
+      scan(),
+      FACTS,
+      { gitleaks: 'completed' },
+      harness.tx as unknown as Prisma.TransactionClient,
+    );
+
+    expect(harness.updates).toHaveLength(1);
+    expect(result.findings).toMatchObject({ mapped: 1, suppressed: 0 });
+  });
+
+  it('suppresses a non-secret finding by path alone', async () => {
+    const harness = make(null, [row({ filePath: 'tests/fixtures/main.tf' })]);
+    harness.setPack({
+      ...pack,
+      suppressions: [
+        {
+          id: 'generated-iac',
+          paths: ['**/tests/fixtures/**'],
+          scanners: ['checkov'],
+          controls: ['DPDPA-8.4-ENC-01'],
+          matchHashes: [],
+          reason: 'Reviewed fixture that is not deployed anywhere.',
+          reviewedBy: 'security@example.com',
+          expiresAt: '2027-01-01',
+        },
+      ],
+    });
+
+    const result = await harness.service.mapAndScore(
+      scan(),
+      FACTS,
+      { checkov: 'completed' },
+      harness.tx as unknown as Prisma.TransactionClient,
+    );
+
+    expect(harness.tx.scannerFinding.delete).toHaveBeenCalled();
+    expect(result.findings.suppressed).toBe(1);
   });
 });
 

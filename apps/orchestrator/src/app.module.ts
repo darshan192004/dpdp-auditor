@@ -15,6 +15,7 @@ import { RetentionModule } from './modules/retention/retention.module.js';
 import { FeatureFlagsModule } from './modules/feature-flags/feature-flags.module.js';
 import { FindingsModule } from './modules/findings/findings.module.js';
 import { RulesModule } from './modules/rules/rules.module.js';
+import { ReportsModule } from './modules/reports/reports.module.js';
 
 @Module({})
 export class AppModule {
@@ -37,6 +38,7 @@ export class AppModule {
         RulePackModule,
         FindingsModule,
         RulesModule,
+        ReportsModule,
       ],
     };
   }

@@ -145,6 +145,16 @@ function make(options?: { scan?: Scan | null; repo?: Repository | null; org?: ty
       scoringVersion: '1.0.0',
       findings: { mapped: 0, unmapped: 0, new: 0, persistent: 0, reopened: 0, resolved: 0 },
     }),
+    scorePersisted: vi.fn().mockResolvedValue({
+      loaded: { pack: 'dpdpa-2026.10.1', scoringVersion: '1.0.0' },
+      result: {
+        score: 72.5,
+        grade: 'C',
+        sectionScores: { '8(4)': 66.67 },
+        counts: { critical: 1, high: 0, medium: 0, low: 0, info: 0, total: 1 },
+        coverage: 'full',
+      },
+    }),
   };
 
   const service = new ScansService(
@@ -612,6 +622,87 @@ describe('ScansService.complete', () => {
   it('validates the completion payload', async () => {
     const { service } = make();
     await expect(service.complete(ORG_ID, SCAN_ID, { scanners: [] })).rejects.toThrow();
+  });
+});
+
+describe('ScansService.rescore (P4-24)', () => {
+  it('derives a score and records it without rewriting the scan row', async () => {
+    const { service, scans, scoring, audit, tx } = make({
+      scan: scan({
+        status: 'completed',
+        score: { toString: () => '90.00' } as unknown as Scan['score'],
+        grade: 'A',
+        sectionScores: { '8(4)': 90 },
+        counts: { critical: 0, high: 1, medium: 0, low: 0, info: 0, total: 1 },
+        coverage: { semgrep: 'completed' },
+        coverageStatus: 'full',
+        facts: { languages: ['python'], frameworks: [], resourceTypes: [] },
+      }),
+    });
+
+    const result = await service.rescore(ORG_ID, SCAN_ID);
+
+    expect(scoring.scorePersisted).toHaveBeenCalledWith(
+      expect.objectContaining({ id: SCAN_ID }),
+      { languages: ['python'], frameworks: [], resourceTypes: [] },
+      tx,
+    );
+    expect(scans.update).not.toHaveBeenCalled();
+    expect(scans.appendEvent).toHaveBeenCalledWith(
+      SCAN_ID,
+      ORG_ID,
+      'score_recomputed',
+      {
+        original: {
+          score: 90,
+          grade: 'A',
+          sectionScores: { '8(4)': 90 },
+          counts: { critical: 0, high: 1, medium: 0, low: 0, info: 0, total: 1 },
+        },
+        derived: {
+          score: 72.5,
+          grade: 'C',
+          coverage: 'full',
+          sectionScores: { '8(4)': 66.67 },
+          counts: { critical: 1, high: 0, medium: 0, low: 0, info: 0, total: 1 },
+        },
+      },
+      tx,
+    );
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'scan.rescored',
+        resourceType: 'scan',
+        resourceId: SCAN_ID,
+        metadata: {
+          originalScore: 90,
+          originalGrade: 'A',
+          derivedScore: 72.5,
+          derivedGrade: 'C',
+        },
+      }),
+      tx,
+    );
+    expect(result).toMatchObject({
+      scanId: SCAN_ID,
+      status: 'completed',
+      derived: { score: 72.5, grade: 'C' },
+    });
+  });
+
+  it('rejects a scan that has not completed', async () => {
+    const { service, scoring } = make({ scan: scan({ status: 'scanning' }) });
+
+    await expect(service.rescore(ORG_ID, SCAN_ID)).rejects.toMatchObject({
+      code: 'INVALID_STATE_TRANSITION',
+    });
+    expect(scoring.scorePersisted).not.toHaveBeenCalled();
+  });
+
+  it('rejects a scan from another organisation', async () => {
+    const { service } = make({ scan: null });
+
+    await expect(service.rescore(ORG_ID, SCAN_ID)).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 });
 

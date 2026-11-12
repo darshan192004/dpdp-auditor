@@ -2,10 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 import type { DpdpaRule, Prisma, ScannerFinding, Scan } from '@prisma/client';
 import {
   FindingsService,
-  factsFrom,
   sectionOf,
   toFindingView,
 } from '../src/modules/findings/findings.service.js';
+import { factsFrom } from '../src/modules/scoring/applicability.js';
 import type { FindingsRepository } from '../src/modules/findings/findings.repository.js';
 import type { ScansRepository } from '../src/modules/scans/scans.repository.js';
 import type { ScanScoringService } from '../src/modules/scoring/scan-scoring.service.js';

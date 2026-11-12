@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Prisma, type Scan } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import type { Control, Mapping, Severity } from '../rule-pack/rule-pack.schemas.js';
@@ -6,6 +6,7 @@ import { RulePackService } from '../rule-pack/rule-pack.service.js';
 import type { LoadedRulePack } from '../rule-pack/rule-pack.loader.js';
 import { resolveMappings, type FindingStatus } from './mapping.resolver.js';
 import { scoreScan, type ScoreCounts } from './scoring.engine.js';
+import { isSuppressed } from './suppression.js';
 import type { RepoFacts } from './applicability.js';
 
 export interface MapAndScoreResult {
@@ -19,6 +20,7 @@ export interface MapAndScoreResult {
   findings: {
     mapped: number;
     unmapped: number;
+    suppressed: number;
     new: number;
     persistent: number;
     reopened: number;
@@ -42,6 +44,7 @@ interface Lifecycle {
  */
 @Injectable()
 export class ScanScoringService {
+  private readonly logger = new Logger(ScanScoringService.name);
   private persisted: Promise<Map<string, string>> | undefined;
 
   constructor(
@@ -66,7 +69,14 @@ export class ScanScoringService {
     const now = new Date();
     const scored: { controlCode: string | null; severity: Severity; status: FindingStatus }[] = [];
     const currentFingerprints = new Set<string>();
-    const tally = { mapped: 0, unmapped: 0, new: 0, persistent: 0, reopened: 0 };
+    const tally = {
+      mapped: 0,
+      unmapped: 0,
+      suppressed: 0,
+      new: 0,
+      persistent: 0,
+      reopened: 0,
+    };
 
     for (const row of raw) {
       const mapped = resolveMappings(
@@ -87,10 +97,32 @@ export class ScanScoringService {
         loaded.controlsByCode,
       );
 
-      const rows = mapped.map((finding, index) => ({
-        finding,
-        row: index === 0 ? row : undefined,
-      }));
+      const rows = mapped
+        .filter((finding) => {
+          const suppressed = isSuppressed(
+            {
+              scanner: finding.scanner,
+              controlCode: finding.controlCode,
+              filePath: finding.filePath,
+              evidenceHash: finding.evidenceHash,
+            },
+            loaded.suppressions,
+            now,
+          );
+          if (suppressed) tally.suppressed += 1;
+          return !suppressed;
+        })
+        .map((finding, index) => ({
+          finding,
+          row: index === 0 ? row : undefined,
+        }));
+
+      // Every mapping for this raw finding was suppressed: drop the row rather
+      // than leaving it behind as an unmapped finding.
+      if (mapped.length > 0 && rows.length === 0) {
+        await tx.scannerFinding.delete({ where: { id: row.id } });
+        continue;
+      }
 
       for (const { finding, row: existing } of rows) {
         const previous = lifecycle.get(finding.fingerprint);
@@ -152,6 +184,14 @@ export class ScanScoringService {
         else if (seen.status === 'reopened') tally.reopened += 1;
         else tally.persistent += 1;
       }
+    }
+
+    // P4-13: unmapped findings are a platform-quality signal; a spike means the
+    // pinned scanner emitted a rule the pack no longer knows about.
+    if (tally.unmapped > 0) {
+      this.logger.warn(
+        `mapping_miss scan=${scan.id} count=${tally.unmapped} rule_pack=${loaded.pack}`,
+      );
     }
 
     const coverageMode = coverageFor(coverage);

@@ -14,6 +14,7 @@ function make() {
     cancel: vi.fn().mockResolvedValue({ id: SCAN_ID, status: 'cancelled' }),
     recordFindings: vi.fn().mockResolvedValue({ accepted: 1, duplicates: 0 }),
     complete: vi.fn().mockResolvedValue({ scanId: SCAN_ID, status: 'mapping' }),
+    rescore: vi.fn().mockResolvedValue({ scanId: SCAN_ID, status: 'completed' }),
   };
   return {
     controller: new InternalScansController(scans as unknown as ScansService),
@@ -86,6 +87,18 @@ describe('InternalScansController', () => {
     const { controller, scans } = make();
     await controller.cancel(ORG_ID, SCAN_ID, undefined as never);
     expect(scans.cancel).toHaveBeenCalledWith(ORG_ID, SCAN_ID, { reason: undefined });
+  });
+
+  it('delegates rescore with the organisation and scan (P4-24)', async () => {
+    const { controller, scans } = make();
+
+    await expect(controller.rescore(ORG_ID, SCAN_ID)).resolves.toEqual({
+      data: { scanId: SCAN_ID, status: 'completed' },
+    });
+    expect(scans.rescore).toHaveBeenCalledWith(ORG_ID, SCAN_ID);
+    await expect(controller.rescore(undefined, SCAN_ID)).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+    });
   });
 });
 

@@ -60,6 +60,16 @@ export class FindingsRepository {
     return this.client(tx).scannerFinding.update({ where: { id }, data });
   }
 
+  /** P4-20: the report shows at most 200 findings, worst first. */
+  topForScan(scanId: string, orgId: string, limit = 200, tx?: Prisma.TransactionClient) {
+    return this.client(tx).scannerFinding.findMany({
+      where: { scanId, orgId },
+      include: { dpdpaRule: true },
+      orderBy: [{ severity: 'asc' }, { createdAt: 'asc' }],
+      take: limit,
+    });
+  }
+
   addRemediationLog(
     input: {
       findingId: string;
