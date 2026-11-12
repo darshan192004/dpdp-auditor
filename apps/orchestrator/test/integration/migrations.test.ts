@@ -10,6 +10,7 @@ const TABLES = [
   'organizations',
   'users',
   'memberships',
+  'membership_invites',
   'repositories',
   'api_keys',
   'scans',

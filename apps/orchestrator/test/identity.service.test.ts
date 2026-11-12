@@ -6,6 +6,7 @@ import type { MembershipsRepository } from '../src/modules/identity/memberships.
 import type { OrganizationsRepository } from '../src/modules/identity/organizations.repository.js';
 import type { UsersRepository } from '../src/modules/identity/users.repository.js';
 import type { PrismaService } from '../src/prisma/prisma.service.js';
+import type { AuditService } from '../src/modules/audit/audit.service.js';
 
 const ORG_ID = '11111111-1111-4111-8111-111111111111';
 const USER_ID = '22222222-2222-4222-9222-222222222222';
@@ -63,14 +64,16 @@ function makeService() {
     listForOrg: vi.fn(),
     listActiveForUser: vi.fn(),
   };
+  const audit = { record: vi.fn().mockResolvedValue(undefined) };
 
   const service = new IdentityService(
     prisma,
     users as unknown as UsersRepository,
     organizations as unknown as OrganizationsRepository,
     memberships as unknown as MembershipsRepository,
+    audit as unknown as AuditService,
   );
-  return { service, tx, users, organizations, memberships };
+  return { service, tx, users, organizations, memberships, audit };
 }
 
 describe('IdentityService', () => {
