@@ -1,0 +1,18 @@
+# Keep the build context to sources the Dockerfiles actually need.
+.git
+.github
+.husky
+.superpowers
+.code-review-graph
+.playwright-mcp
+**/node_modules
+**/dist
+**/.output
+**/coverage
+**/playwright-report
+**/test-results
+**/.turbo
+docs
+monitoring
+tests
+*.log

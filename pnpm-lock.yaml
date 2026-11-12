@@ -104,6 +104,9 @@ importers:
       pino:
         specifier: 10.4.0
         version: 10.4.0
+      prisma:
+        specifier: 5.22.0
+        version: 5.22.0
       reflect-metadata:
         specifier: 0.2.2
         version: 0.2.2
@@ -129,9 +132,6 @@ importers:
       prettier:
         specifier: ^3.9.10
         version: 3.9.10
-      prisma:
-        specifier: 5.22.0
-        version: 5.22.0
       testcontainers:
         specifier: 12.2.1
         version: 12.2.1(bare-buffer@3.7.1)
