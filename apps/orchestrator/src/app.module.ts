@@ -3,6 +3,7 @@ import { ConfigModule } from './config/config.module.js';
 import { loadEnv, type Env } from './config/env.js';
 import { AuditModule } from './modules/audit/audit.module.js';
 import { HealthModule } from './modules/health/health.module.js';
+import { IdentityModule } from './modules/identity/identity.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { QueueModule } from './queue/queue.module.js';
 import { RetentionModule } from './modules/retention/retention.module.js';
@@ -21,6 +22,7 @@ export class AppModule {
         QueueModule,
         RetentionModule,
         FeatureFlagsModule,
+        IdentityModule,
       ],
     };
   }

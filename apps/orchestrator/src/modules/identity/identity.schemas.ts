@@ -1,0 +1,49 @@
+import { z } from 'zod';
+
+/** database.md §4.3: member_role. */
+export const memberRoleSchema = z.enum(['owner', 'admin', 'auditor', 'viewer']);
+export type MemberRole = z.infer<typeof memberRoleSchema>;
+
+/** database.md §4.3: membership_status. */
+export const membershipStatusSchema = z.enum(['invited', 'active', 'suspended']);
+export type MembershipStatus = z.infer<typeof membershipStatusSchema>;
+
+/**
+ * GitHub OAuth profile (api.md §2 `/api/auth/github`). `github_user_id` is the
+ * stable external identity; email is the join key for invitations
+ * (database.md §4.2).
+ */
+export const githubProfileSchema = z.strictObject({
+  githubUserId: z
+    .union([z.number().int().positive(), z.string().regex(/^\d+$/)])
+    .transform((value) => BigInt(value)),
+  email: z.email().max(320),
+  name: z.string().trim().min(1).max(120).nullable().optional(),
+  avatarUrl: z.url().max(2048).nullable().optional(),
+});
+export type GithubProfileInput = z.input<typeof githubProfileSchema>;
+export type GithubProfile = z.output<typeof githubProfileSchema>;
+
+/** database.md §4.1: name length and slug grammar. */
+export const createOrganizationSchema = z.strictObject({
+  name: z.string().trim().min(2).max(120),
+  slug: z.string().regex(/^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/, 'invalid slug'),
+  ownerUserId: z.uuid(),
+});
+export type CreateOrganizationInput = z.input<typeof createOrganizationSchema>;
+
+export const addMembershipSchema = z.strictObject({
+  orgId: z.uuid(),
+  userId: z.uuid(),
+  role: memberRoleSchema.default('viewer'),
+  status: membershipStatusSchema.default('invited'),
+  invitedBy: z.uuid().nullable().optional(),
+});
+export type AddMembershipInput = z.input<typeof addMembershipSchema>;
+
+export const changeRoleSchema = z.strictObject({
+  orgId: z.uuid(),
+  userId: z.uuid(),
+  role: memberRoleSchema,
+});
+export type ChangeRoleInput = z.input<typeof changeRoleSchema>;

@@ -4,6 +4,7 @@ import { ServiceUnavailableException, UnauthorizedException } from '@nestjs/comm
 import { errorEnvelopeSchema } from '@dpdpa/contracts';
 import { ZodError } from 'zod';
 import { ApiExceptionFilter } from '../src/common/exception.filter.js';
+import { ApiError } from '../src/common/api-error.js';
 import { auditEntrySchema } from '../src/modules/audit/audit-entry.schema.js';
 
 function makeHost(headers: Record<string, string | string[] | undefined> = {}) {
@@ -56,6 +57,15 @@ describe('ApiExceptionFilter', () => {
       expect(typeof detail.message).toBe('string');
     }
     expect(body.error.requestId).toMatch(/^[A-Za-z0-9_-]{8,64}$/);
+  });
+
+  it('prefers a domain error code over the status default', () => {
+    const { host, sent } = makeHost();
+    filter.catch(new ApiError('LAST_OWNER', 'An organisation must keep at least one owner.'), host);
+    expect(sent.status).toBe(409);
+    const body = errorEnvelopeSchema.parse(sent.body);
+    expect(body.error.code).toBe('LAST_OWNER');
+    expect(body.error.message).toBe('An organisation must keep at least one owner.');
   });
 
   it('maps a 503 ServiceUnavailableException to UPSTREAM_UNAVAILABLE', () => {
