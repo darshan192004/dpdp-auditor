@@ -13,6 +13,7 @@ import type { RepoResolverService } from '../src/modules/repos/repo-resolver.ser
 import type { OrganizationsRepository } from '../src/modules/identity/organizations.repository.js';
 import type { QueueService } from '../src/queue/queue.service.js';
 import type { AuditService } from '../src/modules/audit/audit.service.js';
+import type { ScanScoringService } from '../src/modules/scoring/scan-scoring.service.js';
 import type { PrismaService } from '../src/prisma/prisma.service.js';
 
 const ORG_ID = '11111111-1111-4111-8111-111111111111';
@@ -64,6 +65,8 @@ function scan(overrides: Partial<Scan> = {}): Scan {
     sectionScores: {},
     counts: {},
     coverage: {},
+    coverageStatus: null,
+    facts: {},
     errorCode: null,
     errorMessage: null,
     idempotencyKey: null,
@@ -131,6 +134,18 @@ function make(options?: { scan?: Scan | null; repo?: Repository | null; org?: ty
   };
   const queue = { enqueue: vi.fn().mockResolvedValue({}) };
   const audit = { record: vi.fn().mockResolvedValue(undefined) };
+  const scoring = {
+    mapAndScore: vi.fn().mockResolvedValue({
+      score: 100,
+      grade: 'A',
+      sectionScores: { '8(4)': 100 },
+      counts: { critical: 0, high: 0, medium: 0, low: 0, info: 0, total: 0 },
+      coverage: 'full',
+      rulePackVersion: 'dpdpa-2026.10.1',
+      scoringVersion: '1.0.0',
+      findings: { mapped: 0, unmapped: 0, new: 0, persistent: 0, reopened: 0, resolved: 0 },
+    }),
+  };
 
   const service = new ScansService(
     prisma,
@@ -140,8 +155,9 @@ function make(options?: { scan?: Scan | null; repo?: Repository | null; org?: ty
     resolver as unknown as RepoResolverService,
     queue as unknown as QueueService,
     audit as unknown as AuditService,
+    scoring as unknown as ScanScoringService,
   );
-  return { service, tx, scans, repositories, organizations, resolver, queue, audit };
+  return { service, tx, scans, repositories, organizations, resolver, queue, audit, scoring };
 }
 
 describe('ScansService.create', () => {
@@ -521,13 +537,16 @@ describe('ScansService.complete', () => {
     workspaceBytes: 1024 ** 3,
   };
 
-  it('moves the scan to mapping, records coverage, events, and usage', async () => {
+  it('maps and scores the scan, records coverage, events, and usage', async () => {
     const { service, scans, tx } = make();
 
     await expect(service.complete(ORG_ID, SCAN_ID, COMPLETION)).resolves.toEqual({
       scanId: SCAN_ID,
-      status: 'mapping',
+      status: 'completed',
       coverage: { semgrep: 'completed', gitleaks: 'timed_out' },
+      score: 100,
+      grade: 'A',
+      counts: { critical: 0, high: 0, medium: 0, low: 0, info: 0, total: 0 },
     });
 
     expect(scans.update).toHaveBeenCalledWith(
@@ -538,6 +557,24 @@ describe('ScansService.complete', () => {
         scannerVersions: { semgrep: '1.95.0', gitleaks: '8.21.2' },
         commitSha: 'a'.repeat(40),
       }),
+      tx,
+    );
+    expect(scans.update).toHaveBeenCalledWith(
+      SCAN_ID,
+      expect.objectContaining({
+        status: 'completed',
+        grade: 'A',
+        coverageStatus: 'full',
+        rulePackVersion: 'dpdpa-2026.10.1',
+        scoringVersion: '1.0.0',
+      }),
+      tx,
+    );
+    expect(scans.appendEvent).toHaveBeenCalledWith(
+      SCAN_ID,
+      ORG_ID,
+      'score_computed',
+      expect.objectContaining({ score: 100, grade: 'A', coverage: 'full' }),
       tx,
     );
     expect(scans.appendEvent).toHaveBeenCalledWith(

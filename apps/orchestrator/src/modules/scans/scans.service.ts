@@ -1,5 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import type { Organization, Repository, Scan, ScanEvent } from '@prisma/client';
+import {
+  Prisma,
+  type Organization,
+  type Repository,
+  type Scan,
+  type ScanEvent,
+} from '@prisma/client';
 import { createHash } from 'node:crypto';
 import { ApiError } from '../../common/api-error.js';
 import { monthStart, PLAN_LIMITS } from '../../common/plan-limits.js';
@@ -10,6 +16,7 @@ import { OrganizationsRepository } from '../identity/organizations.repository.js
 // Value imports: `emitDecoratorMetadata` needs runtime refs for Nest DI.
 import { RepoResolverService } from '../repos/repo-resolver.service.js';
 import { RepositoriesRepository } from '../repos/repositories.repository.js';
+import { ScanScoringService } from '../scoring/scan-scoring.service.js';
 import {
   ACTIVE_SCAN_STATUSES,
   cancelScanSchema,
@@ -63,6 +70,7 @@ export class ScansService {
     private readonly resolver: RepoResolverService,
     private readonly queue: QueueService,
     private readonly audit: AuditService,
+    private readonly scoring: ScanScoringService,
   ) {}
 
   async create(raw: CreateScanInput): Promise<CreateScanResult> {
@@ -262,7 +270,7 @@ export class ScansService {
     });
   }
 
-  /** api.md §10.5: recompute coverage, record usage, and move to `mapping`. */
+  /** api.md §10.5: recompute coverage, map findings, score, and complete. */
   async complete(orgId: string, scanId: string, raw: CompleteScanInput) {
     const scan = await this.requireScan(orgId, scanId);
     if (!isActive(scan.status)) {
@@ -279,13 +287,14 @@ export class ScansService {
         .map((scanner) => [scanner.name, scanner.version as string]),
     );
 
-    await this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       await this.scans.update(
         scan.id,
         {
           status: 'mapping',
           coverage,
           scannerVersions,
+          facts: input.facts,
           ...(input.commitSha ? { commitSha: input.commitSha } : {}),
           startedAt: scan.startedAt ?? new Date(),
         },
@@ -304,14 +313,60 @@ export class ScansService {
           tx,
         );
       }
-      await this.scans.appendEvent(scan.id, orgId, 'mapping_started', { coverage }, tx);
+      await this.scans.appendEvent(
+        scan.id,
+        orgId,
+        'mapping_started',
+        { coverage, facts: input.facts },
+        tx,
+      );
+
+      const scored = await this.scoring.mapAndScore(scan, input.facts, coverage, tx);
+      const completedAt = new Date();
+      await this.scans.update(
+        scan.id,
+        {
+          status: 'completed',
+          score: scored.score === null ? null : new Prisma.Decimal(scored.score),
+          grade: scored.grade,
+          sectionScores: scored.sectionScores,
+          counts: scored.counts,
+          coverageStatus: scored.coverage,
+          rulePackVersion: scored.rulePackVersion,
+          scoringVersion: scored.scoringVersion,
+          completedAt,
+          durationMs: completedAt.getTime() - (scan.startedAt ?? completedAt).getTime(),
+        },
+        tx,
+      );
+      await this.scans.appendEvent(scan.id, orgId, 'mapping_completed', scored.findings, tx);
+      await this.scans.appendEvent(
+        scan.id,
+        orgId,
+        'score_computed',
+        {
+          score: scored.score,
+          grade: scored.grade,
+          coverage: scored.coverage,
+          counts: scored.counts,
+        },
+        tx,
+      );
       await this.scans.recordUsage(
         usageFor(scan.id, orgId, input.scanners, input.workspaceBytes ?? 0),
         tx,
       );
+      return scored;
     });
 
-    return { scanId: scan.id, status: 'mapping', coverage };
+    return {
+      scanId: scan.id,
+      status: 'completed',
+      coverage,
+      score: result.score,
+      grade: result.grade,
+      counts: result.counts,
+    };
   }
 
   private async resolveRepository(

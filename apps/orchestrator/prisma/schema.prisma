@@ -284,6 +284,8 @@ model Scan {
   sectionScores   Json        @default("{}") @map("section_scores")
   counts          Json        @default("{}")
   coverage        Json        @default("{}")
+  coverageStatus  String?     @map("coverage_status") @db.Text
+  facts           Json        @default("{}")
   errorCode       String?     @map("error_code") @db.Text
   errorMessage    String?     @map("error_message") @db.Text
   idempotencyKey  String?     @map("idempotency_key") @db.Text
@@ -374,6 +376,7 @@ model ScannerFinding {
   scannerRuleId      String            @map("scanner_rule_id") @db.Text
   scannerRuleVersion String?           @map("scanner_rule_version") @db.Text
   dpdpaRuleId        String?           @map("dpdpa_rule_id") @db.Uuid
+  controlCode        String?           @map("control_code") @db.Text
   severity           FindingSeverity
   confidence         MappingConfidence @default(direct)
   filePath           String?           @map("file_path") @db.Text
@@ -399,6 +402,7 @@ model ScannerFinding {
   remediationLogs RemediationLog[]
 
   @@unique([scanId, fingerprint])
+  @@index([scanId, controlCode])
   @@map("scanner_findings")
 }
 
