@@ -1,14 +1,8 @@
 import { useState } from '#imports';
+import type { MeUser, OrgContext } from '~~/shared/auth';
 
-/** Organisation context held in the `org` key (design §7.6). Phase 2 fills it. */
-export interface OrgContext {
-  id: string;
-  name: string;
-  slug: string;
-  plan: string;
-  role: string;
-  retentionDays: number;
-}
+/** Org and user shapes live in `shared/auth.ts` so server and client agree. */
+export type { OrgContext };
 
 /**
  * Shared app context as SSR-safe `useState` refs (design §7.1/§7.6).
@@ -18,10 +12,7 @@ export interface OrgContext {
  * (design §7.1) and UI-only preferences belong in Pinia (§7.4).
  */
 export function useAppContext() {
-  // TODO(Phase 2 auth): `user` is not in design §7.6 yet — auth owns its shape.
-  // The route middleware only needs presence, so it stays `unknown | null`.
-  const user = useState<unknown | null>('user', () => null);
-
+  const user = useState<MeUser | null>('user', () => null);
   const org = useState<OrgContext | null>('org', () => null);
   const features = useState<Record<string, boolean>>('features', () => ({}));
   const commandPaletteOpen = useState<boolean>('commandPaletteOpen', () => false);

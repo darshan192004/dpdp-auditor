@@ -1,4 +1,5 @@
 import { createHmac } from 'node:crypto';
+import type { H3Event } from 'h3';
 import { $fetch } from 'ofetch';
 import { apiError } from './api-error';
 import { getRequestId } from './request-id';
@@ -53,8 +54,8 @@ export function buildInternalRequest(
   return { body: body === '' ? undefined : body, headers };
 }
 
-function readConfig(): OrchestratorConfig {
-  const runtime = useRuntimeConfig();
+export function orchestratorConfig(event?: H3Event): OrchestratorConfig {
+  const runtime = useRuntimeConfig(event);
   return {
     url: runtime.orchestratorUrl,
     hmacKey: runtime.orchestratorHmacKey,
@@ -76,7 +77,7 @@ export async function callOrchestrator<T>(
   options: OrchestratorCallOptions,
   deps: Partial<OrchestratorDeps> = {},
 ): Promise<T> {
-  const config = deps.config ?? readConfig();
+  const config = deps.config ?? orchestratorConfig();
   // One validation path, whether the config came from runtime config or a caller.
   assertConfig(event, config);
   const fetch = deps.fetch ?? $fetch;

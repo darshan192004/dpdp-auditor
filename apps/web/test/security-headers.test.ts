@@ -2,6 +2,11 @@ import { fileURLToPath } from 'node:url';
 import { setup, url } from '@nuxt/test-utils/e2e';
 import { describe, expect, it } from 'vitest';
 
+// Sessions are sealed with `appSecret` (security.md §3.1); builds do not
+// generate one, so the e2e harness supplies a throwaway value.
+const APP_SECRET = 'e2e-app-secret-0123456789abcdef0123456789';
+process.env.NUXT_APP_SECRET = APP_SECRET;
+
 // e2e-style test: builds the app and starts a real Nitro server, then asserts
 // on the wire headers. Kept in the `e2e` Vitest project (node environment)
 // because `setup()` cannot run inside the Nuxt test environment.
@@ -9,6 +14,7 @@ await setup({
   rootDir: fileURLToPath(new URL('..', import.meta.url)),
   server: true,
   build: true,
+  env: { NUXT_APP_SECRET: APP_SECRET },
 });
 
 /** Parses a CSP header into a directive -> value map. */

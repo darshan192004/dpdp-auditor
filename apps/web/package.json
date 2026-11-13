@@ -20,6 +20,7 @@
     "@sentry/vue": "^11.12.0",
     "h3": "^1.15.11",
     "nuxt": "4.6.4",
+    "nuxt-auth-utils": "0.6.2",
     "nuxt-security": "2.7.0",
     "ofetch": "^1.5.1",
     "posthog-js": "^1.447.12",

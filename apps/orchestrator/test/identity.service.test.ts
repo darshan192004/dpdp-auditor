@@ -400,6 +400,63 @@ describe('IdentityService', () => {
     });
   });
 
+  describe('me', () => {
+    const ORGANIZATION = {
+      id: ORG_ID,
+      name: 'Acme',
+      slug: 'acme',
+      plan: 'pro',
+      retentionDays: 365,
+      dataRegion: 'ap-south-1',
+      scanConcurrency: 3,
+      settings: {},
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      deletedAt: null,
+      billingCustomerId: null,
+    };
+
+    it('returns the user and their active memberships with org details', async () => {
+      const { service, users, memberships } = makeService();
+      users.findById.mockResolvedValue(USER);
+      memberships.listActiveForUser.mockResolvedValue([
+        { ...MEMBERSHIP, organization: ORGANIZATION },
+      ]);
+
+      await expect(service.me(USER_ID)).resolves.toEqual({
+        user: {
+          id: USER_ID,
+          email: PROFILE.email,
+          name: PROFILE.name,
+          avatarUrl: PROFILE.avatarUrl,
+        },
+        memberships: [
+          {
+            orgId: ORG_ID,
+            role: 'owner',
+            status: 'active',
+            organization: {
+              id: ORG_ID,
+              name: 'Acme',
+              slug: 'acme',
+              plan: 'pro',
+              retentionDays: 365,
+            },
+          },
+        ],
+      });
+    });
+
+    it('fails closed for a deleted or missing user', async () => {
+      const { service, users } = makeService();
+      users.findById.mockResolvedValue(null);
+      await expect(service.me(USER_ID)).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
+
+      users.findById.mockResolvedValue({ ...USER, deletedAt: new Date() });
+      await expect(service.me(USER_ID)).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
+    });
+  });
+
   it('exposes ApiError codes to the global filter', () => {
     const error = new ApiError('LAST_OWNER', 'keep an owner');
     expect(error.getStatus()).toBe(409);
