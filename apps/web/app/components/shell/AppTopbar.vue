@@ -80,10 +80,10 @@ const accountInitials = computed(() => {
       <button
         type="button"
         class="bg-surface text-ink-700 hover:bg-ink-100 focus-visible:ring-brand-500 inline-flex items-center gap-2 rounded-[var(--radius-control)] px-3 py-1.5 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-        :aria-label="`Organisation: ${orgName}`"
+        :aria-label="`${orgInitial} ${orgName}`"
       >
         <span
-          class="bg-brand-50 text-brand-900 flex h-4 w-4 items-center justify-center rounded-sm text-xs font-bold"
+          class="bg-brand-50 text-brand-900 flex h-4 w-4 items-center justify-center rounded-sm text-xs font-bold sm:hidden"
           aria-hidden="true"
           >{{ orgInitial }}</span
         >
@@ -105,7 +105,7 @@ const accountInitials = computed(() => {
       <button
         type="button"
         class="bg-surface text-ink-500 hover:bg-ink-100 hover:text-ink-800 focus-visible:ring-brand-500 inline-flex items-center gap-2 rounded-[var(--radius-control)] px-2.5 py-1.5 font-mono text-xs focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none sm:min-w-44"
-        aria-label="Open command palette ⌘K"
+        aria-label="Search ⌘K"
         aria-keyshortcuts="Meta+K Control+K"
         @click="emit('openPalette')"
       >

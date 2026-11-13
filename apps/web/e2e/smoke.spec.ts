@@ -46,7 +46,7 @@ test('command palette opens with the shortcut and the topbar trigger', async ({ 
   await expect(palette).toBeHidden();
 
   // Topbar trigger, then keyboard-driven navigation.
-  await page.getByRole('button', { name: 'Open command palette ⌘K' }).click();
+  await page.getByRole('button', { name: 'Search ⌘K' }).click();
   await expect(palette).toBeVisible();
 
   await palette.getByRole('combobox').fill('rules');
@@ -54,6 +54,13 @@ test('command palette opens with the shortcut and the topbar trigger', async ({ 
 
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/\/app\/rules$/);
+
+  // Settings is discoverable by the words people actually search for.
+  await page.getByRole('button', { name: 'Search ⌘K' }).click();
+  await palette.getByRole('combobox').fill('organisation');
+  await expect(palette.getByRole('option', { name: 'Settings' })).toBeVisible();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/\/app\/settings\/org$/);
 });
 
 test('no CSP violations in the console on /, /app and /health', async ({ page }) => {
