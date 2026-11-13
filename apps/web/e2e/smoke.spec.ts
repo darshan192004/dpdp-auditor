@@ -39,11 +39,11 @@ test('no CSP violations in the console on /, /app and /health', async ({ page })
 
   await page.goto('/');
   await page.goto('/app');
-  // The guard's redirect target: /login with the original path in `redirect`.
-  // Parsed instead of string-matched so percent-encoding cannot flake it.
-  const destination = new URL(page.url());
-  expect(destination.pathname).toBe('/login');
-  expect(destination.searchParams.get('redirect')).toBe('/app');
+  // The e2e harness runs with NUXT_FIXTURES=1, so the fixture session seeds the
+  // org context and the guard admits /app. The redirect table itself is covered
+  // by test/resolve-route-access.test.ts.
+  await expect(page).toHaveURL(/\/app$/);
+  await expect(page.getByRole('heading', { level: 1, name: 'Overview' })).toBeVisible();
   await page.goto('/health');
   await expect(page.getByRole('heading', { level: 1, name: 'System status' })).toBeVisible();
 
