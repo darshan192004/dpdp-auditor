@@ -72,7 +72,7 @@ function onSubmit(): void {
         id="triage-status"
         v-model="status"
         name="status"
-        class="border-ink-200 text-ink-900 focus-visible:ring-brand-500 w-full rounded-[var(--radius-control)] border bg-white px-2 py-1.5 text-sm focus-visible:ring-2 focus-visible:outline-none"
+        class="border-ink-200 text-ink-900 focus-visible:ring-brand-500 bg-surface w-full rounded-[var(--radius-control)] border px-2 py-1.5 text-sm focus-visible:ring-2 focus-visible:outline-none"
         :disabled="!canTriage || submitting"
       >
         <option v-for="option in FINDING_STATUSES" :key="option" :value="option">
@@ -91,7 +91,7 @@ function onSubmit(): void {
         :aria-describedby="noteDescribedBy"
         :aria-invalid="errors.note ? 'true' : undefined"
         :disabled="!canTriage || submitting"
-        class="border-ink-200 text-ink-900 focus-visible:ring-brand-500 disabled:bg-ink-50 w-full rounded-[var(--radius-control)] border bg-white px-2 py-1.5 text-sm focus-visible:ring-2 focus-visible:outline-none"
+        class="border-ink-200 text-ink-900 focus-visible:ring-brand-500 disabled:bg-ink-100 bg-surface w-full rounded-[var(--radius-control)] border px-2 py-1.5 text-sm focus-visible:ring-2 focus-visible:outline-none"
       />
       <p id="triage-note-help" class="text-ink-500 mt-1 text-xs">{{ help }}</p>
       <p
@@ -116,7 +116,7 @@ function onSubmit(): void {
         inputmode="url"
         :aria-invalid="errors.externalUrl ? 'true' : undefined"
         :disabled="!canTriage || submitting"
-        class="border-ink-200 text-ink-900 focus-visible:ring-brand-500 disabled:bg-ink-50 w-full rounded-[var(--radius-control)] border bg-white px-2 py-1.5 font-mono text-xs focus-visible:ring-2 focus-visible:outline-none"
+        class="border-ink-200 text-ink-900 focus-visible:ring-brand-500 disabled:bg-ink-100 bg-surface w-full rounded-[var(--radius-control)] border px-2 py-1.5 font-mono text-xs focus-visible:ring-2 focus-visible:outline-none"
       />
       <p v-if="errors.externalUrl" role="alert" class="text-risk-critical-text mt-1 text-xs">
         {{ errors.externalUrl }}
@@ -130,7 +130,7 @@ function onSubmit(): void {
     <button
       type="submit"
       :disabled="!canTriage || submitting"
-      class="bg-brand-700 hover:bg-brand-900 focus-visible:ring-brand-500 inline-flex items-center justify-center rounded-[var(--radius-control)] px-3 py-1.5 text-sm font-medium text-white focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+      class="bg-brand-500 hover:bg-brand-600 focus-visible:ring-brand-500 text-ink-50 inline-flex items-center justify-center rounded-[var(--radius-control)] px-3 py-1.5 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
     >
       {{ submitting ? 'Saving…' : 'Save disposition' }}
     </button>

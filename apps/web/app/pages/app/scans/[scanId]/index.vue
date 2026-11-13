@@ -70,7 +70,7 @@ const statusLabel = computed(() =>
       <template #actions>
         <NuxtLink
           :to="`/app/scans/${scanId}/findings`"
-          class="bg-brand-700 hover:bg-brand-900 focus-visible:ring-brand-500 inline-flex items-center rounded-[var(--radius-control)] px-3 py-1.5 text-sm font-medium text-white focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+          class="bg-brand-500 hover:bg-brand-600 focus-visible:ring-brand-500 text-ink-50 inline-flex items-center rounded-[var(--radius-control)] px-3 py-1.5 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
         >
           View findings
         </NuxtLink>
@@ -85,29 +85,54 @@ const statusLabel = computed(() =>
     />
 
     <template v-else>
-      <div class="text-ink-600 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-        <span v-if="scan !== null" class="inline-flex items-center gap-1.5">
-          <span
-            class="h-1.5 w-1.5 rounded-full"
-            :class="isCompleted ? 'bg-status-compliant-text' : 'bg-status-partial-text'"
-            aria-hidden="true"
-          />
-          {{ statusLabel }}
-        </span>
-        <span v-if="scan !== null" class="font-mono">
-          {{ scan.ref }} @ {{ shortCommit(scan.commitSha) }}
-        </span>
-        <span v-if="scan?.timestamps.completedAt" class="tabular-nums">
-          Completed {{ formatTimestamp(scan.timestamps.completedAt) }}
-        </span>
-        <span v-if="scan?.timestamps.durationMs != null" class="tabular-nums">
-          {{ formatDuration(scan.timestamps.durationMs) }}
-        </span>
-        <span v-if="scan?.rulePackVersion" class="font-mono">
-          pack {{ scan.rulePackVersion }}
-        </span>
-        <span class="font-mono">scan {{ shortId }}</span>
-      </div>
+      <dl
+        class="border-ink-200 bg-surface divide-ink-200 grid grid-cols-2 divide-y rounded-[var(--radius-card)] border sm:grid-cols-3 sm:divide-y-0 lg:grid-cols-6 lg:divide-x"
+      >
+        <div class="px-4 py-3">
+          <dt class="text-ink-400 font-mono text-xs tracking-widest uppercase">Status</dt>
+          <dd
+            v-if="scan !== null"
+            class="text-ink-800 mt-1 inline-flex items-center gap-1.5 text-sm"
+          >
+            <span
+              class="h-1.5 w-1.5 rounded-full"
+              :class="isCompleted ? 'bg-status-compliant-text' : 'bg-status-partial-text'"
+              aria-hidden="true"
+            />
+            {{ statusLabel }}
+          </dd>
+          <dd v-else class="text-ink-500 mt-1 text-sm">—</dd>
+        </div>
+        <div class="px-4 py-3">
+          <dt class="text-ink-400 font-mono text-xs tracking-widest uppercase">Commit</dt>
+          <dd v-if="scan !== null" class="text-ink-800 mt-1 font-mono text-xs">
+            {{ scan.ref }} @ {{ shortCommit(scan.commitSha) }}
+          </dd>
+          <dd v-else class="text-ink-500 mt-1 text-sm">—</dd>
+        </div>
+        <div class="px-4 py-3">
+          <dt class="text-ink-400 font-mono text-xs tracking-widest uppercase">Completed</dt>
+          <dd class="text-ink-800 mt-1 text-sm tabular-nums">
+            {{ scan?.timestamps.completedAt ? formatTimestamp(scan.timestamps.completedAt) : '—' }}
+          </dd>
+        </div>
+        <div class="px-4 py-3">
+          <dt class="text-ink-400 font-mono text-xs tracking-widest uppercase">Duration</dt>
+          <dd class="text-ink-800 mt-1 text-sm tabular-nums">
+            {{
+              scan?.timestamps.durationMs != null ? formatDuration(scan.timestamps.durationMs) : '—'
+            }}
+          </dd>
+        </div>
+        <div class="px-4 py-3">
+          <dt class="text-ink-400 font-mono text-xs tracking-widest uppercase">Rule pack</dt>
+          <dd class="text-ink-800 mt-1 font-mono text-xs">{{ scan?.rulePackVersion ?? '—' }}</dd>
+        </div>
+        <div class="px-4 py-3">
+          <dt class="text-ink-400 font-mono text-xs tracking-widest uppercase">Scan</dt>
+          <dd class="text-ink-800 mt-1 font-mono text-xs">{{ shortId }}</dd>
+        </div>
+      </dl>
 
       <ScoreCard
         :scan-id="scanId"
@@ -123,7 +148,7 @@ const statusLabel = computed(() =>
       <p
         v-if="scan !== null && !isCompleted"
         role="status"
-        class="border-ink-200 bg-ink-50 text-ink-700 rounded-[var(--radius-card)] border px-4 py-3 text-sm"
+        class="border-ink-200 bg-surface-raised text-ink-700 rounded-[var(--radius-card)] border px-4 py-3 text-sm"
       >
         This scan is {{ statusLabel.toLowerCase() }}. The score appears when it completes.
       </p>

@@ -42,7 +42,7 @@ const pathsFor = (icon: string) => ICON_PATHS[icon] ?? [];
   <aside
     id="app-sidebar"
     :class="[
-      'border-ink-200 w-60 shrink-0 flex-col border-r bg-white',
+      'border-ink-200 bg-ink-100/50 w-60 shrink-0 flex-col border-r',
       props.open ? 'fixed inset-y-0 left-0 z-40 flex' : 'hidden',
       'lg:sticky lg:top-14 lg:flex lg:h-[calc(100vh-3.5rem)]',
     ]"
@@ -51,7 +51,7 @@ const pathsFor = (icon: string) => ICON_PATHS[icon] ?? [];
       <span class="text-ink-900 text-sm font-semibold">Navigation</span>
       <button
         type="button"
-        class="text-ink-500 hover:bg-ink-100 hover:text-ink-900 focus-visible:ring-brand-500 inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius-control)] focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+        class="text-ink-500 hover:bg-ink-200 hover:text-ink-900 focus-visible:ring-brand-500 inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius-control)] focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
         aria-label="Close navigation"
         @click="emit('close')"
       >
@@ -69,13 +69,14 @@ const pathsFor = (icon: string) => ICON_PATHS[icon] ?? [];
       </button>
     </div>
 
-    <nav aria-label="Primary" class="flex-1 overflow-y-auto px-3 py-4">
-      <ul class="space-y-1">
+    <nav aria-label="Primary" class="flex-1 overflow-y-auto px-3 py-5">
+      <p class="text-ink-400 mb-2 px-3 font-mono text-xs tracking-widest uppercase">Workspace</p>
+      <ul class="space-y-0.5">
         <li v-for="item in APP_NAV" :key="item.to">
           <NuxtLink
             :to="item.to"
-            class="text-ink-700 hover:bg-ink-100 hover:text-ink-900 focus-visible:ring-brand-500 flex items-center gap-2 rounded-[var(--radius-control)] px-3 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-            active-class="bg-brand-50 text-brand-700 hover:bg-brand-50 hover:text-brand-700"
+            class="text-ink-600 hover:bg-ink-200/70 hover:text-ink-900 focus-visible:ring-brand-500 relative flex items-center gap-2.5 rounded-[var(--radius-control)] px-3 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+            active-class="bg-brand-50 text-brand-900 hover:bg-brand-50 hover:text-brand-900 before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-brand-500"
           >
             <svg
               viewBox="0 0 24 24"
@@ -96,11 +97,23 @@ const pathsFor = (icon: string) => ICON_PATHS[icon] ?? [];
     </nav>
 
     <div class="border-ink-200 border-t p-4">
-      <p class="text-ink-500 text-xs">Plan usage</p>
-      <p class="text-ink-700 mt-1 text-sm">No scans yet</p>
+      <div
+        class="border-ink-200 bg-surface-raised rounded-[var(--radius-control)] border px-3 py-2.5"
+      >
+        <div class="flex items-center justify-between gap-2">
+          <p class="text-ink-400 font-mono text-xs tracking-widest uppercase">Plan usage</p>
+          <span
+            class="border-ink-200 text-ink-500 rounded-[var(--radius-pill)] border px-1.5 py-0.5 font-mono text-xs"
+          >
+            pro
+          </span>
+        </div>
+        <p class="text-ink-700 mt-1 text-sm">No scans yet</p>
+        <p class="text-ink-400 mt-0.5 font-mono text-xs tabular-nums">0 repositories connected</p>
+      </div>
       <NuxtLink
         to="/app/settings/org"
-        class="text-brand-700 hover:text-brand-600 focus-visible:ring-brand-500 mt-2 inline-block rounded-[var(--radius-control)] text-xs font-medium underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+        class="text-brand-700 hover:text-brand-600 focus-visible:ring-brand-500 mt-2.5 inline-block rounded-[var(--radius-control)] text-xs font-medium underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
       >
         Review plan limits
       </NuxtLink>

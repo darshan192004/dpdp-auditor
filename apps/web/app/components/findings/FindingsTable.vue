@@ -67,7 +67,7 @@ function lineRange(finding: FindingView): string {
 </script>
 
 <template>
-  <div class="border-ink-200 overflow-hidden rounded-[var(--radius-card)] border bg-white">
+  <div class="border-ink-200 bg-surface overflow-hidden rounded-[var(--radius-card)] border">
     <div v-if="!loading && findings.length === 0" class="p-4">
       <EmptyState
         title="No findings match these filters"
@@ -88,11 +88,11 @@ function lineRange(finding: FindingView): string {
             caption
           }}
         </caption>
-        <thead class="bg-ink-50">
+        <thead class="bg-ink-100/60">
           <tr>
             <th
               scope="col"
-              class="text-ink-600 bg-ink-50 sticky top-0 left-0 z-20 w-28 px-3 py-2 text-xs font-medium"
+              class="text-ink-600 bg-ink-100 sticky top-0 left-0 z-20 w-28 px-3 py-2 text-xs font-medium"
               :aria-sort="severitySorted ? 'descending' : 'none'"
             >
               <button
@@ -151,11 +151,11 @@ function lineRange(finding: FindingView): string {
             :key="finding.id"
             tabindex="0"
             :aria-current="selectedId === finding.id ? 'true' : undefined"
-            class="border-ink-100 hover:bg-ink-50 focus-visible:ring-brand-500 cursor-pointer border-t align-top focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset"
+            class="border-ink-100 hover:bg-ink-100/60 focus-visible:ring-brand-500 group cursor-pointer border-t align-top focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset"
             @click="emit('select', finding)"
             @keydown.enter.prevent="emit('select', finding)"
           >
-            <td class="bg-ink-50 sticky left-0 z-10 px-3 py-3">
+            <td class="bg-surface group-hover:bg-ink-100 sticky left-0 z-10 px-3 py-3">
               <SeverityBadge :severity="finding.severity" />
             </td>
             <td class="px-3 py-3">
@@ -207,7 +207,7 @@ function lineRange(finding: FindingView): string {
           <span>Rows</span>
           <select
             :value="pagination.pageSize"
-            class="border-ink-200 text-ink-700 focus-visible:ring-brand-500 rounded-[var(--radius-control)] border bg-white px-1.5 py-1 focus-visible:ring-2 focus-visible:outline-none"
+            class="border-ink-200 text-ink-700 focus-visible:ring-brand-500 bg-surface rounded-[var(--radius-control)] border px-1.5 py-1 focus-visible:ring-2 focus-visible:outline-none"
             @change="changePageSize"
           >
             <option :value="25">25</option>
@@ -219,7 +219,7 @@ function lineRange(finding: FindingView): string {
         <div class="flex items-center gap-1">
           <button
             type="button"
-            class="border-ink-200 focus-visible:ring-brand-500 inline-flex items-center gap-1 rounded-[var(--radius-control)] border bg-white px-2 py-1 font-medium focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+            class="border-ink-200 focus-visible:ring-brand-500 bg-surface inline-flex items-center gap-1 rounded-[var(--radius-control)] border px-2 py-1 font-medium focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
             :disabled="!hasPrevious"
             @click="emit('update:page', pagination.page - 1)"
           >
@@ -228,7 +228,7 @@ function lineRange(finding: FindingView): string {
           </button>
           <button
             type="button"
-            class="border-ink-200 focus-visible:ring-brand-500 inline-flex items-center gap-1 rounded-[var(--radius-control)] border bg-white px-2 py-1 font-medium focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+            class="border-ink-200 focus-visible:ring-brand-500 bg-surface inline-flex items-center gap-1 rounded-[var(--radius-control)] border px-2 py-1 font-medium focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
             :disabled="!hasNext"
             @click="emit('update:page', pagination.page + 1)"
           >

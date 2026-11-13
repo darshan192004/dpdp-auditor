@@ -8,8 +8,8 @@ defineProps<{
 <template>
   <div class="flex flex-wrap items-start justify-between gap-4">
     <div class="min-w-0">
-      <nav v-if="breadcrumbs?.length" aria-label="Breadcrumb" class="mb-1">
-        <ol class="text-ink-500 flex flex-wrap items-center gap-1 text-xs">
+      <nav v-if="breadcrumbs?.length" aria-label="Breadcrumb" class="mb-2">
+        <ol class="text-ink-500 flex flex-wrap items-center gap-1 font-mono text-xs">
           <li
             v-for="(crumb, index) in breadcrumbs"
             :key="`${crumb.label}-${index}`"
@@ -27,7 +27,7 @@ defineProps<{
           </li>
         </ol>
       </nav>
-      <h1 class="text-ink-900 text-2xl font-semibold">{{ title }}</h1>
+      <h1 class="text-ink-900 text-2xl font-semibold tracking-tight">{{ title }}</h1>
     </div>
 
     <div v-if="$slots.actions" class="flex items-center gap-2">

@@ -379,88 +379,94 @@ Tailwind CSS 4 uses CSS-first configuration. Tokens live in `app/assets/css/main
 ```css
 @import "tailwindcss";
 @import "@nuxt/ui";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
 
 @theme {
-  /* Brand: deep slate with teal accent. No purple. */
-  --color-brand-50:  #f0fdfa;
-  --color-brand-100: #ccfbf1;
-  --color-brand-500: #14b8a6;
-  --color-brand-600: #0d9488;
-  --color-brand-700: #0f766e;
-  --color-brand-900: #134e4a;
+  /* Brand: signal green on charcoal. No purple. */
+  --color-brand-50:  #0c2217;
+  --color-brand-100: #143524;
+  --color-brand-500: #4ade80;
+  --color-brand-600: #86efac;
+  --color-brand-700: #22c55e;
+  --color-brand-900: #bbf7d0;
 
-  /* Neutrals */
-  --color-ink-50:  #f8fafc;
-  --color-ink-100: #f1f5f9;
-  --color-ink-200: #e2e8f0;
-  --color-ink-300: #cbd5e1;
-  --color-ink-400: #94a3b8;
-  --color-ink-500: #64748b;
-  --color-ink-600: #475569;
-  --color-ink-700: #334155;
-  --color-ink-800: #1e293b;
-  --color-ink-900: #0f172a;
+  /* Surfaces */
+  --color-surface:        #0e1412;
+  --color-surface-raised: #141b19;
+
+  /* Neutrals: 50 is the canvas, 900 is primary text. */
+  --color-ink-50:  #070a09;
+  --color-ink-100: #161f1c;
+  --color-ink-200: #1f2b27;
+  --color-ink-300: #2d3b36;
+  --color-ink-400: #748981;
+  --color-ink-500: #8ba09a;
+  --color-ink-600: #a9bdb7;
+  --color-ink-700: #c8d8d3;
+  --color-ink-800: #e2ece8;
+  --color-ink-900: #f5faf8;
 
   /* Risk scale — background, border, and text are contrast-checked pairs */
-  --color-risk-critical-bg:     #fef2f2;
-  --color-risk-critical-border: #fecaca;
-  --color-risk-critical-text:   #991b1b;
-  --color-risk-critical-solid:  #dc2626;
+  --color-risk-critical-bg:     #2a1013;
+  --color-risk-critical-border: #5a1d24;
+  --color-risk-critical-text:   #ff9aa3;
+  --color-risk-critical-solid:  #f87171;
 
-  --color-risk-high-bg:     #fff7ed;
-  --color-risk-high-border: #fed7aa;
-  --color-risk-high-text:   #9a3412;
-  --color-risk-high-solid:  #ea580c;
+  --color-risk-high-bg:     #2a1a0e;
+  --color-risk-high-border: #5a3416;
+  --color-risk-high-text:   #ffb37a;
+  --color-risk-high-solid:  #fb923c;
 
-  --color-risk-medium-bg:     #fffbeb;
-  --color-risk-medium-border: #fde68a;
-  --color-risk-medium-text:   #92400e;
-  --color-risk-medium-solid:  #d97706;
+  --color-risk-medium-bg:     #271f08;
+  --color-risk-medium-border: #55420f;
+  --color-risk-medium-text:   #f5d06a;
+  --color-risk-medium-solid:  #facc15;
 
-  --color-risk-low-bg:     #f7fee7;
-  --color-risk-low-border: #d9f99d;
-  --color-risk-low-text:   #3f6212;
-  --color-risk-low-solid:  #65a30d;
+  --color-risk-low-bg:     #14210c;
+  --color-risk-low-border: #2f4a18;
+  --color-risk-low-text:   #b8e986;
+  --color-risk-low-solid:  #a3e635;
 
-  --color-risk-info-bg:     #eff6ff;
-  --color-risk-info-border: #bfdbfe;
-  --color-risk-info-text:   #1e40af;
-  --color-risk-info-solid:  #2563eb;
+  --color-risk-info-bg:     #0e1c2a;
+  --color-risk-info-border: #1d3b5a;
+  --color-risk-info-text:   #93c5fd;
+  --color-risk-info-solid:  #60a5fa;
 
   /* Compliance status */
-  --color-status-compliant-bg:     #f0fdf4;
-  --color-status-compliant-border: #bbf7d0;
-  --color-status-compliant-text:   #166534;
-  --color-status-partial-bg:       #fffbeb;
-  --color-status-partial-border:   #fde68a;
-  --color-status-partial-text:     #92400e;
-  --color-status-noncompliant-bg:  #fef2f2;
-  --color-status-noncompliant-border: #fecaca;
-  --color-status-noncompliant-text:   #991b1b;
-  --color-status-na-bg:     #f8fafc;
-  --color-status-na-border: #e2e8f0;
-  --color-status-na-text:   #475569;
+  --color-status-compliant-bg:     #0c2217;
+  --color-status-compliant-border: #1c4a30;
+  --color-status-compliant-text:   #86efac;
+  --color-status-partial-bg:       #271f08;
+  --color-status-partial-border:   #55420f;
+  --color-status-partial-text:     #f5d06a;
+  --color-status-noncompliant-bg:  #2a1013;
+  --color-status-noncompliant-border: #5a1d24;
+  --color-status-noncompliant-text:   #ff9aa3;
+  --color-status-na-bg:     #141b19;
+  --color-status-na-border: #26332e;
+  --color-status-na-text:   #8ba09a;
 
   /* Confidence */
-  --color-confidence-direct-bg:   #f0fdf4;
-  --color-confidence-direct-text: #166534;
-  --color-confidence-inferred-bg: #fffbeb;
-  --color-confidence-inferred-text: #92400e;
-  --color-confidence-advisory-bg: #f8fafc;
-  --color-confidence-advisory-text: #475569;
+  --color-confidence-direct-bg:   #0c2217;
+  --color-confidence-direct-text: #86efac;
+  --color-confidence-inferred-bg: #271f08;
+  --color-confidence-inferred-text: #f5d06a;
+  --color-confidence-advisory-bg: #141b19;
+  --color-confidence-advisory-text: #a9bdb7;
 
   /* Typography */
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, "SFMono-Regular", Menlo, monospace;
 
   /* Radii */
   --radius-control: 0.375rem;  /* 6px  */
-  --radius-card:    0.625rem;  /* 10px */
+  --radius-card:    0.75rem;   /* 12px */
   --radius-pill:    9999px;
 
-  /* Shadows: subtle only */
-  --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04);
-  --shadow-popover: 0 8px 24px -8px rgb(15 23 42 / 0.18);
+  /* Shadows: depth comes from borders, not glow. */
+  --shadow-card: 0 1px 2px 0 rgb(0 0 0 / 0.5);
+  --shadow-popover: 0 16px 40px -12px rgb(0 0 0 / 0.8);
 }
 ```
 
@@ -468,9 +474,9 @@ Tailwind CSS 4 uses CSS-first configuration. Tokens live in `app/assets/css/main
 
 | Purpose | Class |
 |---|---|
-| Primary button | `bg-brand-700 hover:bg-brand-600 text-white` |
+| Primary button | `bg-brand-500 hover:bg-brand-600 text-ink-50` |
 | Page background | `bg-ink-50` |
-| Card | `bg-white border border-ink-200 rounded-[var(--radius-card)] shadow-[var(--shadow-card)]` |
+| Card | `bg-surface border border-ink-200 rounded-[var(--radius-card)] shadow-[var(--shadow-card)]` |
 | Muted text | `text-ink-500` |
 | Body text | `text-ink-800` |
 | Critical badge | `bg-risk-critical-bg text-risk-critical-text border-risk-critical-border` |
@@ -495,12 +501,15 @@ Do not skip heading levels. The page has exactly one `h1`.
 
 - Spacing follows the 4 px scale: 1, 2, 3, 4, 6, 8, 12, 16, 24.
 - Cards use 16–24 px padding; tables use 12 px cell padding.
-- Controls use 6 px radius; cards 10 px; badges and avatars are pills.
+- Controls use 6 px radius; cards 12 px; badges and avatars are pills.
 - No arbitrary pixel values. No `rounded-2xl` everywhere.
 
 ### 6.4 Dark mode
 
-Dark mode is post-MVP. The token structure supports it by overriding semantic variables under `.dark`. Risk tokens must be re-checked for contrast before shipping.
+The product ships dark-only: the token values above are the dark palette, and
+`color-scheme: dark` is set in `main.css`. A light theme is not a supported
+surface. Risk and status pairs were re-checked for contrast on `--color-surface`
+(text ≥ 4.5:1, borders and solid dots ≥ 3:1).
 
 ---
 
