@@ -35,12 +35,12 @@ const STEPS = [
           >
           <span class="text-ink-900 text-sm font-semibold tracking-tight">DPDPA Auditor</span>
         </NuxtLink>
-        <a
-          href="/login"
+        <NuxtLink
+          to="/login"
           class="text-ink-600 hover:text-ink-900 focus-visible:ring-brand-500 rounded-[var(--radius-control)] text-sm font-medium underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
         >
           Sign in
-        </a>
+        </NuxtLink>
       </div>
     </header>
 
@@ -58,19 +58,19 @@ const STEPS = [
             the findings behind it, and a specific remediation for each one.
           </p>
           <div class="mt-8 flex flex-wrap items-center gap-4">
-            <a
-              href="/app"
+            <NuxtLink
+              to="/app"
               class="bg-brand-500 hover:bg-brand-600 focus-visible:ring-brand-500 text-ink-50 inline-flex items-center gap-1.5 rounded-[var(--radius-control)] px-4 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
             >
               Open dashboard
               <span aria-hidden="true">→</span>
-            </a>
-            <a
-              href="/login"
+            </NuxtLink>
+            <NuxtLink
+              to="/login"
               class="bg-surface text-ink-700 hover:bg-ink-100 focus-visible:ring-brand-500 inline-flex items-center rounded-[var(--radius-control)] px-4 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
             >
               Sign in
-            </a>
+            </NuxtLink>
           </div>
           <p class="text-ink-500 mt-6 max-w-md text-xs">
             Engineering signals, not legal advice. Section 12 (right to access) is not assessed by

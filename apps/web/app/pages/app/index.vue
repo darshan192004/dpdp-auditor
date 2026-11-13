@@ -5,29 +5,61 @@ import PageHeader from '~/components/shell/PageHeader.vue';
 import AppIcon from '~/components/ui/AppIcon.vue';
 import ErrorState from '~/components/ui/ErrorState.vue';
 import { useAppContext } from '~/composables/useAppContext';
-import { FINDING_SCANNERS } from '~~/shared/findings';
-import { ruleScannerCounts, ruleSections, SCANNER_LABELS, type RulesPage } from '~~/shared/rules';
+import { FINDING_SCANNERS, type FindingScanner } from '~~/shared/findings';
+import {
+  ruleScannerCounts,
+  ruleSections,
+  SCANNER_LABELS,
+  type RuleSectionOption,
+  type RulesPage,
+} from '~~/shared/rules';
 
 definePageMeta({ layout: 'app' });
 
 const { org } = useAppContext();
 
-const { data, status, error, refresh } = await useFetch<RulesPage>('/api/v1/rules');
+interface CatalogSummary {
+  total: number;
+  scored: number;
+  sections: RuleSectionOption[];
+  scannerCounts: Record<FindingScanner, number>;
+  mappings: number;
+}
 
-const controls = computed(() => data.value?.data ?? []);
-const sections = computed(() => ruleSections(controls.value));
-const scannerCounts = computed(() => ruleScannerCounts(controls.value));
-const scored = computed(() => controls.value.filter((rule) => rule.scored).length);
-const mappings = computed(() =>
-  controls.value.reduce((sum, rule) => sum + rule.mappings.length, 0),
+/**
+ * The overview only needs counts. Summarise the catalog on the server so the
+ * hydration payload carries a few hundred bytes instead of the whole catalog
+ * (which is tens of kilobytes and only the rule explorer needs it).
+ */
+const { data, status, error, refresh } = await useAsyncData<CatalogSummary>(
+  'overview-catalog',
+  async () => {
+    const page = await $fetch<RulesPage>('/api/v1/rules');
+    const controls = page.data;
+    return {
+      total: controls.length,
+      scored: controls.filter((rule) => rule.scored).length,
+      sections: ruleSections(controls),
+      scannerCounts: ruleScannerCounts(controls),
+      mappings: controls.reduce((sum, rule) => sum + rule.mappings.length, 0),
+    };
+  },
 );
+
+const catalog = computed<CatalogSummary | null>(() => data.value ?? null);
+const sections = computed(() => catalog.value?.sections ?? []);
+const scannerCounts = computed(
+  () => catalog.value?.scannerCounts ?? ({} as Record<FindingScanner, number>),
+);
+const scored = computed(() => catalog.value?.scored ?? 0);
+const mappings = computed(() => catalog.value?.mappings ?? 0);
 const loading = computed(() => status.value === 'pending');
 
 // Green ramp for the coverage band — one hue, three steps, so the bar reads as a
 // single signal rather than a rainbow.
 const BAR_TONES = ['bg-brand-500', 'bg-brand-700', 'bg-brand-100'] as const;
 
-const sectionTotal = computed(() => Math.max(1, controls.value.length));
+const sectionTotal = computed(() => Math.max(1, catalog.value?.total ?? 0));
 const sectionWidth = (count: number) => `${(count / sectionTotal.value) * 100}%`;
 const toneFor = (index: number) => BAR_TONES[index % BAR_TONES.length];
 
@@ -42,7 +74,7 @@ const scannerWidth = (count: number) => `${(count / maxScannerCount.value) * 100
 
 const KPIS = computed(() => [
   { label: 'Scored by code', value: scored.value },
-  { label: 'Listed, not scored', value: controls.value.length - scored.value },
+  { label: 'Listed, not scored', value: (catalog.value?.total ?? 0) - scored.value },
   { label: 'Sections covered', value: sections.value.length },
   { label: 'Scanner mappings', value: mappings.value },
 ]);
@@ -115,7 +147,7 @@ const QUICK_LINKS = [
               </h2>
               <p class="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
                 <span class="text-ink-900 font-mono text-4xl font-semibold tabular-nums">
-                  {{ loading ? '—' : controls.length }}
+                  {{ loading ? '—' : (catalog?.total ?? 0) }}
                 </span>
                 <span class="text-ink-500 text-sm">
                   controls across {{ sections.length }} DPDPA sections

@@ -33,6 +33,29 @@ test('GET /health answers 200 with the status contract', async ({ request }) => 
   expect(payload.status).toBe('ok');
 });
 
+test('command palette opens with the shortcut and the topbar trigger', async ({ page }) => {
+  await page.goto('/app');
+  await expect(page.getByRole('heading', { level: 1, name: 'Overview' })).toBeVisible();
+
+  const palette = page.getByRole('dialog', { name: 'Command palette' });
+
+  // Global ⌘K / Ctrl+K listener.
+  await page.keyboard.press('ControlOrMeta+k');
+  await expect(palette).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(palette).toBeHidden();
+
+  // Topbar trigger, then keyboard-driven navigation.
+  await page.getByRole('button', { name: 'Open command palette ⌘K' }).click();
+  await expect(palette).toBeVisible();
+
+  await palette.getByRole('combobox').fill('rules');
+  await expect(palette.getByRole('option', { name: 'Rules' })).toBeVisible();
+
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/\/app\/rules$/);
+});
+
 test('no CSP violations in the console on /, /app and /health', async ({ page }) => {
   const consoleMessages: string[] = [];
   page.on('console', (message) => consoleMessages.push(message.text()));

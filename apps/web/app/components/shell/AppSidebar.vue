@@ -1,8 +1,14 @@
 <script setup lang="ts">
+import { computed } from 'vue';
+
+import { useAppContext } from '~/composables/useAppContext';
 import { APP_NAV } from '~/utils/nav';
 
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ close: [] }>();
+
+const { org } = useAppContext();
+const planLabel = computed(() => org.value?.plan ?? 'free');
 
 // Inline 24px paths (lucide geometry) — no icon-collection dependency, and
 // `currentColor` keeps the glyph on the semantic text tokens.
@@ -117,7 +123,7 @@ const pathsFor = (icon: string) => ICON_PATHS[icon] ?? [];
           <span
             class="border-ink-200 text-ink-500 rounded-[var(--radius-pill)] border px-1.5 py-0.5 font-mono text-xs"
           >
-            pro
+            {{ planLabel }}
           </span>
         </div>
         <p class="text-ink-700 mt-1 text-sm">No scans yet</p>
