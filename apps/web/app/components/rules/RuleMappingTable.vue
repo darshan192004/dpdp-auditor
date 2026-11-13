@@ -9,13 +9,16 @@ defineProps<{ mappings: RuleMapping[] }>();
 <template>
   <div
     v-if="mappings.length === 0"
-    class="border-ink-200 bg-ink-100 text-ink-600 rounded-[var(--radius-card)] border px-4 py-3 text-sm"
+    class="bg-surface-raised text-ink-600 rounded-[var(--radius-card)] px-4 py-3 text-sm"
   >
     No scanner rule maps to this control. It stays in the catalog for completeness, but the
     automated scanners cannot produce evidence for it.
   </div>
 
-  <div v-else class="border-ink-200 bg-surface overflow-hidden rounded-[var(--radius-card)] border">
+  <div
+    v-else
+    class="bg-surface overflow-hidden rounded-[var(--radius-card)] shadow-[var(--shadow-card)]"
+  >
     <div class="overflow-x-auto">
       <table class="w-full border-collapse text-left text-sm">
         <caption class="sr-only">

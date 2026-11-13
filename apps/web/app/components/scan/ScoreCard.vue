@@ -65,7 +65,7 @@ const gaugeLabel = computed(() => {
 <template>
   <section
     aria-labelledby="score-heading"
-    class="border-ink-200 bg-surface rounded-[var(--radius-card)] border p-5"
+    class="bg-surface rounded-[var(--radius-card)] p-5 shadow-[var(--shadow-card)]"
   >
     <div v-if="isLoading" aria-busy="true" class="space-y-3">
       <div class="bg-ink-200 h-3 w-24 rounded-[var(--radius-control)]" />
@@ -140,7 +140,7 @@ const gaugeLabel = computed(() => {
       />
 
       <ul
-        class="border-ink-200 bg-ink-200 mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-[var(--radius-control)] border sm:grid-cols-5"
+        class="bg-ink-200/60 mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-[var(--radius-control)] sm:grid-cols-5"
       >
         <li v-for="item in COUNT_ITEMS" :key="item.key" class="bg-surface">
           <NuxtLink

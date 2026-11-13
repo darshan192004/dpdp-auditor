@@ -22,7 +22,7 @@ const STEPS = [
 
 <template>
   <div class="min-h-screen">
-    <header class="border-ink-200 border-b">
+    <header class="bg-canvas/85 sticky top-0 z-30 backdrop-blur-md">
       <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
         <NuxtLink
           to="/"
@@ -67,7 +67,7 @@ const STEPS = [
             </a>
             <a
               href="/login"
-              class="border-ink-200 text-ink-700 hover:bg-ink-100 focus-visible:ring-brand-500 inline-flex items-center rounded-[var(--radius-control)] border px-4 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+              class="bg-surface text-ink-700 hover:bg-ink-100 focus-visible:ring-brand-500 inline-flex items-center rounded-[var(--radius-control)] px-4 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
             >
               Sign in
             </a>
@@ -80,7 +80,7 @@ const STEPS = [
 
         <section
           aria-labelledby="how-heading"
-          class="border-ink-200 bg-surface rounded-[var(--radius-card)] border p-5"
+          class="bg-surface rounded-[var(--radius-card)] p-5 shadow-[var(--shadow-card)]"
         >
           <div class="border-ink-200 flex items-center justify-between gap-2 border-b pb-3">
             <h2 id="how-heading" class="text-ink-900 text-sm font-semibold">How a scan works</h2>

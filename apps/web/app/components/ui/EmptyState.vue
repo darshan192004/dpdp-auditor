@@ -16,7 +16,7 @@ const emit = defineEmits<{ action: [] }>();
 
 <template>
   <div
-    class="border-ink-200 bg-surface flex flex-col items-start gap-3 rounded-[var(--radius-card)] border border-dashed px-6 py-10"
+    class="bg-surface-raised flex flex-col items-start gap-3 rounded-[var(--radius-card)] px-6 py-10"
   >
     <AppIcon :name="icon" :size="20" class="text-ink-400" />
     <div>
@@ -26,7 +26,7 @@ const emit = defineEmits<{ action: [] }>();
     <button
       v-if="actionLabel"
       type="button"
-      class="border-ink-200 text-ink-800 hover:bg-ink-100 focus-visible:ring-brand-500 bg-surface inline-flex items-center gap-1.5 rounded-[var(--radius-control)] border px-3 py-1.5 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+      class="text-ink-800 hover:bg-ink-100 focus-visible:ring-brand-500 bg-ink-100/60 inline-flex items-center gap-1.5 rounded-[var(--radius-control)] px-3 py-1.5 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
       @click="emit('action')"
     >
       {{ actionLabel }}

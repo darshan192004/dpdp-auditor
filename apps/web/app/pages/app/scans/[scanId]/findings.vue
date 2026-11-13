@@ -144,7 +144,7 @@ function clearFilters(): void {
       ]"
     />
 
-    <div class="border-ink-200 bg-surface rounded-[var(--radius-card)] border px-4 py-3">
+    <div class="bg-surface rounded-[var(--radius-card)] px-4 py-3 shadow-[var(--shadow-card)]">
       <FindingsFilterBar
         :filters="filters"
         :total-items="pagination.totalItems"

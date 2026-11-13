@@ -21,7 +21,7 @@ const mappingLabel = computed(() => {
 <template>
   <NuxtLink
     :to="`/app/rules/${rule.code}`"
-    class="focus-visible:ring-brand-500 border-ink-200 hover:border-ink-300 hover:bg-ink-100/60 bg-surface block rounded-[var(--radius-card)] border px-4 py-3 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+    class="focus-visible:ring-brand-500 hover:bg-surface-raised bg-surface block rounded-[var(--radius-card)] px-4 py-3 shadow-[var(--shadow-card)] focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
   >
     <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
       <span class="text-ink-500 font-mono text-xs">{{ rule.code }}</span>

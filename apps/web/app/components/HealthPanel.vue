@@ -26,7 +26,7 @@ const view = computed(() => (props.health ? formatHealth(props.health) : null));
     </div>
 
     <dl
-      class="border-ink-200 divide-ink-200 bg-surface divide-y rounded-[var(--radius-card)] border shadow-[var(--shadow-card)]"
+      class="divide-ink-200 bg-surface divide-y rounded-[var(--radius-card)] shadow-[var(--shadow-card)]"
     >
       <div class="flex items-center justify-between gap-4 px-4 py-3">
         <dt class="text-ink-500 text-sm">Version</dt>

@@ -39,7 +39,7 @@ const rowsWithLink = computed(() =>
 <template>
   <section
     aria-labelledby="sections-heading"
-    class="border-ink-200 bg-surface overflow-hidden rounded-[var(--radius-card)] border"
+    class="bg-surface overflow-hidden rounded-[var(--radius-card)] shadow-[var(--shadow-card)]"
   >
     <div
       class="border-ink-200 flex flex-wrap items-baseline justify-between gap-2 border-b px-4 py-3"

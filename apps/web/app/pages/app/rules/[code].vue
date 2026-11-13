@@ -60,7 +60,7 @@ const loadError = computed(() => {
       <div class="min-w-0 space-y-5">
         <section
           aria-labelledby="obligation-heading"
-          class="border-ink-200 bg-surface rounded-[var(--radius-card)] border px-4 py-4"
+          class="bg-surface rounded-[var(--radius-card)] px-4 py-4 shadow-[var(--shadow-card)]"
         >
           <h2
             id="obligation-heading"
@@ -87,7 +87,7 @@ const loadError = computed(() => {
 
         <section
           aria-labelledby="remediation-heading"
-          class="border-ink-200 bg-surface rounded-[var(--radius-card)] border px-4 py-4"
+          class="bg-surface rounded-[var(--radius-card)] px-4 py-4 shadow-[var(--shadow-card)]"
         >
           <h2
             id="remediation-heading"
@@ -102,7 +102,7 @@ const loadError = computed(() => {
 
       <aside aria-label="Control metadata" class="space-y-3">
         <dl
-          class="border-ink-200 divide-ink-100 bg-surface divide-y rounded-[var(--radius-card)] border text-sm"
+          class="divide-ink-200 bg-surface divide-y rounded-[var(--radius-card)] text-sm shadow-[var(--shadow-card)]"
         >
           <div class="px-4 py-2.5">
             <dt class="text-ink-500 text-xs">Control code</dt>
@@ -146,7 +146,7 @@ const loadError = computed(() => {
 
         <p
           v-if="!rule.scored"
-          class="border-ink-200 bg-ink-100 text-ink-600 rounded-[var(--radius-card)] border px-4 py-3 text-xs"
+          class="bg-surface-raised text-ink-600 rounded-[var(--radius-card)] px-4 py-3 text-xs"
         >
           This control is listed for completeness but does not move the score.
         </p>

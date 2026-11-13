@@ -67,7 +67,7 @@ function lineRange(finding: FindingView): string {
 </script>
 
 <template>
-  <div class="border-ink-200 bg-surface overflow-hidden rounded-[var(--radius-card)] border">
+  <div class="bg-surface overflow-hidden rounded-[var(--radius-card)] shadow-[var(--shadow-card)]">
     <div v-if="!loading && findings.length === 0" class="p-4">
       <EmptyState
         title="No findings match these filters"

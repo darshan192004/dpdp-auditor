@@ -23,6 +23,30 @@ const mappings = computed(() =>
 );
 const loading = computed(() => status.value === 'pending');
 
+// Green ramp for the coverage band — one hue, three steps, so the bar reads as a
+// single signal rather than a rainbow.
+const BAR_TONES = ['bg-brand-500', 'bg-brand-700', 'bg-brand-100'] as const;
+
+const sectionTotal = computed(() => Math.max(1, controls.value.length));
+const sectionWidth = (count: number) => `${(count / sectionTotal.value) * 100}%`;
+const toneFor = (index: number) => BAR_TONES[index % BAR_TONES.length];
+
+const coverageLabel = computed(() =>
+  sections.value.map((option) => `section ${option.section}: ${option.count}`).join(', '),
+);
+
+const maxScannerCount = computed(() =>
+  Math.max(1, ...FINDING_SCANNERS.map((scanner) => scannerCounts.value[scanner])),
+);
+const scannerWidth = (count: number) => `${(count / maxScannerCount.value) * 100}%`;
+
+const KPIS = computed(() => [
+  { label: 'Scored by code', value: scored.value },
+  { label: 'Listed, not scored', value: controls.value.length - scored.value },
+  { label: 'Sections covered', value: sections.value.length },
+  { label: 'Scanner mappings', value: mappings.value },
+]);
+
 const loadError = computed(() => {
   if (!error.value) return null;
   const failure = error.value as {
@@ -55,7 +79,7 @@ const QUICK_LINKS = [
 </script>
 
 <template>
-  <div class="space-y-6">
+  <div class="space-y-4">
     <PageHeader title="Overview" :breadcrumbs="[{ label: 'Overview' }]">
       <template #actions>
         <NuxtLink
@@ -78,147 +102,123 @@ const QUICK_LINKS = [
     <template v-else>
       <div class="grid gap-4 lg:grid-cols-3">
         <section
-          aria-labelledby="posture-heading"
-          class="border-ink-200 bg-surface rounded-[var(--radius-card)] border p-5 lg:col-span-2"
+          aria-labelledby="catalog-heading"
+          class="bg-surface rounded-[var(--radius-card)] p-6 shadow-[var(--shadow-card)] lg:col-span-2"
         >
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2
-                id="posture-heading"
+                id="catalog-heading"
                 class="text-ink-400 font-mono text-xs tracking-widest uppercase"
               >
-                Compliance posture
+                Control catalog
               </h2>
-              <p class="text-ink-900 mt-2 text-2xl font-semibold tracking-tight">No score yet</p>
+              <p class="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                <span class="text-ink-900 font-mono text-4xl font-semibold tabular-nums">
+                  {{ loading ? '—' : controls.length }}
+                </span>
+                <span class="text-ink-500 text-sm">
+                  controls across {{ sections.length }} DPDPA sections
+                </span>
+              </p>
             </div>
+            <NuxtLink
+              to="/app/rules"
+              class="text-brand-700 hover:text-brand-600 focus-visible:ring-brand-500 rounded-[var(--radius-control)] text-xs font-medium underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+            >
+              Browse catalog
+            </NuxtLink>
+          </div>
+
+          <div v-if="loading" class="bg-ink-100 mt-6 h-2 w-full animate-pulse rounded-full" />
+          <template v-else>
+            <div
+              class="bg-ink-100 mt-6 flex h-2 w-full gap-px overflow-hidden rounded-full"
+              role="img"
+              :aria-label="`Control coverage by section — ${coverageLabel}`"
+            >
+              <span
+                v-for="(option, index) in sections"
+                :key="option.section"
+                class="h-full"
+                :class="toneFor(index)"
+                :style="{ width: sectionWidth(option.count) }"
+                aria-hidden="true"
+              />
+            </div>
+
+            <ul class="mt-3 flex flex-wrap gap-x-4 gap-y-1.5">
+              <li
+                v-for="(option, index) in sections"
+                :key="option.section"
+                class="text-ink-500 flex items-center gap-1.5 text-xs"
+              >
+                <span class="h-1.5 w-1.5 rounded-full" :class="toneFor(index)" aria-hidden="true" />
+                <span class="text-ink-400 font-mono tabular-nums">{{ option.section }}</span>
+                <span class="text-ink-600 tabular-nums">{{ option.count }}</span>
+              </li>
+            </ul>
+          </template>
+
+          <dl class="border-ink-200 mt-6 grid grid-cols-2 gap-4 border-t pt-4 sm:grid-cols-4">
+            <div v-for="kpi in KPIS" :key="kpi.label">
+              <dt class="text-ink-500 text-xs">{{ kpi.label }}</dt>
+              <dd class="text-ink-900 mt-1 font-mono text-xl font-semibold tabular-nums">
+                {{ loading ? '—' : kpi.value }}
+              </dd>
+            </div>
+          </dl>
+        </section>
+
+        <section
+          aria-labelledby="posture-heading"
+          class="bg-surface flex flex-col rounded-[var(--radius-card)] p-6 shadow-[var(--shadow-card)]"
+        >
+          <div class="flex items-start justify-between gap-2">
+            <h2
+              id="posture-heading"
+              class="text-ink-400 font-mono text-xs tracking-widest uppercase"
+            >
+              Compliance posture
+            </h2>
             <span
-              class="border-status-na-border bg-status-na-bg text-status-na-text inline-flex items-center gap-1 rounded-[var(--radius-pill)] border px-2.5 py-0.5 text-xs font-medium"
+              class="border-status-na-border bg-status-na-bg text-status-na-text inline-flex items-center gap-1 rounded-[var(--radius-pill)] border px-2 py-0.5 text-xs font-medium"
             >
               <span class="bg-status-na-text h-1.5 w-1.5 rounded-full" aria-hidden="true" />
               Not scanned
             </span>
           </div>
 
-          <p class="text-ink-600 mt-3 max-w-prose text-sm">
-            {{ org?.name ?? 'Your organisation' }} has no completed scan yet. A score appears here
-            once a repository is connected and its default branch is scanned.
+          <p class="text-ink-900 mt-3 text-2xl font-semibold tracking-tight">No score yet</p>
+          <p class="text-ink-500 mt-2 text-sm">
+            {{ org?.name ?? 'Your organisation' }} has no completed scan. A score appears once a
+            repository is connected and its default branch is scanned.
           </p>
 
           <div
-            class="border-ink-200 bg-ink-100/50 mt-5 rounded-[var(--radius-control)] border border-dashed px-4 py-6"
+            class="bg-ink-100/50 mt-4 flex flex-1 flex-col justify-center rounded-[var(--radius-control)] px-4 py-5"
           >
-            <div class="flex flex-wrap items-center gap-4">
-              <div
-                class="border-ink-300 text-ink-400 flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-2 border-dashed font-mono text-lg"
-                aria-hidden="true"
-              >
-                —
-              </div>
-              <div class="min-w-0">
-                <p class="text-ink-800 text-sm font-medium">Connect a repository to begin</p>
-                <p class="text-ink-500 mt-0.5 text-xs">
-                  Scans run on the default branch and record the evidence behind every finding.
-                </p>
-              </div>
-              <NuxtLink
-                to="/app/repos"
-                class="border-ink-200 text-ink-700 hover:bg-ink-100 focus-visible:ring-brand-500 bg-surface ml-auto inline-flex items-center gap-1 rounded-[var(--radius-control)] border px-3 py-1.5 text-xs font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-              >
-                Open repositories
-                <AppIcon name="chevron-right" :size="12" />
-              </NuxtLink>
-            </div>
-          </div>
-
-          <dl
-            class="border-ink-200 bg-ink-200 mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-[var(--radius-control)] border sm:grid-cols-4"
-          >
-            <div class="bg-surface px-3 py-2.5">
-              <dt class="text-ink-500 text-xs">Critical findings</dt>
-              <dd class="text-ink-400 mt-0.5 font-mono text-lg tabular-nums">—</dd>
-            </div>
-            <div class="bg-surface px-3 py-2.5">
-              <dt class="text-ink-500 text-xs">Open findings</dt>
-              <dd class="text-ink-400 mt-0.5 font-mono text-lg tabular-nums">—</dd>
-            </div>
-            <div class="bg-surface px-3 py-2.5">
-              <dt class="text-ink-500 text-xs">Sections assessed</dt>
-              <dd class="text-ink-400 mt-0.5 font-mono text-lg tabular-nums">—</dd>
-            </div>
-            <div class="bg-surface px-3 py-2.5">
-              <dt class="text-ink-500 text-xs">Last scan</dt>
-              <dd class="text-ink-400 mt-0.5 font-mono text-lg tabular-nums">—</dd>
-            </div>
-          </dl>
-        </section>
-
-        <section
-          aria-labelledby="catalog-heading"
-          class="border-ink-200 bg-surface rounded-[var(--radius-card)] border p-5"
-        >
-          <div class="flex items-baseline justify-between gap-2">
-            <h2 id="catalog-heading" class="text-ink-900 text-sm font-semibold">Control catalog</h2>
+            <p class="text-ink-700 text-sm font-medium">Connect a repository to begin</p>
+            <p class="text-ink-500 mt-1 text-xs">
+              Scans run on the default branch and record the evidence behind every finding.
+            </p>
             <NuxtLink
-              to="/app/rules"
-              class="text-brand-700 hover:text-brand-600 focus-visible:ring-brand-500 rounded-[var(--radius-control)] text-xs font-medium underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+              to="/app/repos"
+              class="text-brand-700 hover:text-brand-600 focus-visible:ring-brand-500 mt-3 inline-flex items-center gap-1 rounded-[var(--radius-control)] text-xs font-medium underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
             >
-              Browse
+              Open repositories
+              <AppIcon name="chevron-right" :size="12" />
             </NuxtLink>
           </div>
-
-          <p v-if="loading" class="text-ink-500 mt-4 text-sm">Loading the catalog…</p>
-
-          <template v-else>
-            <p class="text-ink-900 mt-3 flex items-baseline gap-1.5">
-              <span class="font-mono text-4xl font-semibold tabular-nums">{{
-                controls.length
-              }}</span>
-              <span class="text-ink-500 text-sm">controls</span>
-            </p>
-
-            <dl class="border-ink-200 divide-ink-200 mt-4 divide-y border-t text-sm">
-              <div class="flex items-center justify-between py-2">
-                <dt class="text-ink-500">Scored by code</dt>
-                <dd class="text-ink-800 font-mono tabular-nums">{{ scored }}</dd>
-              </div>
-              <div class="flex items-center justify-between py-2">
-                <dt class="text-ink-500">Listed, not scored</dt>
-                <dd class="text-ink-800 font-mono tabular-nums">{{ controls.length - scored }}</dd>
-              </div>
-              <div class="flex items-center justify-between py-2">
-                <dt class="text-ink-500">Sections</dt>
-                <dd class="text-ink-800 font-mono tabular-nums">{{ sections.length }}</dd>
-              </div>
-              <div class="flex items-center justify-between py-2">
-                <dt class="text-ink-500">Scanner mappings</dt>
-                <dd class="text-ink-800 font-mono tabular-nums">{{ mappings }}</dd>
-              </div>
-            </dl>
-
-            <ul class="mt-4 flex flex-wrap gap-1.5">
-              <li v-for="scanner in FINDING_SCANNERS" :key="scanner">
-                <span
-                  class="border-ink-200 text-ink-600 inline-flex items-center gap-1 rounded-[var(--radius-pill)] border px-2 py-0.5 text-xs"
-                >
-                  {{ SCANNER_LABELS[scanner] }}
-                  <span class="text-ink-400 font-mono tabular-nums">{{
-                    scannerCounts[scanner]
-                  }}</span>
-                </span>
-              </li>
-            </ul>
-          </template>
         </section>
       </div>
 
       <div class="grid gap-4 lg:grid-cols-3">
         <section
           aria-labelledby="sections-heading"
-          class="border-ink-200 bg-surface overflow-hidden rounded-[var(--radius-card)] border lg:col-span-2"
+          class="bg-surface overflow-hidden rounded-[var(--radius-card)] shadow-[var(--shadow-card)] lg:col-span-2"
         >
-          <div
-            class="border-ink-200 flex flex-wrap items-baseline justify-between gap-2 border-b px-4 py-3"
-          >
+          <div class="flex flex-wrap items-baseline justify-between gap-2 px-5 pt-5 pb-3">
             <h2 id="sections-heading" class="text-ink-900 text-sm font-semibold">
               Controls by section
             </h2>
@@ -231,16 +231,16 @@ const QUICK_LINKS = [
                 DPDPA sections with the number of controls in each.
               </caption>
               <thead>
-                <tr class="bg-ink-100/60">
+                <tr>
                   <th
                     scope="col"
-                    class="text-ink-400 px-4 py-2 font-mono text-xs font-medium tracking-widest uppercase"
+                    class="text-ink-400 px-5 py-2 font-mono text-xs font-medium tracking-widest uppercase"
                   >
                     Section
                   </th>
                   <th
                     scope="col"
-                    class="text-ink-400 px-4 py-2 text-right font-mono text-xs font-medium tracking-widest uppercase"
+                    class="text-ink-400 px-5 py-2 text-right font-mono text-xs font-medium tracking-widest uppercase"
                   >
                     Controls
                   </th>
@@ -250,9 +250,9 @@ const QUICK_LINKS = [
                 <tr
                   v-for="option in sections"
                   :key="option.section"
-                  class="border-ink-200 border-t"
+                  class="border-ink-200/70 hover:bg-ink-100/60 border-t transition-colors"
                 >
-                  <td class="px-4 py-2">
+                  <td class="px-5 py-2">
                     <NuxtLink
                       :to="{ path: '/app/rules', query: { section: option.section } }"
                       class="focus-visible:ring-brand-500 text-ink-800 inline-flex items-baseline gap-2 rounded-[var(--radius-control)] underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
@@ -263,7 +263,7 @@ const QUICK_LINKS = [
                       {{ option.label }}
                     </NuxtLink>
                   </td>
-                  <td class="text-ink-800 px-4 py-2 text-right font-mono tabular-nums">
+                  <td class="text-ink-800 px-5 py-2 text-right font-mono tabular-nums">
                     {{ option.count }}
                   </td>
                 </tr>
@@ -272,33 +272,55 @@ const QUICK_LINKS = [
           </div>
         </section>
 
-        <section
-          aria-labelledby="recent-heading"
-          class="border-ink-200 bg-surface rounded-[var(--radius-card)] border p-5"
-        >
-          <h2 id="recent-heading" class="text-ink-900 text-sm font-semibold">Recent scans</h2>
-          <div
-            class="border-ink-200 mt-3 rounded-[var(--radius-control)] border border-dashed px-4 py-6 text-center"
+        <div class="space-y-4">
+          <section
+            aria-labelledby="scanners-heading"
+            class="bg-surface rounded-[var(--radius-card)] p-5 shadow-[var(--shadow-card)]"
           >
-            <p class="text-ink-800 text-sm font-medium">No scans yet</p>
-            <p class="text-ink-500 mt-1 text-xs">
-              Completed scans and their scores appear here after the first run.
+            <h2 id="scanners-heading" class="text-ink-900 text-sm font-semibold">Signal sources</h2>
+            <p class="text-ink-500 mt-1 text-xs">Scanner mappings behind the catalog</p>
+            <ul class="mt-4 space-y-3">
+              <li v-for="scanner in FINDING_SCANNERS" :key="scanner">
+                <div class="flex items-baseline justify-between gap-2">
+                  <span class="text-ink-600 text-xs">{{ SCANNER_LABELS[scanner] }}</span>
+                  <span class="text-ink-400 font-mono text-xs tabular-nums">{{
+                    scannerCounts[scanner]
+                  }}</span>
+                </div>
+                <div class="bg-ink-100 mt-1 h-1 w-full overflow-hidden rounded-full">
+                  <span
+                    class="bg-brand-500 block h-full"
+                    :style="{ width: scannerWidth(scannerCounts[scanner]) }"
+                  />
+                </div>
+              </li>
+            </ul>
+          </section>
+
+          <section
+            aria-labelledby="recent-heading"
+            class="bg-surface rounded-[var(--radius-card)] p-5 shadow-[var(--shadow-card)]"
+          >
+            <h2 id="recent-heading" class="text-ink-900 text-sm font-semibold">Recent scans</h2>
+            <p class="text-ink-500 mt-2 text-xs">
+              No scans yet. Completed scans and their scores appear here after the first run.
             </p>
             <NuxtLink
               to="/app/scans"
-              class="border-ink-200 text-ink-700 hover:bg-ink-100 focus-visible:ring-brand-500 mt-3 inline-flex items-center gap-1 rounded-[var(--radius-control)] border px-3 py-1 text-xs font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+              class="text-ink-700 hover:bg-ink-100 focus-visible:ring-brand-500 mt-3 inline-flex items-center gap-1 rounded-[var(--radius-control)] px-2 py-1 text-xs font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
             >
               View scans
+              <AppIcon name="chevron-right" :size="12" />
             </NuxtLink>
-          </div>
-        </section>
+          </section>
+        </div>
       </div>
 
       <ul class="grid gap-4 sm:grid-cols-3">
         <li v-for="link in QUICK_LINKS" :key="link.to">
           <NuxtLink
             :to="link.to"
-            class="border-ink-200 bg-surface hover:border-ink-300 hover:bg-ink-100/50 focus-visible:ring-brand-500 flex h-full flex-col gap-1 rounded-[var(--radius-card)] border p-4 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+            class="bg-surface hover:bg-surface-raised focus-visible:ring-brand-500 flex h-full flex-col gap-1 rounded-[var(--radius-card)] p-4 shadow-[var(--shadow-card)] transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
           >
             <span class="text-ink-900 flex items-center gap-1 text-sm font-medium">
               {{ link.label }}

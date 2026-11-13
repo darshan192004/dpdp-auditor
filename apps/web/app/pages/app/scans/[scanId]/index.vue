@@ -86,7 +86,7 @@ const statusLabel = computed(() =>
 
     <template v-else>
       <dl
-        class="border-ink-200 bg-surface divide-ink-200 grid grid-cols-2 divide-y rounded-[var(--radius-card)] border sm:grid-cols-3 sm:divide-y-0 lg:grid-cols-6 lg:divide-x"
+        class="bg-surface divide-ink-200 grid grid-cols-2 divide-y rounded-[var(--radius-card)] shadow-[var(--shadow-card)] sm:grid-cols-3 sm:divide-y-0 lg:grid-cols-6 lg:divide-x"
       >
         <div class="px-4 py-3">
           <dt class="text-ink-400 font-mono text-xs tracking-widest uppercase">Status</dt>
@@ -148,7 +148,7 @@ const statusLabel = computed(() =>
       <p
         v-if="scan !== null && !isCompleted"
         role="status"
-        class="border-ink-200 bg-surface-raised text-ink-700 rounded-[var(--radius-card)] border px-4 py-3 text-sm"
+        class="bg-surface-raised text-ink-700 rounded-[var(--radius-card)] px-4 py-3 text-sm"
       >
         This scan is {{ statusLabel.toLowerCase() }}. The score appears when it completes.
       </p>

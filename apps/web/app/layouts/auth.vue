@@ -1,6 +1,6 @@
 <template>
-  <div class="bg-ink-50 text-ink-800 flex min-h-screen flex-col">
-    <header class="border-ink-200 border-b">
+  <div class="bg-canvas text-ink-800 flex min-h-screen flex-col">
+    <header class="bg-ink-50">
       <div class="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-3">
         <NuxtLink
           to="/"
@@ -24,13 +24,13 @@
 
     <main id="main" tabindex="-1" class="flex flex-1 items-center justify-center px-6 py-12">
       <div
-        class="border-ink-200 bg-surface w-full max-w-md rounded-[var(--radius-card)] border p-6"
+        class="bg-surface w-full max-w-md rounded-[var(--radius-card)] p-6 shadow-[var(--shadow-card)]"
       >
         <slot />
       </div>
     </main>
 
-    <footer class="border-ink-200 border-t px-6 py-3">
+    <footer class="px-6 py-3">
       <p class="text-ink-500 mx-auto w-full max-w-6xl text-xs">
         Engineering signals, not legal advice.
       </p>

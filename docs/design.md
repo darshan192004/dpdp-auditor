@@ -383,77 +383,79 @@ Tailwind CSS 4 uses CSS-first configuration. Tokens live in `app/assets/css/main
 @import "@fontsource-variable/geist-mono";
 
 @theme {
-  /* Brand: signal green on charcoal. No purple. */
-  --color-brand-50:  #0c2217;
-  --color-brand-100: #143524;
-  --color-brand-500: #4ade80;
-  --color-brand-600: #86efac;
-  --color-brand-700: #22c55e;
-  --color-brand-900: #bbf7d0;
+  /* Brand: signal green. No purple. */
+  --color-brand-50:  #0b2417;
+  --color-brand-100: #12331f;
+  --color-brand-500: #3dde78;
+  --color-brand-600: #5ce98c;
+  --color-brand-700: #6ee79a;
+  --color-brand-900: #c9f8da;
 
-  /* Surfaces */
-  --color-surface:        #0e1412;
-  --color-surface-raised: #141b19;
+  /* Surfaces: rail < canvas < card < raised. */
+  --color-canvas:         #0b0b0d;
+  --color-surface:        #141416;
+  --color-surface-raised: #1d1d20;
 
-  /* Neutrals: 50 is the canvas, 900 is primary text. */
-  --color-ink-50:  #070a09;
-  --color-ink-100: #161f1c;
-  --color-ink-200: #1f2b27;
-  --color-ink-300: #2d3b36;
-  --color-ink-400: #748981;
-  --color-ink-500: #8ba09a;
-  --color-ink-600: #a9bdb7;
-  --color-ink-700: #c8d8d3;
-  --color-ink-800: #e2ece8;
-  --color-ink-900: #f5faf8;
+  /* Neutrals: 50 is the rail/deepest, 900 is primary text. Neutral, not green. */
+  --color-ink-50:  #000000;
+  --color-ink-100: #1a1a1d;
+  --color-ink-200: #26262a;
+  --color-ink-300: #36363c;
+  --color-ink-400: #8b8b95;
+  --color-ink-500: #9a9aa4;
+  --color-ink-600: #b4b4bd;
+  --color-ink-700: #cfcfd6;
+  --color-ink-800: #e4e4e9;
+  --color-ink-900: #f7f7f9;
 
-  /* Risk scale — background, border, and text are contrast-checked pairs */
-  --color-risk-critical-bg:     #2a1013;
-  --color-risk-critical-border: #5a1d24;
-  --color-risk-critical-text:   #ff9aa3;
-  --color-risk-critical-solid:  #f87171;
+  /* Risk scale — background, border, and text are contrast-checked pairs.
+     Solids are the reference data-viz colours (warm red/orange/sand, green, blue). */
+  --color-risk-critical-bg:     #2a1210;
+  --color-risk-critical-border: #5c231b;
+  --color-risk-critical-text:   #ff8f86;
+  --color-risk-critical-solid:  #f0654f;
 
-  --color-risk-high-bg:     #2a1a0e;
-  --color-risk-high-border: #5a3416;
-  --color-risk-high-text:   #ffb37a;
-  --color-risk-high-solid:  #fb923c;
+  --color-risk-high-bg:     #2a1a10;
+  --color-risk-high-border: #5a3320;
+  --color-risk-high-text:   #ffb27a;
+  --color-risk-high-solid:  #e26841;
 
-  --color-risk-medium-bg:     #271f08;
-  --color-risk-medium-border: #55420f;
-  --color-risk-medium-text:   #f5d06a;
-  --color-risk-medium-solid:  #facc15;
+  --color-risk-medium-bg:     #26200c;
+  --color-risk-medium-border: #55460f;
+  --color-risk-medium-text:   #f0d38a;
+  --color-risk-medium-solid:  #eecb83;
 
-  --color-risk-low-bg:     #14210c;
-  --color-risk-low-border: #2f4a18;
-  --color-risk-low-text:   #b8e986;
-  --color-risk-low-solid:  #a3e635;
+  --color-risk-low-bg:     #0d2317;
+  --color-risk-low-border: #1e4a30;
+  --color-risk-low-text:   #8ff0b4;
+  --color-risk-low-solid:  #3dde78;
 
-  --color-risk-info-bg:     #0e1c2a;
-  --color-risk-info-border: #1d3b5a;
-  --color-risk-info-text:   #93c5fd;
-  --color-risk-info-solid:  #60a5fa;
+  --color-risk-info-bg:     #111a2e;
+  --color-risk-info-border: #23345c;
+  --color-risk-info-text:   #9db4ff;
+  --color-risk-info-solid:  #5b7cf0;
 
   /* Compliance status */
-  --color-status-compliant-bg:     #0c2217;
-  --color-status-compliant-border: #1c4a30;
-  --color-status-compliant-text:   #86efac;
-  --color-status-partial-bg:       #271f08;
-  --color-status-partial-border:   #55420f;
-  --color-status-partial-text:     #f5d06a;
-  --color-status-noncompliant-bg:  #2a1013;
-  --color-status-noncompliant-border: #5a1d24;
-  --color-status-noncompliant-text:   #ff9aa3;
-  --color-status-na-bg:     #141b19;
-  --color-status-na-border: #26332e;
-  --color-status-na-text:   #8ba09a;
+  --color-status-compliant-bg:     #0b2417;
+  --color-status-compliant-border: #1e4a30;
+  --color-status-compliant-text:   #8ff0b4;
+  --color-status-partial-bg:       #26200c;
+  --color-status-partial-border:   #55460f;
+  --color-status-partial-text:     #f0d38a;
+  --color-status-noncompliant-bg:  #2a1210;
+  --color-status-noncompliant-border: #5c231b;
+  --color-status-noncompliant-text:   #ff8f86;
+  --color-status-na-bg:     #1a1a1d;
+  --color-status-na-border: #26262a;
+  --color-status-na-text:   #9a9aa4;
 
   /* Confidence */
-  --color-confidence-direct-bg:   #0c2217;
-  --color-confidence-direct-text: #86efac;
-  --color-confidence-inferred-bg: #271f08;
-  --color-confidence-inferred-text: #f5d06a;
-  --color-confidence-advisory-bg: #141b19;
-  --color-confidence-advisory-text: #a9bdb7;
+  --color-confidence-direct-bg:   #0b2417;
+  --color-confidence-direct-text: #8ff0b4;
+  --color-confidence-inferred-bg: #26200c;
+  --color-confidence-inferred-text: #f0d38a;
+  --color-confidence-advisory-bg: #1a1a1d;
+  --color-confidence-advisory-text: #b4b4bd;
 
   /* Typography */
   --font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -475,8 +477,9 @@ Tailwind CSS 4 uses CSS-first configuration. Tokens live in `app/assets/css/main
 | Purpose | Class |
 |---|---|
 | Primary button | `bg-brand-500 hover:bg-brand-600 text-ink-50` |
-| Page background | `bg-ink-50` |
-| Card | `bg-surface border border-ink-200 rounded-[var(--radius-card)] shadow-[var(--shadow-card)]` |
+| Page background | `bg-canvas` |
+| Card | `bg-surface rounded-[var(--radius-card)] shadow-[var(--shadow-card)]` (no outline — the surface step separates it) |
+| Rail | `bg-ink-50` (pure black) |
 | Muted text | `text-ink-500` |
 | Body text | `text-ink-800` |
 | Critical badge | `bg-risk-critical-bg text-risk-critical-text border-risk-critical-border` |
@@ -510,6 +513,11 @@ The product ships dark-only: the token values above are the dark palette, and
 `color-scheme: dark` is set in `main.css`. A light theme is not a supported
 surface. Risk and status pairs were re-checked for contrast on `--color-surface`
 (text ≥ 4.5:1, borders and solid dots ≥ 3:1).
+
+Elevation is a four-step surface ladder — rail `--color-ink-50` (pure black) →
+canvas `--color-canvas` → card `--color-surface` → raised `--color-surface-raised`.
+Cards carry no outline; the step between canvas and card is what separates them.
+Hairlines (`--color-ink-200`) are reserved for table dividers and form controls.
 
 ---
 
