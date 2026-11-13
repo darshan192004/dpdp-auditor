@@ -78,6 +78,30 @@ describe('ScansRepository', () => {
     });
   });
 
+  it('finds the previous completed score for the same repository', async () => {
+    const { repo, scan } = make();
+    scan.findFirst.mockResolvedValueOnce({ score: '68.3' });
+
+    const createdAt = new Date('2026-11-12T00:00:00.000Z');
+    await repo.findPreviousCompletedScore(ORG_ID, {
+      id: SCAN_ID,
+      repositoryId: REPO_ID,
+      createdAt,
+    });
+
+    expect(scan.findFirst).toHaveBeenCalledWith({
+      where: {
+        orgId: ORG_ID,
+        repositoryId: REPO_ID,
+        status: 'completed',
+        id: { not: SCAN_ID },
+        createdAt: { lt: createdAt },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { score: true },
+    });
+  });
+
   it('creates a scan with nullable fields defaulted', async () => {
     const { repo, scan } = make();
 

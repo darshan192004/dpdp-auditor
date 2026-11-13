@@ -157,7 +157,10 @@ export class ScansService {
 
   async detail(orgId: string, scanId: string) {
     const scan = await this.requireScan(orgId, scanId);
-    return toDetail(scan);
+    // Only a completed scan has a score, and only then is the trend meaningful.
+    const previous =
+      scan.status === 'completed' ? await this.scans.findPreviousCompletedScore(orgId, scan) : null;
+    return toDetail(scan, previous?.score == null ? null : Number(previous.score));
   }
 
   async list(raw: ListScansInput) {
@@ -557,7 +560,7 @@ function toSummary(scan: ScanWithRepository) {
   };
 }
 
-function toDetail(scan: ScanWithRepository) {
+function toDetail(scan: ScanWithRepository, previousScore: number | null) {
   return {
     id: scan.id,
     repository: {
@@ -570,6 +573,7 @@ function toDetail(scan: ScanWithRepository) {
     commitSha: scan.commitSha,
     score: scan.score === null ? null : Number(scan.score),
     grade: scan.grade,
+    previousScore,
     sectionScores: scan.sectionScores,
     counts: scan.counts,
     coverage: scan.coverage,

@@ -84,6 +84,28 @@ export class ScansRepository {
     });
   }
 
+  /**
+   * The score of the most recent earlier completed scan of the same
+   * repository, used for the score trend on the scan page.
+   */
+  findPreviousCompletedScore(
+    orgId: string,
+    scan: Pick<Scan, 'id' | 'repositoryId' | 'createdAt'>,
+    tx?: Prisma.TransactionClient,
+  ): Promise<{ score: Prisma.Decimal | null } | null> {
+    return this.client(tx).scan.findFirst({
+      where: {
+        orgId,
+        repositoryId: scan.repositoryId,
+        status: 'completed',
+        id: { not: scan.id },
+        createdAt: { lt: scan.createdAt },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { score: true },
+    });
+  }
+
   async list(orgId: string, filters: ScanFilters, tx?: Prisma.TransactionClient) {
     const where: Prisma.ScanWhereInput = {
       orgId,

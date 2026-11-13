@@ -290,6 +290,7 @@ Retry-After: 3
     "commitSha": "9f2c1d7e4b8a6c0f3e2d1b0a9c8d7e6f5a4b3c2d",
     "score": 72.4,
     "grade": "C",
+    "previousScore": 68.9,
     "sectionScores": {
       "5": 85.0,
       "6": 61.5,
@@ -339,6 +340,8 @@ Retry-After: 3
 ```
 
 `coverage` is authoritative. A `completed` scan with a non-`completed` scanner is **partial**; the UI must show a coverage warning and must not display a "clean" message.
+
+`previousScore` is the score of the most recent earlier `completed` scan of the same repository, or `null` for the first completed scan. It is `null` for scans that are not `completed`. The UI uses it only for the trend, never to recompute the score.
 
 A `null` section score means **not assessed** (`applicableWeight = 0`), never 100 — section 12 carries only a weight-0, non-scored control (rules.md §4/§9.2).
 
