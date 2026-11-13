@@ -39,7 +39,7 @@ const rowsWithLink = computed(() =>
 <template>
   <section
     aria-labelledby="sections-heading"
-    class="border-ink-200 overflow-hidden rounded-[var(--radius-card)] border bg-white"
+    class="bg-surface overflow-hidden rounded-[var(--radius-card)] shadow-[var(--shadow-card)]"
   >
     <div
       class="border-ink-200 flex flex-wrap items-baseline justify-between gap-2 border-b px-4 py-3"
@@ -55,17 +55,32 @@ const rowsWithLink = computed(() =>
           findings.
         </caption>
         <thead>
-          <tr class="bg-ink-50">
-            <th scope="col" class="text-ink-600 px-4 py-2 text-xs font-medium">Section</th>
-            <th scope="col" class="text-ink-600 px-4 py-2 text-right text-xs font-medium">Score</th>
-            <th scope="col" class="text-ink-600 px-4 py-2 text-xs font-medium">Status</th>
+          <tr class="bg-ink-100/60">
+            <th
+              scope="col"
+              class="text-ink-400 px-4 py-2 font-mono text-xs font-medium tracking-widest uppercase"
+            >
+              Section
+            </th>
+            <th
+              scope="col"
+              class="text-ink-400 px-4 py-2 text-right font-mono text-xs font-medium tracking-widest uppercase"
+            >
+              Score
+            </th>
+            <th
+              scope="col"
+              class="text-ink-400 px-4 py-2 font-mono text-xs font-medium tracking-widest uppercase"
+            >
+              Status
+            </th>
           </tr>
         </thead>
         <tbody>
           <tr
             v-for="row in rowsWithLink"
             :key="row.section"
-            class="border-ink-100 border-t"
+            class="border-ink-200 hover:bg-ink-100/50 border-t transition-colors"
             :class="row.status === 'not_assessed' ? 'text-ink-500' : 'text-ink-800'"
           >
             <td class="px-4 py-2.5">
@@ -73,11 +88,11 @@ const rowsWithLink = computed(() =>
                 :to="row.to"
                 class="focus-visible:ring-brand-500 inline-flex items-baseline gap-2 rounded-[var(--radius-control)] underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
               >
-                <span class="text-ink-500 font-mono text-xs tabular-nums">{{ row.section }}</span>
+                <span class="text-ink-400 font-mono text-xs tabular-nums">{{ row.section }}</span>
                 <span>{{ row.label }}</span>
               </NuxtLink>
             </td>
-            <td class="px-4 py-2.5 text-right font-medium tabular-nums">
+            <td class="px-4 py-2.5 text-right font-mono font-medium tabular-nums">
               {{ formatScore(row.score) }}
             </td>
             <td class="px-4 py-2.5">

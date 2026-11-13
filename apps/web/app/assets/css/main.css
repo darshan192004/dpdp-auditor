@@ -1,88 +1,156 @@
 @import 'tailwindcss';
 @import '@nuxt/ui';
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
 
 /* Design tokens — docs/design.md §6. The ONLY file allowed to contain raw hex
-   values (enforced by apps/web/scripts/lint-tokens.mjs). Slate-and-teal only;
-   banned aesthetics (§14 anti-patterns) are asserted absent by tokens.test.ts. */
+   values (enforced by apps/web/scripts/lint-tokens.mjs). Dark security-console
+   palette sampled from the 2026 "AI-powered Cybersecurity Dashboard" reference:
+   pure-black rail, neutral near-black canvas, lifted neutral cards, one signal
+   green. Separation comes from surface steps, not 1 px outlines. Banned
+   aesthetics (§14 anti-patterns) are asserted absent by tokens.test.ts. */
 @theme {
-  /* Brand: deep slate with teal accent. No purple. */
-  --color-brand-50: #f0fdfa;
-  --color-brand-100: #ccfbf1;
-  --color-brand-500: #14b8a6;
-  --color-brand-600: #0d9488;
-  --color-brand-700: #0f766e;
-  --color-brand-900: #134e4a;
+  /* Brand: signal green. No purple. */
+  --color-brand-50: #0b2417;
+  --color-brand-100: #12331f;
+  --color-brand-500: #3dde78;
+  --color-brand-600: #5ce98c;
+  --color-brand-700: #6ee79a;
+  --color-brand-900: #c9f8da;
 
-  /* Neutrals */
-  --color-ink-50: #f8fafc;
-  --color-ink-100: #f1f5f9;
-  --color-ink-200: #e2e8f0;
-  --color-ink-300: #cbd5e1;
-  --color-ink-400: #94a3b8;
-  --color-ink-500: #64748b;
-  --color-ink-600: #475569;
-  --color-ink-700: #334155;
-  --color-ink-800: #1e293b;
-  --color-ink-900: #0f172a;
+  /* Surfaces: rail < canvas < card < raised. */
+  --color-canvas: #0b0b0d;
+  --color-surface: #141416;
+  --color-surface-raised: #1d1d20;
 
-  /* Risk scale — background, border, and text are contrast-checked pairs */
-  --color-risk-critical-bg: #fef2f2;
-  --color-risk-critical-border: #fecaca;
-  --color-risk-critical-text: #991b1b;
-  --color-risk-critical-solid: #dc2626;
+  /* Neutrals: 50 is the rail/deepest, 900 is primary text. Neutral, not green. */
+  --color-ink-50: #000000;
+  --color-ink-100: #1a1a1d;
+  --color-ink-200: #26262a;
+  --color-ink-300: #36363c;
+  --color-ink-400: #8b8b95;
+  --color-ink-500: #9a9aa4;
+  --color-ink-600: #b4b4bd;
+  --color-ink-700: #cfcfd6;
+  --color-ink-800: #e4e4e9;
+  --color-ink-900: #f7f7f9;
 
-  --color-risk-high-bg: #fff7ed;
-  --color-risk-high-border: #fed7aa;
-  --color-risk-high-text: #9a3412;
-  --color-risk-high-solid: #ea580c;
+  /* Risk scale — background, border, and text are contrast-checked pairs.
+     Solids are the data-viz colours from the reference (warm red/orange/sand,
+     signal green, cold blue). */
+  --color-risk-critical-bg: #2a1210;
+  --color-risk-critical-border: #5c231b;
+  --color-risk-critical-text: #ff8f86;
+  --color-risk-critical-solid: #f0654f;
 
-  --color-risk-medium-bg: #fffbeb;
-  --color-risk-medium-border: #fde68a;
-  --color-risk-medium-text: #92400e;
-  --color-risk-medium-solid: #d97706;
+  --color-risk-high-bg: #2a1a10;
+  --color-risk-high-border: #5a3320;
+  --color-risk-high-text: #ffb27a;
+  --color-risk-high-solid: #e26841;
 
-  --color-risk-low-bg: #f7fee7;
-  --color-risk-low-border: #d9f99d;
-  --color-risk-low-text: #3f6212;
-  --color-risk-low-solid: #65a30d;
+  --color-risk-medium-bg: #26200c;
+  --color-risk-medium-border: #55460f;
+  --color-risk-medium-text: #f0d38a;
+  --color-risk-medium-solid: #eecb83;
 
-  --color-risk-info-bg: #eff6ff;
-  --color-risk-info-border: #bfdbfe;
-  --color-risk-info-text: #1e40af;
-  --color-risk-info-solid: #2563eb;
+  --color-risk-low-bg: #0d2317;
+  --color-risk-low-border: #1e4a30;
+  --color-risk-low-text: #8ff0b4;
+  --color-risk-low-solid: #3dde78;
+
+  --color-risk-info-bg: #111a2e;
+  --color-risk-info-border: #23345c;
+  --color-risk-info-text: #9db4ff;
+  --color-risk-info-solid: #5b7cf0;
 
   /* Compliance status */
-  --color-status-compliant-bg: #f0fdf4;
-  --color-status-compliant-border: #bbf7d0;
-  --color-status-compliant-text: #166534;
-  --color-status-partial-bg: #fffbeb;
-  --color-status-partial-border: #fde68a;
-  --color-status-partial-text: #92400e;
-  --color-status-noncompliant-bg: #fef2f2;
-  --color-status-noncompliant-border: #fecaca;
-  --color-status-noncompliant-text: #991b1b;
-  --color-status-na-bg: #f8fafc;
-  --color-status-na-border: #e2e8f0;
-  --color-status-na-text: #475569;
+  --color-status-compliant-bg: #0b2417;
+  --color-status-compliant-border: #1e4a30;
+  --color-status-compliant-text: #8ff0b4;
+  --color-status-partial-bg: #26200c;
+  --color-status-partial-border: #55460f;
+  --color-status-partial-text: #f0d38a;
+  --color-status-noncompliant-bg: #2a1210;
+  --color-status-noncompliant-border: #5c231b;
+  --color-status-noncompliant-text: #ff8f86;
+  --color-status-na-bg: #1a1a1d;
+  --color-status-na-border: #26262a;
+  --color-status-na-text: #9a9aa4;
 
   /* Confidence */
-  --color-confidence-direct-bg: #f0fdf4;
-  --color-confidence-direct-text: #166534;
-  --color-confidence-inferred-bg: #fffbeb;
-  --color-confidence-inferred-text: #92400e;
-  --color-confidence-advisory-bg: #f8fafc;
-  --color-confidence-advisory-text: #475569;
+  --color-confidence-direct-bg: #0b2417;
+  --color-confidence-direct-text: #8ff0b4;
+  --color-confidence-inferred-bg: #26200c;
+  --color-confidence-inferred-text: #f0d38a;
+  --color-confidence-advisory-bg: #1a1a1d;
+  --color-confidence-advisory-text: #b4b4bd;
 
   /* Typography */
-  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, 'SFMono-Regular', Menlo, monospace;
 
   /* Radii */
   --radius-control: 0.375rem; /* 6px  */
-  --radius-card: 0.625rem; /* 10px */
+  --radius-card: 0.75rem; /* 12px */
   --radius-pill: 9999px;
 
-  /* Shadows: subtle only */
-  --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04);
-  --shadow-popover: 0 8px 24px -8px rgb(15 23 42 / 0.18);
+  /* Shadows: depth comes from the surface step, not glow. */
+  --shadow-card: 0 1px 2px 0 rgb(0 0 0 / 0.6);
+  --shadow-popover: 0 16px 40px -12px rgb(0 0 0 / 0.85);
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+
+    /* Nuxt UI semantic variables, re-pointed at the product palette so its
+       components (slideover, form controls) sit on the same canvas. The
+       defaults assume a light theme under `:root`. */
+    --ui-text-dimmed: var(--color-ink-400);
+    --ui-text-muted: var(--color-ink-500);
+    --ui-text-toned: var(--color-ink-600);
+    --ui-text: var(--color-ink-700);
+    --ui-text-highlighted: var(--color-ink-900);
+    --ui-text-inverted: var(--color-ink-50);
+    --ui-bg: var(--color-canvas);
+    --ui-bg-muted: var(--color-surface);
+    --ui-bg-elevated: var(--color-surface-raised);
+    --ui-bg-accented: var(--color-ink-200);
+    --ui-bg-inverted: var(--color-ink-900);
+    --ui-border: var(--color-ink-200);
+    --ui-border-muted: var(--color-ink-200);
+    --ui-border-accented: var(--color-ink-300);
+    --ui-border-inverted: var(--color-ink-900);
+    --ui-primary: var(--color-brand-500);
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink-800);
+    color-scheme: dark;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background-color: var(--color-brand-500);
+    color: var(--color-ink-50);
+  }
+
+  /* Ring offsets sit on the canvas, never on a white default. */
+  * {
+    --tw-ring-offset-color: var(--color-canvas);
+  }
+
+  /* Respect the OS "reduce motion" setting for every transition/animation. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }

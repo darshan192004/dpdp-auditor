@@ -144,12 +144,14 @@ function clearFilters(): void {
       ]"
     />
 
-    <FindingsFilterBar
-      :filters="filters"
-      :total-items="pagination.totalItems"
-      @update="update"
-      @clear="clearFilters"
-    />
+    <div class="bg-surface rounded-[var(--radius-card)] px-4 py-3 shadow-[var(--shadow-card)]">
+      <FindingsFilterBar
+        :filters="filters"
+        :total-items="pagination.totalItems"
+        @update="update"
+        @clear="clearFilters"
+      />
+    </div>
 
     <p
       v-if="notice"

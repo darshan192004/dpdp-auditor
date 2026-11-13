@@ -92,8 +92,8 @@ async function clearFilters(): Promise<void> {
               class="focus-visible:ring-brand-500 inline-flex items-center gap-1.5 rounded-[var(--radius-pill)] border px-2 py-0.5 text-xs font-medium focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:outline-none"
               :class="
                 query.scanner === scanner
-                  ? 'border-brand-700 bg-brand-700 text-white'
-                  : 'border-ink-200 text-ink-600 hover:bg-ink-50 bg-white'
+                  ? 'border-brand-500 bg-brand-500 text-ink-50'
+                  : 'text-ink-600 hover:bg-ink-100 bg-surface'
               "
               @click="setScanner(scanner)"
             >
@@ -105,7 +105,7 @@ async function clearFilters(): Promise<void> {
           <button
             v-if="filtered"
             type="button"
-            class="border-ink-200 text-ink-700 hover:bg-ink-50 focus-visible:ring-brand-500 ml-auto inline-flex items-center gap-1 rounded-[var(--radius-control)] border bg-white px-2 py-1 text-xs font-medium focus-visible:ring-2 focus-visible:outline-none"
+            class="text-ink-700 hover:bg-ink-100 focus-visible:ring-brand-500 bg-surface ml-auto inline-flex items-center gap-1 rounded-[var(--radius-control)] px-2 py-1 text-xs font-medium focus-visible:ring-2 focus-visible:outline-none"
             @click="clearFilters"
           >
             <AppIcon name="x" :size="12" />
@@ -117,7 +117,7 @@ async function clearFilters(): Promise<void> {
 
         <div
           v-else-if="rules.length === 0"
-          class="border-ink-200 rounded-[var(--radius-card)] border border-dashed px-6 py-10 text-center"
+          class="bg-surface rounded-[var(--radius-card)] px-6 py-10 text-center shadow-[var(--shadow-card)]"
         >
           <p class="text-ink-800 text-sm font-medium">No controls match these filters.</p>
           <p class="text-ink-500 mt-1 text-sm">
@@ -126,7 +126,7 @@ async function clearFilters(): Promise<void> {
           </p>
           <button
             type="button"
-            class="border-ink-200 text-ink-700 hover:bg-ink-50 focus-visible:ring-brand-500 mt-3 rounded-[var(--radius-control)] border px-3 py-1 text-xs font-medium focus-visible:ring-2 focus-visible:outline-none"
+            class="text-ink-700 hover:bg-ink-100 focus-visible:ring-brand-500 bg-ink-100 mt-3 rounded-[var(--radius-control)] px-3 py-1 text-xs font-medium focus-visible:ring-2 focus-visible:outline-none"
             @click="clearFilters"
           >
             Show all controls

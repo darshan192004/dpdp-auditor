@@ -80,11 +80,11 @@ async function copyFix(): Promise<void> {
       <h3 id="finding-evidence-heading" class="text-ink-900 text-sm font-semibold">Evidence</h3>
       <pre
         v-if="finding.evidence.redacted"
-        class="border-ink-200 bg-ink-50 text-ink-800 overflow-x-auto rounded-[var(--radius-control)] border px-3 py-2 font-mono text-xs whitespace-pre-wrap"
+        class="border-ink-200 bg-ink-100 text-ink-800 overflow-x-auto rounded-[var(--radius-control)] border px-3 py-2 font-mono text-xs whitespace-pre-wrap"
         >{{ finding.evidence.redacted }}</pre>
       <p
         v-else
-        class="border-ink-200 bg-ink-50 text-ink-700 rounded-[var(--radius-control)] border px-3 py-2 text-sm"
+        class="border-ink-200 bg-ink-100 text-ink-700 rounded-[var(--radius-control)] border px-3 py-2 text-sm"
       >
         <AppIcon name="lock" :size="14" class="text-ink-400 mr-1 inline align-[-2px]" />
         Value withheld for security.
@@ -97,7 +97,7 @@ async function copyFix(): Promise<void> {
         <h3 id="finding-fix-heading" class="text-ink-900 text-sm font-semibold">Remediation</h3>
         <button
           type="button"
-          class="border-ink-200 text-ink-700 hover:bg-ink-50 focus-visible:ring-brand-500 inline-flex items-center gap-1 rounded-[var(--radius-control)] border bg-white px-2 py-1 text-xs font-medium focus-visible:ring-2 focus-visible:outline-none"
+          class="border-ink-200 text-ink-700 hover:bg-ink-100 focus-visible:ring-brand-500 bg-surface inline-flex items-center gap-1 rounded-[var(--radius-control)] border px-2 py-1 text-xs font-medium focus-visible:ring-2 focus-visible:outline-none"
           @click="copyFix"
         >
           <AppIcon name="copy" :size="12" />

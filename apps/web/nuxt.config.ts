@@ -103,6 +103,8 @@ export default defineNuxtConfig({
     routeRules: {
       '/api/**': { cors: false },
       '/app/**': { headers: { 'cache-control': 'no-store' } },
+      // Hashed build assets never change under the same URL (docs/security.md §8).
+      '/_nuxt/**': { headers: { 'cache-control': 'public, max-age=31536000, immutable' } },
     },
   },
 

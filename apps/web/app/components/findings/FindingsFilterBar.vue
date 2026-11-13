@@ -106,7 +106,7 @@ function toggle<T>(current: T[], value: T): T[] {
           type="search"
           aria-label="Search findings"
           placeholder="Search message or rule ID"
-          class="border-ink-200 text-ink-900 placeholder:text-ink-400 focus-visible:ring-brand-500 w-full rounded-[var(--radius-control)] border bg-white py-1.5 pr-2 pl-8 text-sm focus-visible:ring-2 focus-visible:outline-none"
+          class="border-ink-200 text-ink-900 placeholder:text-ink-400 focus-visible:ring-brand-500 bg-surface w-full rounded-[var(--radius-control)] border py-1.5 pr-2 pl-8 text-sm focus-visible:ring-2 focus-visible:outline-none"
           @input="scheduleSearch"
           @keydown.enter.prevent="applySearch"
         />
@@ -120,7 +120,7 @@ function toggle<T>(current: T[], value: T): T[] {
           type="text"
           inputmode="text"
           placeholder="8(4)"
-          class="border-ink-200 text-ink-900 placeholder:text-ink-400 focus-visible:ring-brand-500 w-20 rounded-[var(--radius-control)] border bg-white px-2 py-1 font-mono text-xs focus-visible:ring-2 focus-visible:outline-none"
+          class="border-ink-200 text-ink-900 placeholder:text-ink-400 focus-visible:ring-brand-500 bg-surface w-20 rounded-[var(--radius-control)] border px-2 py-1 font-mono text-xs focus-visible:ring-2 focus-visible:outline-none"
           @keydown.enter.prevent="applySection"
           @blur="applySection"
         />
@@ -133,7 +133,7 @@ function toggle<T>(current: T[], value: T): T[] {
       <button
         v-if="active"
         type="button"
-        class="border-ink-200 text-ink-700 hover:bg-ink-50 focus-visible:ring-brand-500 inline-flex items-center gap-1 rounded-[var(--radius-control)] border bg-white px-2 py-1 text-xs font-medium focus-visible:ring-2 focus-visible:outline-none"
+        class="border-ink-200 text-ink-700 hover:bg-ink-100 focus-visible:ring-brand-500 bg-surface inline-flex items-center gap-1 rounded-[var(--radius-control)] border px-2 py-1 text-xs font-medium focus-visible:ring-2 focus-visible:outline-none"
         @click="emit('clear')"
       >
         <AppIcon name="x" :size="12" />
@@ -152,8 +152,8 @@ function toggle<T>(current: T[], value: T): T[] {
           class="focus-visible:ring-brand-500 rounded-[var(--radius-pill)] border px-2 py-0.5 text-xs font-medium focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:outline-none"
           :class="
             filters.severity.includes(severity)
-              ? 'border-brand-700 bg-brand-700 text-white'
-              : 'border-ink-200 text-ink-600 hover:bg-ink-50 bg-white'
+              ? 'border-brand-500 bg-brand-500 text-ink-50'
+              : 'border-ink-200 text-ink-600 hover:bg-ink-100 bg-surface'
           "
           @click="emit('update', { severity: toggle(filters.severity, severity) })"
         >
@@ -171,8 +171,8 @@ function toggle<T>(current: T[], value: T): T[] {
           class="focus-visible:ring-brand-500 rounded-[var(--radius-pill)] border px-2 py-0.5 text-xs font-medium focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:outline-none"
           :class="
             filters.scanner.includes(scanner)
-              ? 'border-brand-700 bg-brand-700 text-white'
-              : 'border-ink-200 text-ink-600 hover:bg-ink-50 bg-white'
+              ? 'border-brand-500 bg-brand-500 text-ink-50'
+              : 'border-ink-200 text-ink-600 hover:bg-ink-100 bg-surface'
           "
           @click="emit('update', { scanner: toggle(filters.scanner, scanner) })"
         >
@@ -190,8 +190,8 @@ function toggle<T>(current: T[], value: T): T[] {
           class="focus-visible:ring-brand-500 rounded-[var(--radius-pill)] border px-2 py-0.5 text-xs font-medium focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:outline-none"
           :class="
             filters.status.includes(status)
-              ? 'border-brand-700 bg-brand-700 text-white'
-              : 'border-ink-200 text-ink-600 hover:bg-ink-50 bg-white'
+              ? 'border-brand-500 bg-brand-500 text-ink-50'
+              : 'border-ink-200 text-ink-600 hover:bg-ink-100 bg-surface'
           "
           @click="emit('update', { status: toggle(filters.status, status) })"
         >

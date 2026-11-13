@@ -28,7 +28,7 @@ const allTo = computed(() => rulesUrl({ section: null, scanner: props.scanner })
           :class="
             active === null
               ? 'bg-brand-50 text-brand-900 font-medium'
-              : 'text-ink-700 hover:bg-ink-50'
+              : 'text-ink-700 hover:bg-ink-100'
           "
         >
           <span>All controls</span>
@@ -43,7 +43,7 @@ const allTo = computed(() => rulesUrl({ section: null, scanner: props.scanner })
           :class="
             active === option.section
               ? 'bg-brand-50 text-brand-900 font-medium'
-              : 'text-ink-700 hover:bg-ink-50'
+              : 'text-ink-700 hover:bg-ink-100'
           "
         >
           <span class="flex min-w-0 items-baseline gap-2">

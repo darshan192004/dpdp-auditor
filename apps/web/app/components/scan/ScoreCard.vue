@@ -39,9 +39,9 @@ const gaugeWidth = computed(() =>
 const trend = computed(() => trendFor(props.score, props.previousScore));
 const trendGlyph = computed(() => {
   if (trend.value === null) return '';
-  if (trend.value.direction === 'up') return '▲';
-  if (trend.value.direction === 'down') return '▼';
-  return '–';
+  if (trend.value.direction === 'up') return '↑';
+  if (trend.value.direction === 'down') return '↓';
+  return '→';
 });
 const trendClass = computed(() => {
   if (trend.value?.direction === 'up') return 'text-status-compliant-text';
@@ -65,20 +65,20 @@ const gaugeLabel = computed(() => {
 <template>
   <section
     aria-labelledby="score-heading"
-    class="border-ink-200 rounded-[var(--radius-card)] border bg-white p-5"
+    class="bg-surface rounded-[var(--radius-card)] p-5 shadow-[var(--shadow-card)]"
   >
     <div v-if="isLoading" aria-busy="true" class="space-y-3">
-      <div class="bg-ink-100 h-3 w-24 rounded-[var(--radius-control)]" />
-      <div class="bg-ink-100 h-9 w-40 rounded-[var(--radius-control)]" />
-      <div class="bg-ink-100 h-2 w-full rounded-[var(--radius-pill)]" />
-      <div class="bg-ink-100 h-4 w-2/3 rounded-[var(--radius-control)]" />
+      <div class="bg-ink-200 h-3 w-24 rounded-[var(--radius-control)]" />
+      <div class="bg-ink-200 h-9 w-40 rounded-[var(--radius-control)]" />
+      <div class="bg-ink-200 h-2 w-full rounded-[var(--radius-pill)]" />
+      <div class="bg-ink-200 h-4 w-2/3 rounded-[var(--radius-control)]" />
       <p class="sr-only" role="status">Loading scan score</p>
     </div>
 
     <template v-else>
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div class="min-w-0">
-          <h2 id="score-heading" class="text-ink-500 text-xs font-medium tracking-wide uppercase">
+          <h2 id="score-heading" class="text-ink-400 font-mono text-xs tracking-widest uppercase">
             DPDPA score
           </h2>
           <p v-if="score !== null" class="mt-1 flex items-baseline gap-1">
@@ -90,10 +90,10 @@ const gaugeLabel = computed(() => {
           <p v-else class="text-ink-900 mt-1 text-2xl font-semibold">Not scored</p>
         </div>
 
-        <div class="flex flex-col items-start gap-1 sm:items-end">
+        <div class="flex flex-col items-start gap-1.5 sm:items-end">
           <span
             v-if="grade !== null"
-            class="border-brand-100 bg-brand-50 text-brand-900 inline-flex items-center gap-1 rounded-[var(--radius-pill)] border px-2.5 py-0.5 text-sm font-semibold"
+            class="border-brand-700/60 bg-brand-50 text-brand-900 inline-flex items-center gap-1 rounded-[var(--radius-pill)] border px-2.5 py-0.5 text-sm font-semibold"
           >
             <AppIcon name="shield-check" :size="14" />
             Grade {{ grade }}
@@ -125,7 +125,7 @@ const gaugeLabel = computed(() => {
         class="mt-4 h-2 w-full"
       >
         <rect x="0" y="0" width="100" height="8" rx="2" class="fill-ink-200" />
-        <rect x="0" y="0" :width="gaugeWidth" height="8" rx="2" class="fill-brand-700" />
+        <rect x="0" y="0" :width="gaugeWidth" height="8" rx="2" class="fill-brand-500" />
       </svg>
 
       <p v-else class="text-ink-600 mt-3 text-sm">
@@ -139,15 +139,21 @@ const gaugeLabel = computed(() => {
         :withheld="grade === null"
       />
 
-      <ul class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-        <li v-for="item in COUNT_ITEMS" :key="item.key">
+      <ul
+        class="bg-ink-200/60 mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-[var(--radius-control)] sm:grid-cols-5"
+      >
+        <li v-for="item in COUNT_ITEMS" :key="item.key" class="bg-surface">
           <NuxtLink
             :to="{ path: `/app/scans/${scanId}/findings`, query: { severity: item.key } }"
-            class="text-ink-700 hover:text-ink-900 focus-visible:ring-brand-500 inline-flex items-center gap-1.5 rounded-[var(--radius-control)] underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+            class="hover:bg-ink-100 focus-visible:ring-brand-500 flex h-full flex-col gap-1 px-3 py-2.5 focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset"
           >
-            <span class="h-2 w-2 rounded-[2px]" :class="item.dot" aria-hidden="true" />
-            <span>{{ item.label }}</span>
-            <span class="text-ink-900 font-semibold tabular-nums">{{ counts[item.key] }}</span>
+            <span class="text-ink-500 inline-flex items-center gap-1.5 text-xs">
+              <span class="h-1.5 w-1.5 rounded-full" :class="item.dot" aria-hidden="true" />
+              {{ item.label }}
+            </span>
+            <span class="text-ink-900 text-lg font-semibold tabular-nums">{{
+              counts[item.key]
+            }}</span>
           </NuxtLink>
         </li>
       </ul>
