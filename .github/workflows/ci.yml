@@ -184,8 +184,11 @@ jobs:
         # binary is not on node_modules/.bin (pnpm does not hoist it).
         run: pnpm --filter @dpdpa/web exec playwright install --with-deps chromium
 
-      - name: Build web app
-        run: pnpm --filter @dpdpa/web build
+      - name: Build web app and workspace dependencies
+        # `@dpdpa/web...` includes the workspace packages the server bundles at
+        # build time (`@dpdpa/contracts`); a bare `--filter @dpdpa/web` build
+        # fails on a clean checkout because `packages/contracts/dist` is absent.
+        run: pnpm --filter "@dpdpa/web..." build
 
       - name: Run e2e tests
         run: pnpm --filter @dpdpa/web exec playwright test
