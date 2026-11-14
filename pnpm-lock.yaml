@@ -121,8 +121,8 @@ importers:
         version: 4.6.7
     devDependencies:
       '@nestjs/testing':
-        specifier: 12.4.1
-        version: 12.4.1(@nestjs/common@12.4.1(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.4.1(@nestjs/common@12.4.1(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2))
+        specifier: 12.4.2
+        version: 12.4.2(@nestjs/common@12.4.1(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.4.1(@nestjs/common@12.4.1(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2))
       '@types/node':
         specifier: ^26.6.6
         version: 26.6.6
@@ -1069,8 +1069,8 @@ packages:
       '@fastify/view':
         optional: true
 
-  '@nestjs/testing@12.4.1':
-    resolution: {integrity: sha512-OG/UgCpTacBJwLp/Zy8VFemdxHQdqPUCvsdQuepQGEyiVvdlf+AsZDxoUzLIshiRcz1uBeGEAkprQ23wZo+mLQ==}
+  '@nestjs/testing@12.4.2':
+    resolution: {integrity: sha512-zpHIHlKDKQHgL5ydKxCpdv6I0IWQ9AkMWFdL3PrvxytOYfLj1Acqc6L0g9GD/tHhrGUj6L82hSbQoEERzjMf6A==}
     peerDependencies:
       '@nestjs/common': ^12.0.0
       '@nestjs/core': ^12.0.0
@@ -6311,7 +6311,7 @@ snapshots:
       rxjs: 7.8.2
       tslib: 2.9.1
 
-  '@nestjs/testing@12.4.1(@nestjs/common@12.4.1(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.4.1(@nestjs/common@12.4.1(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2))':
+  '@nestjs/testing@12.4.2(@nestjs/common@12.4.1(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.4.1(@nestjs/common@12.4.1(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2))':
     dependencies:
       '@nestjs/common': 12.4.1(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@nestjs/core': 12.4.1(@nestjs/common@12.4.1(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2)
