@@ -1,7 +1,8 @@
 import { createHmac } from 'node:crypto';
 import type { H3Event } from 'h3';
 import { $fetch } from 'ofetch';
-import { apiError } from './api-error';
+import { ERROR_CODES, type ErrorCode } from '@dpdpa/contracts';
+import { apiError, type ErrorDetail } from './api-error';
 import { getRequestId } from './request-id';
 
 export interface OrchestratorCallOptions {
@@ -72,6 +73,47 @@ function assertConfig(
   }
 }
 
+interface UpstreamFailure {
+  status: number;
+  code: ErrorCode;
+  message: string;
+  details?: ErrorDetail[];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isErrorDetail(value: unknown): value is ErrorDetail {
+  return isRecord(value) && typeof value.path === 'string' && typeof value.message === 'string';
+}
+
+/**
+ * Domain errors (4xx) come back in the api.md §1.4 envelope and must reach the
+ * browser unchanged apart from the request id; only transport/5xx failures are
+ * masked as `UPSTREAM_UNAVAILABLE`.
+ */
+function upstreamFailure(error: unknown): UpstreamFailure | null {
+  if (!isRecord(error)) return null;
+  const response = error.response;
+  if (!isRecord(response) || typeof response.status !== 'number') return null;
+  const status = response.status;
+  if (status < 400 || status >= 500) return null;
+
+  const data = error.data;
+  if (!isRecord(data) || !isRecord(data.error)) return null;
+  const { code, message, details } = data.error;
+  if (typeof code !== 'string' || !(code in ERROR_CODES) || typeof message !== 'string') {
+    return null;
+  }
+  return {
+    status,
+    code: code as ErrorCode,
+    message,
+    ...(Array.isArray(details) ? { details: details.filter(isErrorDetail) } : {}),
+  };
+}
+
 export async function callOrchestrator<T>(
   event: { context: { requestId?: string; orgId?: string; userId?: string } },
   options: OrchestratorCallOptions,
@@ -90,7 +132,11 @@ export async function callOrchestrator<T>(
       headers: request.headers,
       signal: AbortSignal.timeout(15_000),
     });
-  } catch {
+  } catch (error) {
+    const failure = upstreamFailure(error);
+    if (failure) {
+      apiError(event, failure.status, failure.code, failure.message, failure.details);
+    }
     // Never surface the upstream URL, status text or stack (api.md §1.4).
     apiError(
       event,
