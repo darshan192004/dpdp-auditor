@@ -7,6 +7,7 @@ import type { FeatureFlagsService } from '../src/modules/feature-flags/feature-f
 const USER_ID = '22222222-2222-4222-9222-222222222222';
 const SESSION_ID = '44444444-4444-4444-8444-444444444444';
 const ORG_ID = '11111111-1111-4111-8111-111111111111';
+const OTHER_ID = '33333333-3333-4333-a333-333333333333';
 
 const USER = {
   id: USER_ID,
@@ -37,6 +38,13 @@ function make() {
   const identity = {
     upsertGithubUser: vi.fn().mockResolvedValue(USER),
     me: vi.fn().mockResolvedValue(ME),
+    createOrganizationForUser: vi.fn().mockResolvedValue({ id: ORG_ID, role: 'owner' }),
+    getOrganization: vi.fn().mockResolvedValue({ id: ORG_ID, role: 'owner' }),
+    updateOrganization: vi.fn().mockResolvedValue({ id: ORG_ID, role: 'owner' }),
+    listMemberViews: vi.fn().mockResolvedValue([]),
+    addMemberByEmail: vi.fn().mockResolvedValue({ userId: USER_ID, role: 'viewer' }),
+    changeRole: vi.fn().mockResolvedValue({ orgId: ORG_ID, userId: USER_ID, role: 'admin' }),
+    removeMember: vi.fn().mockResolvedValue(undefined),
   };
   const sessions = {
     create: vi.fn().mockResolvedValue({
@@ -119,5 +127,76 @@ describe('InternalIdentityController', () => {
     await expect(controller.me(undefined)).rejects.toMatchObject({
       code: 'VALIDATION_ERROR',
     });
+  });
+
+  it('creates an organisation for the header user', async () => {
+    const { controller, identity } = make();
+
+    await expect(
+      controller.createOrganization(USER_ID, { name: 'Acme', slug: 'acme' }),
+    ).resolves.toEqual({ data: { id: ORG_ID, role: 'owner' } });
+    expect(identity.createOrganizationForUser).toHaveBeenCalledWith(USER_ID, {
+      name: 'Acme',
+      slug: 'acme',
+    });
+
+    await expect(
+      controller.createOrganization(undefined, { name: 'Acme', slug: 'acme' }),
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  it('reads and updates the organisation using both headers', async () => {
+    const { controller, identity } = make();
+
+    await expect(controller.getOrganization(ORG_ID, USER_ID)).resolves.toEqual({
+      data: { id: ORG_ID, role: 'owner' },
+    });
+    expect(identity.getOrganization).toHaveBeenCalledWith(ORG_ID, USER_ID);
+
+    await expect(
+      controller.updateOrganization(ORG_ID, USER_ID, { name: 'Acme Payments' }),
+    ).resolves.toEqual({ data: { id: ORG_ID, role: 'owner' } });
+    expect(identity.updateOrganization).toHaveBeenCalledWith(ORG_ID, USER_ID, {
+      name: 'Acme Payments',
+    });
+
+    await expect(controller.getOrganization(undefined, USER_ID)).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+    });
+    await expect(controller.getOrganization(ORG_ID, undefined)).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+    });
+  });
+
+  it('lists and adds members through the internal API', async () => {
+    const { controller, identity } = make();
+
+    await expect(controller.listMembers(ORG_ID, USER_ID)).resolves.toEqual({ data: [] });
+    expect(identity.listMemberViews).toHaveBeenCalledWith(ORG_ID, USER_ID);
+
+    await expect(
+      controller.addMember(ORG_ID, USER_ID, { email: 'dev@example.com', role: 'viewer' }),
+    ).resolves.toEqual({ data: { userId: USER_ID, role: 'viewer' } });
+    expect(identity.addMemberByEmail).toHaveBeenCalledWith(ORG_ID, USER_ID, {
+      email: 'dev@example.com',
+      role: 'viewer',
+    });
+  });
+
+  it('changes and removes a member, passing the actor through', async () => {
+    const { controller, identity } = make();
+
+    await expect(
+      controller.changeMemberRole(ORG_ID, USER_ID, OTHER_ID, { role: 'admin' }),
+    ).resolves.toEqual({
+      data: { orgId: ORG_ID, userId: USER_ID, role: 'admin' },
+    });
+    expect(identity.changeRole).toHaveBeenCalledWith(
+      { orgId: ORG_ID, userId: OTHER_ID, role: 'admin' },
+      USER_ID,
+    );
+
+    await expect(controller.removeMember(ORG_ID, USER_ID, OTHER_ID)).resolves.toBeUndefined();
+    expect(identity.removeMember).toHaveBeenCalledWith(ORG_ID, OTHER_ID, USER_ID);
   });
 });

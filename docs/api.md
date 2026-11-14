@@ -155,6 +155,7 @@ Enterprise custom scan limits are configured as `organizations.scan_concurrency`
 |---|---|---|---|---|
 | GET | `/api/v1/me` | Session/Key | Current user, orgs, role | `server/api/v1/me.get.ts` |
 | GET | `/api/v1/org` | Session/Key | Organisation profile and settings | `server/api/v1/org/index.get.ts` |
+| POST | `/api/v1/org` | Session | Create the caller's first organisation (onboarding) | `server/api/v1/org/index.post.ts` |
 | PATCH | `/api/v1/org` | Owner/Admin | Update org settings | `server/api/v1/org/index.patch.ts` |
 | GET | `/api/v1/org/members` | viewer+ | List members | `server/api/v1/org/members/index.get.ts` |
 | POST | `/api/v1/org/members` | Owner/Admin | Invite member | `server/api/v1/org/members/index.post.ts` |
@@ -741,6 +742,14 @@ Returns `302 Found` with `Location` set to a fresh signed URL valid for 15 minut
 
 ### 7.2 Organisation
 
+`POST /api/v1/org` creates the caller's first organisation during onboarding. The caller becomes its `owner`; no org header is sent because none exists yet.
+
+```json
+{ "name": "Acme Payments", "slug": "acme-payments" }
+```
+
+`slug` is 3–40 lowercase letters, digits, or hyphens and cannot change later. Returns `201` with the same shape as `GET /api/v1/org`.
+
 `GET /api/v1/org`
 
 ```json
@@ -753,16 +762,12 @@ Returns `302 Found` with `Location` set to a fresh signed URL valid for 15 minut
     "dataRegion": "ap-south-1",
     "retentionDays": 90,
     "scanConcurrency": 3,
-    "usage": {
-      "scansThisMonth": 142,
-      "scanLimit": 300,
-      "seatsUsed": 8,
-      "seatLimit": 15
-    },
     "role": "admin"
   }
 }
 ```
+
+The `usage` block (scans this month, seats) arrives with usage metering; it is not part of the current response.
 
 `PATCH /api/v1/org` accepts `name`, `retentionDays`, `settings.notifications`. Plan and region changes are billing operations and return `403` from this endpoint.
 
@@ -776,7 +781,7 @@ Returns `302 Found` with `Location` set to a fresh signed URL valid for 15 minut
 { "email": "priya@acme.example", "role": "auditor" }
 ```
 
-Returns `201` with the membership; sends an invitation email. Existing users are added immediately; unknown emails remain `invited` for 7 days.
+Adds an existing account and returns `201` with the membership. Unknown emails return `404 NOT_FOUND`; the invitation flow for new accounts is a later slice.
 
 `PATCH /api/v1/org/members/:userId`
 
@@ -784,7 +789,9 @@ Returns `201` with the membership; sends an invitation email. Existing users are
 { "role": "admin" }
 ```
 
-`DELETE /api/v1/org/members/:userId` returns `204`. Removing the last owner returns `409 LAST_OWNER`.
+Only owners may grant the owner role or change another owner; an admin attempt returns `403`. The last active owner cannot be demoted.
+
+`DELETE /api/v1/org/members/:userId` returns `204`. Only owners may remove an owner; removing the last owner returns `409 LAST_OWNER`.
 
 ### 7.4 Audit logs
 

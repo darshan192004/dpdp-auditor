@@ -10,7 +10,7 @@
     "typecheck": "nuxt typecheck",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "nuxt build && playwright test"
+    "test:e2e": "pnpm --filter @dpdpa/contracts build && nuxt build && playwright test"
   },
   "dependencies": {
     "@dpdpa/contracts": "workspace:*",

@@ -103,6 +103,89 @@ describe('callOrchestrator', () => {
     }
   });
 
+  it('passes a 4xx domain envelope through with the local request id', async () => {
+    const fetch = vi.fn().mockRejectedValue({
+      response: { status: 403 },
+      data: {
+        error: {
+          code: 'FORBIDDEN',
+          message: 'Only an owner can remove an owner.',
+          requestId: 'req_upstream_ignored',
+        },
+      },
+    });
+    await expect(
+      callOrchestrator(
+        EVENT,
+        { method: 'DELETE', path: '/internal/v1/identity/org/members/usr_1' },
+        { fetch, config: CONFIG, now: () => 1_762_245_120_000 },
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 403,
+      data: {
+        error: {
+          code: 'FORBIDDEN',
+          message: 'Only an owner can remove an owner.',
+          requestId: 'req_test_1234',
+        },
+      },
+    });
+  });
+
+  it('keeps field details from a validation failure and drops malformed entries', async () => {
+    const fetch = vi.fn().mockRejectedValue({
+      response: { status: 422 },
+      data: {
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Enter a valid email address.',
+          details: [
+            { path: 'email', message: 'Enter a valid email address.' },
+            { path: 7, message: 'not a path' },
+            'nope',
+          ],
+        },
+      },
+    });
+    await expect(
+      callOrchestrator(
+        EVENT,
+        { method: 'POST', path: '/internal/v1/identity/org/members' },
+        { fetch, config: CONFIG, now: () => 1_762_245_120_000 },
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 422,
+      data: {
+        error: {
+          code: 'VALIDATION_ERROR',
+          details: [{ path: 'email', message: 'Enter a valid email address.' }],
+        },
+      },
+    });
+  });
+
+  it('masks upstream 5xx and non-contract 4xx responses', async () => {
+    const failures = [
+      { response: { status: 500 }, data: { error: { code: 'INTERNAL_ERROR', message: 'boom' } } },
+      { response: { status: 422 }, data: { error: { code: 'NOT_A_CODE', message: 'unknown' } } },
+      { response: { status: 404 }, data: { message: 'not the envelope' } },
+    ];
+
+    for (const failure of failures) {
+      const fetch = vi.fn().mockRejectedValue(failure);
+      await expect(
+        callOrchestrator(
+          EVENT,
+          { method: 'GET', path: '/internal/v1/identity/org' },
+          { fetch, config: CONFIG, now: () => 1_762_245_120_000 },
+        ),
+      ).rejects.toMatchObject({
+        statusCode: 503,
+        data: { error: { code: 'UPSTREAM_UNAVAILABLE', requestId: 'req_test_1234' } },
+      });
+    }
+  });
+
   it('fails fast with INTERNAL_ERROR when configuration is missing', async () => {
     const fetch = vi.fn();
     await expect(

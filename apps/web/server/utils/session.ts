@@ -1,6 +1,7 @@
 import type { H3Event } from 'h3';
 import { $fetch } from 'ofetch';
 import type { MeMembership, MeUser } from '~~/shared/auth';
+import { apiError } from './api-error';
 import { buildInternalRequest, orchestratorConfig } from './orchestrator';
 
 /** Must match `runtimeConfig.session.name` in `nuxt.config.ts`. */
@@ -28,6 +29,54 @@ export function sessionIdentity(resolved: Pick<ResolvedSession, 'session' | 'mem
     userId: resolved.session.userId,
     orgId: resolved.session.activeOrgId ?? resolved.memberships[0]?.orgId ?? null,
   };
+}
+
+export interface RequestSession {
+  resolved: ResolvedSession;
+  userId: string;
+}
+
+export interface RequestIdentity extends RequestSession {
+  orgId: string;
+  role: string;
+}
+
+/**
+ * Authenticated request guard for routes that only need the user (onboarding
+ * creates the first organisation, so no org is required yet).
+ */
+export function requireSession(event: H3Event): RequestSession {
+  const resolved = event.context.session as ResolvedSession | undefined;
+  if (!resolved) apiError(event, 401, 'UNAUTHENTICATED', 'Sign in to continue.');
+  return { resolved, userId: resolved.session.userId };
+}
+
+/**
+ * Tenant guard: the session must resolve to an active membership. Missing and
+ * suspended memberships answer the same way so cross-tenant probing learns
+ * nothing (security.md §3.4).
+ */
+export function requireIdentity(event: H3Event): RequestIdentity {
+  const session = requireSession(event);
+  const { orgId } = sessionIdentity(session.resolved);
+  if (orgId === null) {
+    apiError(event, 403, 'FORBIDDEN', 'Create or join an organisation first.');
+  }
+
+  const membership = session.resolved.memberships.find((entry) => entry.orgId === orgId);
+  if (!membership || membership.status !== 'active') {
+    apiError(event, 403, 'FORBIDDEN', 'Your membership is not active.');
+  }
+  return { ...session, orgId, role: membership.role };
+}
+
+/** Role guard on top of `requireIdentity` (security.md §3.4). */
+export function requireRole(event: H3Event, allowed: readonly string[]): RequestIdentity {
+  const identity = requireIdentity(event);
+  if (!allowed.includes(identity.role)) {
+    apiError(event, 403, 'FORBIDDEN', 'Your role cannot perform this action.');
+  }
+  return identity;
 }
 
 /**

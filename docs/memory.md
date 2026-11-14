@@ -590,16 +590,16 @@ Every report includes: "This report provides technical evidence, not legal advic
 | Documentation pack | Complete (11 documents) |
 | Doc revision pass: URL-only + Python runner + enterprise hardening | **Complete** |
 | Phase 0 — Foundations | **Complete** (2026-11-06: PRs #3–#12 + Dependabot #15–#17; all 11 plan tasks merged; acceptance sweep 5/5) |
-| Phase 1 — Platform skeleton | Planned |
-| Phase 2 — Identity and URL resolution | Planned |
+| Phase 1 — Platform skeleton | **Complete** (PRs #1–#55: monorepo, CI, orchestrator, frontend foundation, app shell) |
+| Phase 2 — Identity and URL resolution | **In progress** (P2-A auth/session/me merged #65; P2-B org/members in review) |
 | Phase 3 — Scan pipeline | Planned |
 | Phase 4 — Mapping and scoring | Planned |
-| Phase 5 — UI and reports | Specified, not implemented |
+| Phase 5 — UI and reports | Planned (design specified) |
 | Phase 6 — Hardening and beta | Planned |
 | Phase 7 — Launch | Planned |
 | Rule pack version | None published |
 | Scoring version | `1.0.0` (specified) |
-| Frontend implementation | **Not started — specification only** |
+| Frontend implementation | Phase 1 complete; Phase 2 identity surfaces in progress |
 
 ### Phase 0 record (toolchain decisions)
 
@@ -623,7 +623,7 @@ Every report includes: "This report provides technical evidence, not legal advic
 
 ### Next action
 
-Plan and execute **Phase 1 — Platform skeleton** per `tasks.md` §3. Frontend execution remains out of scope until the Phase 1 gate — stop and confirm with the user before any frontend task.
+Continue **Phase 2 — Identity and URL resolution** per `docs/superpowers/plans/2026-11-13-phase-2-identity.md`: merge P2-B (organisation and members), then P2-C (repositories). Phase 3 (scan pipeline) starts only after the Phase 2 gate.
 
 ---
 
