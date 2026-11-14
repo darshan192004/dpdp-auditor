@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { Membership, Prisma } from '@prisma/client';
+import type { Membership, Organization, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import type { MemberRole, MembershipStatus } from './identity.schemas.js';
 
@@ -24,7 +24,10 @@ export class MembershipsRepository {
     });
   }
 
-  listActiveForUser(userId: string, tx?: Prisma.TransactionClient): Promise<Membership[]> {
+  listActiveForUser(
+    userId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<(Membership & { organization: Organization })[]> {
     return this.client(tx).membership.findMany({
       where: { userId, status: 'active' },
       include: { organization: true },

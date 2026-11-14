@@ -13,6 +13,8 @@ import {
   type ChangeRoleInput,
   type CreateOrganizationInput,
   type GithubProfileInput,
+  type MemberRole,
+  type MembershipStatus,
 } from './identity.schemas.js';
 import { MembershipsRepository } from './memberships.repository.js';
 import { OrganizationsRepository } from './organizations.repository.js';
@@ -21,6 +23,34 @@ import { UsersRepository } from './users.repository.js';
 export interface CreatedOrganization {
   organization: Organization;
   membership: Membership;
+}
+
+/** Wire shape for `/api/v1/me` (api.md §2/§8); never includes secrets. */
+export interface UserView {
+  id: string;
+  email: string;
+  name: string | null;
+  avatarUrl: string | null;
+}
+
+export interface OrganizationView {
+  id: string;
+  name: string;
+  slug: string;
+  plan: string;
+  retentionDays: number;
+}
+
+export interface MembershipView {
+  orgId: string;
+  role: MemberRole;
+  status: MembershipStatus;
+  organization: OrganizationView;
+}
+
+export interface MeView {
+  user: UserView;
+  memberships: MembershipView[];
 }
 
 /**
@@ -255,6 +285,28 @@ export class IdentityService {
     return this.memberships.listActiveForUser(userId);
   }
 
+  /**
+   * Everything `/api/v1/me` needs, in one call: the user, their active
+   * memberships (with the organisation each grants access to), and the role
+   * the UI gates on. Feature flags are added by the controller.
+   */
+  async me(userId: string): Promise<MeView> {
+    const user = await this.users.findById(userId);
+    if (!user || user.deletedAt) {
+      throw new ApiError('UNAUTHENTICATED', 'The user is no longer active.');
+    }
+    const memberships = await this.memberships.listActiveForUser(userId);
+    return {
+      user: toUserView(user),
+      memberships: memberships.map((membership) => ({
+        orgId: membership.orgId,
+        role: membership.role,
+        status: membership.status,
+        organization: toOrganizationView(membership.organization),
+      })),
+    };
+  }
+
   getMembership(orgId: string, userId: string): Promise<Membership | null> {
     return this.memberships.find(orgId, userId);
   }
@@ -294,4 +346,18 @@ export class IdentityService {
 
 function isUniqueViolation(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+}
+
+function toUserView(user: User): UserView {
+  return { id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl };
+}
+
+function toOrganizationView(organization: Organization): OrganizationView {
+  return {
+    id: organization.id,
+    name: organization.name,
+    slug: organization.slug,
+    plan: organization.plan,
+    retentionDays: organization.retentionDays,
+  };
 }

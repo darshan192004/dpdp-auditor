@@ -1,6 +1,12 @@
 // Nuxt 4 config — see docs/design.md (framework pin) and docs/security.md §8 (headers, added in P1-23).
+// Nuxt 4 config — see docs/design.md (framework pin) and docs/security.md §8 (headers, added in P1-23).
+const isProduction = process.env.NODE_ENV === 'production';
+// security.md §3.1: `__Host-` requires Secure + Path=/ + no Domain, so it is
+// only valid when production cookies are HTTPS-only.
+const sessionCookieName = isProduction ? '__Host-dpdpa_session' : 'dpdpa_session';
+
 export default defineNuxtConfig({
-  modules: ['nuxt-security', '@nuxt/ui'],
+  modules: ['nuxt-security', '@nuxt/ui', 'nuxt-auth-utils'],
 
   css: ['~/assets/css/main.css'],
 
@@ -26,7 +32,24 @@ export default defineNuxtConfig({
     orchestratorUrl: process.env.ORCHESTRATOR_URL ?? '',
     orchestratorHmacKey: process.env.ORCHESTRATOR_HMAC_KEY ?? '',
     orchestratorInternalKey: process.env.ORCHESTRATOR_INTERNAL_KEY ?? '',
-    sessionPassword: process.env.NUXT_SESSION_PASSWORD ?? '',
+    // nuxt-auth-utils seals the cookie with Nuxt's `appSecret` (`NUXT_APP_SECRET`).
+    // security.md §3.1: 8 h absolute; the 30 min idle timeout is server-side.
+    session: {
+      name: sessionCookieName,
+      maxAge: 60 * 60 * 8,
+      cookie: {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax' as const,
+        path: '/',
+      },
+    },
+    oauth: {
+      github: {
+        clientId: process.env.NUXT_OAUTH_GITHUB_CLIENT_ID ?? '',
+        clientSecret: process.env.NUXT_OAUTH_GITHUB_CLIENT_SECRET ?? '',
+      },
+    },
     public: {
       appUrl: process.env.NUXT_PUBLIC_APP_URL ?? '',
       // P1-32: empty in dev/CI → telemetry plugins never load.

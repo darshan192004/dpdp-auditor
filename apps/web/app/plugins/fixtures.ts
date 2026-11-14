@@ -11,7 +11,12 @@ export default defineNuxtPlugin(() => {
   if (process.env.NUXT_FIXTURES !== '1') return;
 
   const { user, org } = useAppContext();
-  user.value = { id: FIXTURE_USER_ID, name: 'Fixture auditor', email: 'auditor@example.test' };
+  user.value = {
+    id: FIXTURE_USER_ID,
+    name: 'Fixture auditor',
+    email: 'auditor@example.test',
+    avatarUrl: null,
+  };
   org.value = {
     id: FIXTURE_ORG_ID,
     name: 'Acme Payments',

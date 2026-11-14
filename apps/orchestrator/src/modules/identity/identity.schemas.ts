@@ -47,3 +47,15 @@ export const changeRoleSchema = z.strictObject({
   role: memberRoleSchema,
 });
 export type ChangeRoleInput = z.input<typeof changeRoleSchema>;
+
+/**
+ * Server-side session creation (security.md §3.1). Nitro mints the sealed
+ * cookie; the orchestrator owns the record that makes it revocable.
+ */
+export const createSessionSchema = z.strictObject({
+  userId: z.uuid(),
+  activeOrgId: z.uuid().nullable().optional(),
+  ip: z.string().trim().max(64).nullable().optional(),
+  userAgent: z.string().trim().max(1024).nullable().optional(),
+});
+export type CreateSessionInput = z.input<typeof createSessionSchema>;
