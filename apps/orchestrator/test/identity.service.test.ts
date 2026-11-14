@@ -53,6 +53,7 @@ function makeService() {
     create: vi.fn(),
     findById: vi.fn(),
     findBySlug: vi.fn(),
+    update: vi.fn(),
   };
   const memberships = {
     find: vi.fn(),
@@ -454,6 +455,269 @@ describe('IdentityService', () => {
 
       users.findById.mockResolvedValue({ ...USER, deletedAt: new Date() });
       await expect(service.me(USER_ID)).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
+    });
+  });
+
+  describe('organisation administration', () => {
+    const ORG_RECORD = {
+      id: ORG_ID,
+      name: 'Acme',
+      slug: 'acme',
+      plan: 'growth',
+      dataRegion: 'ap-south-1',
+      retentionDays: 90,
+      scanConcurrency: 3,
+      settings: {},
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      deletedAt: null,
+      billingCustomerId: null,
+    };
+
+    const MEMBER_USER = {
+      ...USER,
+      lastLoginAt: new Date('2026-11-13T10:00:00.000Z'),
+    };
+
+    it('creates an org for the signed-in user as owner', async () => {
+      const { service, users, organizations, memberships } = makeService();
+      users.findById.mockResolvedValue(USER);
+      organizations.findBySlug.mockResolvedValue(null);
+      organizations.create.mockResolvedValue(ORG_RECORD);
+      memberships.create.mockResolvedValue(MEMBERSHIP);
+
+      const result = await service.createOrganizationForUser(USER_ID, {
+        name: 'Acme',
+        slug: 'acme',
+      });
+
+      expect(memberships.create).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: USER_ID, role: 'owner', status: 'active' }),
+        expect.anything(),
+      );
+      expect(result).toMatchObject({ id: ORG_ID, role: 'owner', dataRegion: 'ap-south-1' });
+    });
+
+    it('returns org detail for an active member and fails closed for outsiders', async () => {
+      const { service, organizations, memberships } = makeService();
+      organizations.findById.mockResolvedValue(ORG_RECORD);
+      memberships.find.mockResolvedValue({ ...MEMBERSHIP, role: 'viewer' });
+
+      await expect(service.getOrganization(ORG_ID, USER_ID)).resolves.toMatchObject({
+        id: ORG_ID,
+        role: 'viewer',
+        scanConcurrency: 3,
+      });
+
+      memberships.find.mockResolvedValue(null);
+      await expect(service.getOrganization(ORG_ID, OTHER_ID)).rejects.toMatchObject({
+        code: 'NOT_FOUND',
+      });
+
+      organizations.findById.mockResolvedValue(null);
+      await expect(service.getOrganization(ORG_ID, USER_ID)).rejects.toMatchObject({
+        code: 'NOT_FOUND',
+      });
+    });
+
+    it('updates profile fields and records an audit entry', async () => {
+      const { service, tx, organizations, memberships, audit } = makeService();
+      organizations.findById.mockResolvedValue(ORG_RECORD);
+      memberships.find.mockResolvedValue({ ...MEMBERSHIP, role: 'admin' });
+      organizations.update.mockResolvedValue({
+        ...ORG_RECORD,
+        name: 'Acme Payments',
+        retentionDays: 30,
+        settings: { notifications: true },
+      });
+
+      const result = await service.updateOrganization(ORG_ID, USER_ID, {
+        name: 'Acme Payments',
+        retentionDays: 30,
+        settings: { notifications: true },
+      });
+
+      expect(organizations.update).toHaveBeenCalledWith(
+        ORG_ID,
+        { name: 'Acme Payments', retentionDays: 30, settings: { notifications: true } },
+        tx,
+      );
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'org.updated', resourceId: ORG_ID }),
+        tx,
+      );
+      expect(result).toMatchObject({ name: 'Acme Payments', retentionDays: 30, role: 'admin' });
+    });
+
+    it('rejects billing fields with FORBIDDEN, not a validation error', async () => {
+      const { service } = makeService();
+
+      await expect(
+        service.updateOrganization(ORG_ID, USER_ID, { plan: 'enterprise' } as never),
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      await expect(
+        service.updateOrganization(ORG_ID, USER_ID, { dataRegion: 'eu-central-1' } as never),
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    });
+
+    it('rejects retention outside 7–365 and unknown settings', async () => {
+      const { service } = makeService();
+
+      await expect(
+        service.updateOrganization(ORG_ID, USER_ID, { retentionDays: 5 }),
+      ).rejects.toThrow();
+      await expect(
+        service.updateOrganization(ORG_ID, USER_ID, { settings: { webhooks: true } } as never),
+      ).rejects.toThrow();
+    });
+
+    it('gates updates on owner/admin', async () => {
+      const { service, organizations, memberships } = makeService();
+      organizations.findById.mockResolvedValue(ORG_RECORD);
+      memberships.find.mockResolvedValue({ ...MEMBERSHIP, role: 'auditor' });
+
+      await expect(
+        service.updateOrganization(ORG_ID, USER_ID, { name: 'Acme Payments' }),
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    });
+
+    it('lists members with user details for any active role', async () => {
+      const { service, memberships } = makeService();
+      memberships.find.mockResolvedValue({ ...MEMBERSHIP, role: 'viewer' });
+      memberships.listForOrg.mockResolvedValue([
+        { ...MEMBERSHIP, role: 'owner', user: MEMBER_USER },
+        {
+          ...MEMBERSHIP,
+          userId: OTHER_ID,
+          role: 'viewer',
+          user: { ...MEMBER_USER, id: OTHER_ID, email: 'dev@example.com', lastLoginAt: null },
+        },
+      ]);
+
+      const result = await service.listMemberViews(ORG_ID, USER_ID);
+
+      expect(result).toEqual([
+        {
+          userId: USER_ID,
+          name: 'Asha',
+          email: 'asha@example.com',
+          role: 'owner',
+          status: 'active',
+          lastLoginAt: '2026-11-13T10:00:00.000Z',
+        },
+        {
+          userId: OTHER_ID,
+          name: 'Asha',
+          email: 'dev@example.com',
+          role: 'viewer',
+          status: 'active',
+          lastLoginAt: null,
+        },
+      ]);
+    });
+
+    it('adds an existing account by email and audits the change', async () => {
+      const { service, tx, users, memberships, audit } = makeService();
+      memberships.find
+        .mockResolvedValueOnce({ ...MEMBERSHIP, role: 'admin' })
+        .mockResolvedValueOnce(null);
+      users.findByEmail.mockResolvedValue(MEMBER_USER);
+      memberships.create.mockResolvedValue({
+        ...MEMBERSHIP,
+        userId: OTHER_ID,
+        role: 'auditor',
+      });
+
+      const result = await service.addMemberByEmail(ORG_ID, USER_ID, {
+        email: 'dev@example.com',
+        role: 'auditor',
+      });
+
+      expect(memberships.create).toHaveBeenCalledWith(
+        expect.objectContaining({ orgId: ORG_ID, userId: USER_ID, role: 'auditor' }),
+        tx,
+      );
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'member.invited' }),
+        tx,
+      );
+      expect(result).toMatchObject({ role: 'auditor', email: 'asha@example.com' });
+    });
+
+    it('rejects an unknown email, an existing member, and a non-manager', async () => {
+      const { service, users, memberships } = makeService();
+      memberships.find.mockResolvedValue({ ...MEMBERSHIP, role: 'admin' });
+      users.findByEmail.mockResolvedValue(null);
+
+      await expect(
+        service.addMemberByEmail(ORG_ID, USER_ID, { email: 'nobody@example.com' }),
+      ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+
+      users.findByEmail.mockResolvedValue(MEMBER_USER);
+      await expect(
+        service.addMemberByEmail(ORG_ID, USER_ID, { email: 'dev@example.com' }),
+      ).rejects.toMatchObject({ code: 'CONFLICT' });
+
+      memberships.find.mockResolvedValue({ ...MEMBERSHIP, role: 'viewer' });
+      await expect(
+        service.addMemberByEmail(ORG_ID, USER_ID, { email: 'dev@example.com' }),
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    });
+
+    it('only an owner may add or grant the owner role', async () => {
+      const { service, users, memberships } = makeService();
+      memberships.find.mockResolvedValueOnce({ ...MEMBERSHIP, role: 'admin' });
+
+      await expect(
+        service.addMemberByEmail(ORG_ID, USER_ID, { email: 'dev@example.com', role: 'owner' }),
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+      memberships.find
+        .mockResolvedValueOnce({ ...MEMBERSHIP, role: 'owner' })
+        .mockResolvedValueOnce(null);
+      users.findByEmail.mockResolvedValue(MEMBER_USER);
+      memberships.create.mockResolvedValue({ ...MEMBERSHIP, userId: OTHER_ID, role: 'owner' });
+
+      await expect(
+        service.addMemberByEmail(ORG_ID, USER_ID, { email: 'dev@example.com', role: 'owner' }),
+      ).resolves.toMatchObject({ role: 'owner' });
+    });
+
+    it('enforces owner-only changes on existing owners', async () => {
+      const { service, memberships } = makeService();
+      memberships.find
+        .mockResolvedValueOnce({ ...MEMBERSHIP, role: 'admin' })
+        .mockResolvedValueOnce({ ...MEMBERSHIP, role: 'owner' });
+
+      await expect(
+        service.changeRole({ orgId: ORG_ID, userId: OTHER_ID, role: 'viewer' }, USER_ID),
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+      memberships.find
+        .mockResolvedValueOnce({ ...MEMBERSHIP, role: 'admin' })
+        .mockResolvedValueOnce({ ...MEMBERSHIP, role: 'viewer' });
+
+      await expect(
+        service.changeRole({ orgId: ORG_ID, userId: OTHER_ID, role: 'owner' }, USER_ID),
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+      memberships.find.mockResolvedValueOnce({ ...MEMBERSHIP, role: 'viewer' });
+      await expect(service.removeMember(ORG_ID, OTHER_ID, USER_ID)).rejects.toMatchObject({
+        code: 'FORBIDDEN',
+      });
+    });
+
+    it('lets an owner remove another owner while one remains', async () => {
+      const { service, memberships } = makeService();
+      memberships.find
+        .mockResolvedValueOnce({ ...MEMBERSHIP, role: 'owner' })
+        .mockResolvedValueOnce({ ...MEMBERSHIP, userId: OTHER_ID, role: 'owner' });
+      memberships.countActiveOwners.mockResolvedValue(2);
+      memberships.delete.mockResolvedValue(MEMBERSHIP);
+
+      await service.removeMember(ORG_ID, OTHER_ID, USER_ID);
+
+      expect(memberships.delete).toHaveBeenCalledWith(ORG_ID, OTHER_ID, expect.anything());
     });
   });
 
