@@ -127,7 +127,7 @@ describe('InternalAuditController.list', () => {
     list.mockResolvedValue({ entries: [makeEntry({ actor: null })], total: 1 });
 
     const result = await controller.list(ORG_ID, USER_ID, {});
-    expect(result.data[0]!.actor.name).toBeNull();
+<<    expect(result.data[0].actor.name).toBeNull();
   });
 });
 
