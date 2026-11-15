@@ -179,3 +179,45 @@ describe('ScanExecuteRunner', () => {
     expect(lastWorker().close).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('scan.execute.worker error handling', () => {
+  it('logs but continues when setJobInfo fails', async () => {
+    const executor = fakeExecutor();
+    const queues = fakeQueues();
+    const scans = fakeScansRepository();
+    (scans.setJobInfo as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('db down'));
+
+    createScanExecuteWorker(ENV, executor, queues, scans);
+    const worker = lastWorker();
+
+    const payload: ScanExecutePayload = {
+      scanId: 's1',
+      orgId: 'o1',
+      repoUrl: 'https://github.com/org/repo',
+      ref: 'main',
+      hmacKey: 'abc',
+    };
+    await expect(worker.processor({ data: payload } as never)).resolves.toBeUndefined();
+    expect(queues.enqueue).toHaveBeenCalled();
+  });
+
+  it('logs but continues when enqueue fails', async () => {
+    const executor = fakeExecutor();
+    const queues = fakeQueues();
+    const scans = fakeScansRepository();
+    (queues.enqueue as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('redis down'));
+
+    createScanExecuteWorker(ENV, executor, queues, scans);
+    const worker = lastWorker();
+
+    const payload: ScanExecutePayload = {
+      scanId: 's1',
+      orgId: 'o1',
+      repoUrl: 'https://github.com/org/repo',
+      ref: 'main',
+      hmacKey: 'abc',
+    };
+    await expect(worker.processor({ data: payload } as never)).resolves.toBeUndefined();
+    expect(scans.setJobInfo).toHaveBeenCalled();
+  });
+});

@@ -40,6 +40,38 @@ describe('JobWatcherService', () => {
     await expect(watcher.check('scan-1')).resolves.toEqual({ state: 'not_found' });
   });
 
+  it('reports active when job status is null', async () => {
+    const watcher = new JobWatcherService(makeK8s(null));
+    await expect(watcher.check('scan-1')).resolves.toEqual({ state: 'active' });
+  });
+
+  it('reports failed with OOMKilled reason and no message', async () => {
+    const watcher = new JobWatcherService(
+      makeK8s({
+        failed: 1,
+        conditions: [{ type: 'Failed', status: 'True', reason: 'OOMKilled' }],
+      }),
+    );
+    await expect(watcher.check('scan-1')).resolves.toEqual({
+      state: 'failed',
+      reason: 'OOMKilled',
+    });
+  });
+
+  it('normalizes unknown failure reasons to Failed', async () => {
+    const watcher = new JobWatcherService(
+      makeK8s({
+        failed: 1,
+        conditions: [{ type: 'Failed', status: 'True', reason: 'SomethingElse', message: 'x' }],
+      }),
+    );
+    await expect(watcher.check('scan-1')).resolves.toEqual({
+      state: 'failed',
+      reason: 'Failed',
+      message: 'x',
+    });
+  });
+
   it('rethrows unknown errors', async () => {
     const watcher = new JobWatcherService(makeK8s(undefined, new Error('boom')));
     await expect(watcher.check('scan-1')).rejects.toThrow('boom');

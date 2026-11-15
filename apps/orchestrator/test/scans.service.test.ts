@@ -172,6 +172,60 @@ function make(options?: { scan?: Scan | null; repo?: Repository | null; org?: ty
   return { service, tx, scans, repositories, organizations, resolver, queue, audit, scoring };
 }
 
+describe('ScansService.lifecycle (P3-16)', () => {
+  it('marks job succeeded for active scan and appends event', async () => {
+    const { service, scans, tx } = make({ scan: scan({ status: 'queued' }) });
+    await service.markJobSucceeded(SCAN_ID, ORG_ID, 'secret-xyz');
+    expect(scans.update).toHaveBeenCalledWith(
+      SCAN_ID,
+      expect.objectContaining({ status: 'scanning', startedAt: expect.any(Date) }),
+      tx,
+    );
+    expect(scans.appendEvent).toHaveBeenCalledWith(
+      SCAN_ID,
+      ORG_ID,
+      'job_started',
+      { secretName: 'secret-xyz' },
+      tx,
+    );
+  });
+
+  it('marks job failed for active scan and records error event', async () => {
+    const { service, scans, tx } = make({ scan: scan({ status: 'queued' }) });
+    await service.markJobFailed(SCAN_ID, ORG_ID, 'OOMKilled', 'out of memory', 'secret-abc');
+    expect(scans.update).toHaveBeenCalledWith(
+      SCAN_ID,
+      expect.objectContaining({
+        status: 'failed',
+        errorCode: 'OOMKilled',
+        errorMessage: 'out of memory',
+      }),
+      tx,
+    );
+    expect(scans.appendEvent).toHaveBeenCalledWith(
+      SCAN_ID,
+      ORG_ID,
+      'failed',
+      { code: 'OOMKilled', message: 'out of memory', secretName: 'secret-abc' },
+      tx,
+    );
+  });
+
+  it('rejects marking job succeeded on non‑active scan', async () => {
+    const { service } = make({ scan: scan({ status: 'completed' }) });
+    await expect(service.markJobSucceeded(SCAN_ID, ORG_ID, 'secret')).rejects.toMatchObject({
+      code: 'INVALID_STATE_TRANSITION',
+    });
+  });
+
+  it('rejects marking job failed on non‑active scan', async () => {
+    const { service } = make({ scan: scan({ status: 'completed' }) });
+    await expect(
+      service.markJobFailed(SCAN_ID, ORG_ID, 'FAILED', 'msg', 'secret'),
+    ).rejects.toMatchObject({ code: 'INVALID_STATE_TRANSITION' });
+  });
+});
+
 describe('ScansService.create', () => {
   it('creates a queued scan for a saved repository and enqueues a job', async () => {
     const { service, scans, queue, tx } = make();
