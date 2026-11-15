@@ -28,21 +28,13 @@ describe('GitHub URL validation (P2-09)', () => {
   });
 
   it('rejects non-string githubUrl', () => {
-    expect(() => validateResolveInput({ githubUrl: 42 })).toThrow(
-      'Enter a GitHub repository URL.',
-    );
+    expect(() => validateResolveInput({ githubUrl: 42 })).toThrow('Enter a GitHub repository URL.');
   });
 
   it('rejects non-object body', () => {
-    expect(() => validateResolveInput(null)).toThrow(
-      'The request body must be a JSON object.',
-    );
-    expect(() => validateResolveInput([])).toThrow(
-      'The request body must be a JSON object.',
-    );
-    expect(() => validateResolveInput('string')).toThrow(
-      'The request body must be a JSON object.',
-    );
+    expect(() => validateResolveInput(null)).toThrow('The request body must be a JSON object.');
+    expect(() => validateResolveInput([])).toThrow('The request body must be a JSON object.');
+    expect(() => validateResolveInput('string')).toThrow('The request body must be a JSON object.');
   });
 
   it('trims whitespace from the URL', () => {

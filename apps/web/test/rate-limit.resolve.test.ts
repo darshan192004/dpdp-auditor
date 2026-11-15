@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { checkRateLimit, type RateLimitPolicy, type RateLimitStore } from '../server/utils/rate-limit';
+import {
+  checkRateLimit,
+  type RateLimitPolicy,
+  type RateLimitStore,
+} from '../server/utils/rate-limit';
 
 // P2-17/P2-20: Resolve-specific rate limit policy (30/min/user, fail-closed).
 describe('Resolve rate limit policy (P2-17 / P2-20)', () => {
@@ -31,7 +35,11 @@ describe('Resolve rate limit policy (P2-17 / P2-20)', () => {
   });
 
   it('denies the 31st request with retry-after', async () => {
-    const store = makeStore(Array(31).fill(0).map((_, i) => i + 1));
+    const store = makeStore(
+      Array(31)
+        .fill(0)
+        .map((_, i) => i + 1),
+    );
     // Exhaust the 30 allowed requests
     for (let i = 0; i < 30; i++) {
       await checkRateLimit(store, RESOLVE_POLICY, 'usr_test');
