@@ -70,6 +70,7 @@ function make() {
       trend: 'up',
     }),
     countActiveScans: vi.fn().mockResolvedValue(0),
+    countActiveForOrg: vi.fn().mockResolvedValue(0),
     softDelete: vi.fn().mockResolvedValue(repo({ deletedAt: new Date() })),
   };
   const resolver = { resolve: vi.fn().mockResolvedValue(RESOLVED) };
@@ -140,6 +141,31 @@ describe('ReposService.save', () => {
 
     await expect(service.save({ orgId: ORG_ID, githubUrl: URL })).rejects.toMatchObject({
       code: 'REPO_ALREADY_CONNECTED',
+    });
+  });
+
+  it('rejects a save that exceeds the plan repository limit', async () => {
+    const { service, repos, tx } = make();
+    repos.countActiveForOrg.mockResolvedValue(2);
+
+    await expect(service.save({ orgId: ORG_ID, githubUrl: URL })).rejects.toMatchObject({
+      code: 'PLAN_LIMIT_EXCEEDED',
+    });
+    expect(repos.countActiveForOrg).toHaveBeenCalledWith(ORG_ID, tx);
+    expect(repos.create).not.toHaveBeenCalled();
+  });
+
+  it('allows saves at the limit boundary and for unlimited plans', async () => {
+    const { service, repos, organizations } = make();
+    repos.countActiveForOrg.mockResolvedValue(1);
+    await expect(service.save({ orgId: ORG_ID, githubUrl: URL })).resolves.toMatchObject({
+      id: REPO_ID,
+    });
+
+    organizations.findById.mockResolvedValue({ ...ORG, plan: 'enterprise' });
+    repos.countActiveForOrg.mockResolvedValue(9999);
+    await expect(service.save({ orgId: ORG_ID, githubUrl: URL })).resolves.toMatchObject({
+      id: REPO_ID,
     });
   });
 });
