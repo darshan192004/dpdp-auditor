@@ -141,6 +141,23 @@ export class ScansRepository {
     return this.client(tx).scan.update({ where: { id }, data });
   }
 
+  /**
+   * P3-16: persist the K8s Job/Secret names created by the scan.execute worker
+   * so the watcher can later locate them and the scan row carries the
+   * correlation id for operations.
+   */
+  setJobInfo(
+    scanId: string,
+    jobName: string,
+    secretName: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<Scan> {
+    return this.client(tx).scan.update({
+      where: { id: scanId },
+      data: { jobName, secretName },
+    });
+  }
+
   appendEvent(
     scanId: string,
     orgId: string,
