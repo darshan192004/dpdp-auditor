@@ -96,7 +96,7 @@ async function acceptInvite(): Promise<void> {
       <div class="text-center">
         <NuxtLink
           to="/app"
-          class="text-brand-600 hover:text-brand-700 text-sm font-medium focus-visible:outline-none focus-visible:underline"
+          class="text-brand-600 hover:text-brand-700 text-sm font-medium focus-visible:underline focus-visible:outline-none"
         >
           Return to dashboard
         </NuxtLink>

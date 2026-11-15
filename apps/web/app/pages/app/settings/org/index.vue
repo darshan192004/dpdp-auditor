@@ -41,7 +41,13 @@ const canManage = computed(() => canManageOrg(org.value?.role));
 const isOwner = computed(() => org.value?.role === 'owner');
 const loading = computed(() => orgRequest.status.value === 'pending');
 
-watch(canManage, (manage) => { if (manage) void invitesRequest.refresh(); }, { immediate: true });
+watch(
+  canManage,
+  (manage) => {
+    if (manage) void invitesRequest.refresh();
+  },
+  { immediate: true },
+);
 
 const ROLE_LABELS: Record<MemberRole, string> = {
   owner: 'Owner',
@@ -479,9 +485,7 @@ async function removeMember(member: OrgMember): Promise<void> {
                 </button>
               </div>
             </div>
-            <p class="text-ink-500 mt-2 text-xs">
-              The person must have signed in once.
-            </p>
+            <p class="text-ink-500 mt-2 text-xs">The person must have signed in once.</p>
           </form>
 
           <form novalidate @submit.prevent="inviteMember">
@@ -542,7 +546,7 @@ async function removeMember(member: OrgMember): Promise<void> {
             class="bg-status-warning-bg text-status-warning-text rounded-[var(--radius-control)] px-3 py-2 text-sm"
           >
             <p class="font-medium">Invitation link for {{ lastInviteToken.email }}</p>
-            <p class="mt-1 break-all font-mono text-xs">/invites/{{ lastInviteToken.token }}</p>
+            <p class="mt-1 font-mono text-xs break-all">/invites/{{ lastInviteToken.token }}</p>
             <p class="mt-1 text-xs opacity-80">Copy this now; the token is not shown again.</p>
             <button
               type="button"
@@ -656,7 +660,11 @@ async function removeMember(member: OrgMember): Promise<void> {
         <div v-if="canManage && invites.length > 0" class="border-ink-200 border-t px-4 py-4">
           <h3 class="text-ink-900 mb-2 text-sm font-semibold">Pending invitations</h3>
           <ul class="divide-ink-200 divide-y">
-            <li v-for="invite in invites" :key="invite.id" class="flex flex-wrap items-center justify-between gap-2 py-2">
+            <li
+              v-for="invite in invites"
+              :key="invite.id"
+              class="flex flex-wrap items-center justify-between gap-2 py-2"
+            >
               <div>
                 <span class="text-ink-800 block text-sm">{{ invite.email }}</span>
                 <span class="text-ink-500 block text-xs">
