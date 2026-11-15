@@ -20,6 +20,9 @@ const ENV: Env = {
   REDIS_URL: 'redis://127.0.0.1:6379',
   ORCHESTRATOR_HMAC_KEY: 'a'.repeat(32),
   ORCHESTRATOR_INTERNAL_KEY: 'b'.repeat(32),
+  RUNNER_DRIVER: 'kubernetes',
+  SCANNERS_NAMESPACE: 'scanners',
+  RUNNER_IMAGE: 'registry.example.com/dpdpa/scan-runner@sha256:test',
 };
 
 describe('queue definitions', () => {

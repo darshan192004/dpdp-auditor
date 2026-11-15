@@ -1,6 +1,7 @@
 import { createApp } from './bootstrap.js';
 import { loadEnv } from './config/env.js';
 import { RetentionRunner } from './modules/retention/retention.runner.js';
+import { ScanExecuteRunner } from './modules/runner/scan.execute.worker.js';
 import { startTelemetry } from './telemetry.js';
 
 async function main(): Promise<void> {
@@ -13,6 +14,8 @@ async function main(): Promise<void> {
   // After listen (like the worker's boot order): dial Redis for the hourly
   // retention schedule; `enableShutdownHooks` closes the worker on SIGTERM.
   await app.get(RetentionRunner).start();
+  // Start scan execution worker
+  await app.get(ScanExecuteRunner).start();
 }
 
 main().catch((error: unknown) => {

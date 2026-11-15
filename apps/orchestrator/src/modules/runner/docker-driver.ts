@@ -1,0 +1,38 @@
+import Docker from 'dockerode';
+import type { Env } from '../../config/env.js';
+
+/**
+ * Local-development runner driver (architecture.md §11). Runs the same
+ * scan-runner image through Docker with no cluster.
+ */
+export class DockerRunner {
+  private readonly docker: Docker;
+  private readonly env: Env;
+
+  constructor(env: Env) {
+    this.env = env;
+    this.docker = new Docker({ socketPath: '/var/run/docker.sock' });
+  }
+
+  /** Start a container for the scan. Returns the container id. */
+  async start(scanId: string, env: Record<string, string>): Promise<string> {
+    const container = await this.docker.createContainer({
+      Image: this.image,
+      Env: Object.entries(env).map(([k, v]) => `${k}=${v}`),
+      name: `scan-${scanId}`,
+    });
+    await container.start();
+    return container.id;
+  }
+
+  /** Stop and remove the container for the scan. */
+  async stop(scanId: string): Promise<void> {
+    const container = this.docker.getContainer(`scan-${scanId}`);
+    await container.stop();
+    await container.remove();
+  }
+
+  private get image(): string {
+    return this.env.RUNNER_IMAGE;
+  }
+}
