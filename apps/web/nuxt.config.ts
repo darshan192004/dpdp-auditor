@@ -32,6 +32,8 @@ export default defineNuxtConfig({
     orchestratorUrl: process.env.ORCHESTRATOR_URL ?? '',
     orchestratorHmacKey: process.env.ORCHESTRATOR_HMAC_KEY ?? '',
     orchestratorInternalKey: process.env.ORCHESTRATOR_INTERNAL_KEY ?? '',
+    // Route-level rate limits (security.md §8 / P2-17). Empty disables limiting.
+    redisUrl: process.env.REDIS_URL ?? '',
     // nuxt-auth-utils seals the cookie with Nuxt's `appSecret` (`NUXT_APP_SECRET`).
     // security.md §3.1: 8 h absolute; the 30 min idle timeout is server-side.
     session: {
