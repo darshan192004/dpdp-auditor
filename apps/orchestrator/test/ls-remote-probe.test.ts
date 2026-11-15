@@ -1,10 +1,20 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+// P2-09: GitHub ls-remote probe to verify existence and read the default branch.
+const MB = 1024 * 1024;
+
+// Hoisted mock for child_process.execFile
+const { execFileMock } = vi.hoisted(() => ({ execFileMock: vi.fn() }));
+vi.mock('node:child_process', () => ({ execFile: execFileMock }));
+
+// Import after the mock so the module sees the mocked execFile
 import { defaultGitRunner, parseSymrefHead } from '../src/modules/repos/repo-resolver.service.js';
 
-// P2-09: GitHub's ls-remote probe to verify existence and read the default branch.
-describe('GitHub ls-remote probe (P2-09)', () => {
-  const MB = 1024 * 1024;
+beforeEach(() => {
+  execFileMock.mockReset();
+});
 
+describe('GitHub ls-remote probe (P2-09)', () => {
   it('parses the symref HEAD to get the default branch', () => {
     expect(parseSymrefHead('ref: refs/heads/develop\tHEAD\n')).toBe('develop');
     expect(parseSymrefHead('ref: refs/heads/main\tHEAD\nabc\tHEAD')).toBe('main');
@@ -13,9 +23,6 @@ describe('GitHub ls-remote probe (P2-09)', () => {
   });
 
   it('runs git ls-remote with no shell and disables prompts', async () => {
-    const { execFileMock } = vi.hoisted(() => ({ execFileMock: vi.fn() }));
-    vi.mock('node:child_process', () => ({ execFile: execFileMock }));
-
     const stdout = 'ref: refs/heads/main\tHEAD\n';
     execFileMock.mockImplementation(
       (
@@ -43,9 +50,6 @@ describe('GitHub ls-remote probe (P2-09)', () => {
   });
 
   it('propagates git failures as repository-not-found', async () => {
-    const { execFileMock } = vi.hoisted(() => ({ execFileMock: vi.fn() }));
-    vi.mock('node:child_process', () => ({ execFile: execFileMock }));
-
     execFileMock.mockImplementation(
       (
         _file: string,
