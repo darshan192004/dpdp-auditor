@@ -13,6 +13,11 @@ export const envSchema = z.object({
   RULE_PACK_DIR: z.string().min(1).optional(),
   // P4-02: Ed25519 public key (PEM). When set, an unsigned pack fails closed.
   RULE_PACK_PUBLIC_KEY: z.string().min(1).optional(),
+  // Runner configuration — architecture.md §11: driver selection and Job spec
+  RUNNER_DRIVER: z.enum(['kubernetes', 'docker']).default('kubernetes'),
+  SCANNERS_NAMESPACE: z.string().min(1).default('scanners'),
+  RUNNER_IMAGE: z.string().min(1).default('registry.example.com/dpdpa/scan-runner@sha256:<digest>'),
+  ORCHESTRATOR_CALLBACK_URL: z.string().url().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

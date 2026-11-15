@@ -10,7 +10,23 @@ const KEYS = {
 
 describe('loadEnv', () => {
   it('applies defaults', () => {
-    expect(loadEnv(KEYS)).toEqual({ NODE_ENV: 'development', PORT: 3001, ...KEYS });
+    expect(loadEnv(KEYS)).toEqual({
+      NODE_ENV: 'development',
+      PORT: 3001,
+      // architecture.md §11: production driver + Job spec defaults
+      RUNNER_DRIVER: 'kubernetes',
+      SCANNERS_NAMESPACE: 'scanners',
+      RUNNER_IMAGE: 'registry.example.com/dpdpa/scan-runner@sha256:<digest>',
+      ...KEYS,
+    });
+  });
+
+  it('accepts an explicit RUNNER_DRIVER', () => {
+    expect(loadEnv({ ...KEYS, RUNNER_DRIVER: 'docker' }).RUNNER_DRIVER).toBe('docker');
+  });
+
+  it('rejects an unknown RUNNER_DRIVER', () => {
+    expect(() => loadEnv({ ...KEYS, RUNNER_DRIVER: 'nomad' })).toThrow(/RUNNER_DRIVER/);
   });
 
   it('coerces PORT', () => {

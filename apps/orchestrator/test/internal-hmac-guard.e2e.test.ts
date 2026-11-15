@@ -13,6 +13,9 @@ const ENV_FIXTURE: Env = {
   ORCHESTRATOR_INTERNAL_KEY: 'b'.repeat(32),
   DATABASE_URL: 'postgresql://test:test@127.0.0.1:5432/dpdpa_test',
   REDIS_URL: 'redis://127.0.0.1:6379',
+  RUNNER_DRIVER: 'kubernetes',
+  SCANNERS_NAMESPACE: 'scanners',
+  RUNNER_IMAGE: 'registry.example.com/dpdpa/scan-runner@sha256:test',
 };
 let app: NestFastifyApplication;
 
