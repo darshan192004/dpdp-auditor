@@ -1,7 +1,12 @@
 import type { JobsOptions } from 'bullmq';
 
 /** Queue names (docs/tasks.md P1-18; architecture.md §14 layout). */
-export const QUEUE_NAMES = ['scan.execute', 'report.render', 'retention'] as const;
+export const QUEUE_NAMES = [
+  'scan.execute',
+  'scan.execute.watcher',
+  'report.render',
+  'retention',
+] as const;
 export type QueueName = (typeof QUEUE_NAMES)[number];
 
 const DLQ_SUFFIX = '.dlq';

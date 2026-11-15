@@ -7,8 +7,10 @@ import { redisConnectionOptions, WORKER_SETTINGS, type QueueName } from '../../q
 // Nest to resolve these constructor params in ScanExecuteRunner.
 import { QueueService } from '../../queue/queue.service.js';
 import { SCAN_EXECUTOR, type ScanExecutor } from './scan-executor.js';
+import { ScansRepository } from '../scans/scans.repository.js';
 
 export const SCAN_EXECUTE_QUEUE: QueueName = 'scan.execute';
+export const SCAN_EXECUTE_WATCHER_QUEUE: QueueName = 'scan.execute.watcher';
 
 export interface ScanExecutePayload {
   scanId: string;
@@ -27,6 +29,7 @@ export function createScanExecuteWorker(
   env: Env,
   executor: ScanExecutor,
   queues: QueueService,
+  scans: ScansRepository,
 ): Worker {
   const worker = new Worker(
     SCAN_EXECUTE_QUEUE,
@@ -42,6 +45,25 @@ export function createScanExecuteWorker(
       };
       const name = await executor.run(jobName, scanId, orgId, secretData);
       logger.info({ scanId, jobName: name }, 'scan job created');
+
+      // P3-16: persist the Job/Secret correlation and hand off to the watcher
+      // so the scan lifecycle can be driven by the K8s Job outcome even when
+      // the runner's completion callback is lost.
+      try {
+        await scans.setJobInfo(scanId, name, name);
+      } catch (error) {
+        logger.error({ err: error, scanId }, 'failed to persist scan job info');
+      }
+      try {
+        await queues.enqueue(SCAN_EXECUTE_WATCHER_QUEUE, 'watch', {
+          scanId,
+          orgId,
+          jobName: name,
+          secretName: name,
+        });
+      } catch (error) {
+        logger.error({ err: error, scanId }, 'failed to enqueue watcher');
+      }
     },
     {
       connection: redisConnectionOptions(env),
@@ -77,12 +99,13 @@ export class ScanExecuteRunner implements OnApplicationShutdown {
     @Inject(ENV) private readonly env: Env,
     @Inject(SCAN_EXECUTOR) private readonly executor: ScanExecutor,
     private readonly queues: QueueService,
+    private readonly scans: ScansRepository,
   ) {}
 
   async start(): Promise<void> {
     if (this.started) return;
     this.started = true;
-    this.worker = createScanExecuteWorker(this.env, this.executor, this.queues);
+    this.worker = createScanExecuteWorker(this.env, this.executor, this.queues, this.scans);
   }
 
   async onApplicationShutdown(): Promise<void> {

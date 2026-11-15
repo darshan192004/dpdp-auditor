@@ -1,5 +1,6 @@
 import { Module, type Provider } from '@nestjs/common';
 import { ENV, type Env } from '../../config/env.js';
+import { ScansModule } from '../scans/scans.module.js';
 import { DockerRunner } from './docker-driver.js';
 import { DockerScanExecutor } from './docker-scan-executor.js';
 import { JobWatcherService } from './job-watcher.js';
@@ -7,6 +8,7 @@ import { K8sClient } from './k8s-client.js';
 import { KubernetesScanExecutor } from './kubernetes-scan-executor.js';
 import { SCAN_EXECUTOR, type ScanExecutor } from './scan-executor.js';
 import { ScanExecuteRunner } from './scan.execute.worker.js';
+import { ScanExecuteWatcherRunner } from './scan.execute.watcher.worker.js';
 
 /**
  * Runner module (architecture.md §11). Selects the runner driver by
@@ -34,10 +36,12 @@ const RUNNER_PROVIDERS: Provider[] = [
   },
   ScanExecuteRunner,
   JobWatcherService,
+  ScanExecuteWatcherRunner,
 ];
 
 @Module({
+  imports: [ScansModule],
   providers: RUNNER_PROVIDERS,
-  exports: [ScanExecuteRunner, JobWatcherService],
+  exports: [ScanExecuteRunner, JobWatcherService, ScanExecuteWatcherRunner],
 })
 export class RunnerModule {}
