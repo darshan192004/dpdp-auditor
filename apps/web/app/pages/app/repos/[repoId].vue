@@ -144,7 +144,7 @@ const TREND_LABELS: Record<'up' | 'down' | 'flat', string> = {
           <h2 id="repo-stats-heading" class="text-ink-900 text-sm font-semibold">Scan history</h2>
         </div>
         <dl
-          class="divide-ink-200 grid grid-cols-2 divide-y sm:grid-cols-4 sm:divide-y-0 sm:divide-x"
+          class="divide-ink-200 grid grid-cols-2 divide-y sm:grid-cols-4 sm:divide-x sm:divide-y-0"
         >
           <div class="px-4 py-3">
             <dt class="text-ink-400 font-mono text-xs tracking-widest uppercase">Scans</dt>
@@ -180,7 +180,9 @@ const TREND_LABELS: Record<'up' | 'down' | 'flat', string> = {
         <div class="border-ink-200 border-b px-4 py-3">
           <h2 id="repo-meta-heading" class="text-ink-900 text-sm font-semibold">Details</h2>
         </div>
-        <dl class="divide-ink-200 grid grid-cols-1 divide-y sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-3 lg:divide-x">
+        <dl
+          class="divide-ink-200 grid grid-cols-1 divide-y sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-3 lg:divide-x"
+        >
           <div class="px-4 py-3">
             <dt class="text-ink-400 font-mono text-xs tracking-widest uppercase">Default branch</dt>
             <dd class="text-ink-800 mt-1 font-mono text-xs">{{ repo.defaultBranch }}</dd>
@@ -194,7 +196,9 @@ const TREND_LABELS: Record<'up' | 'down' | 'flat', string> = {
             <dd class="text-ink-800 mt-1 text-sm">{{ repo.language ?? 'Unknown' }}</dd>
           </div>
           <div class="px-4 py-3">
-            <dt class="text-ink-400 font-mono text-xs tracking-widest uppercase">Repository size</dt>
+            <dt class="text-ink-400 font-mono text-xs tracking-widest uppercase">
+              Repository size
+            </dt>
             <dd class="text-ink-800 mt-1 text-sm tabular-nums">
               {{ repo.sizeKb === null ? 'Unknown' : `${repo.sizeKb.toLocaleString()} KB` }}
             </dd>
@@ -214,7 +218,10 @@ const TREND_LABELS: Record<'up' | 'down' | 'flat', string> = {
         </dl>
       </section>
 
-      <p v-if="repo.isArchived" class="text-ink-600 bg-surface-raised rounded-[var(--radius-card)] px-4 py-3 text-sm">
+      <p
+        v-if="repo.isArchived"
+        class="text-ink-600 bg-surface-raised rounded-[var(--radius-card)] px-4 py-3 text-sm"
+      >
         This repository is archived on GitHub. New scans may fail until it is unarchived.
       </p>
     </template>
