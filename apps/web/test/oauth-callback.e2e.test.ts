@@ -20,30 +20,30 @@ describe('OAuth callback security (P2-H)', () => {
   it('rejects a state mismatch with a generic redirect', async () => {
     // The callback expects state in the query to match the sealed session's oauthState.
     // A mismatch should redirect to /login?error=oauth_state without leaking details.
-    const response = await $fetch('/api/auth/github/callback?code=abc&state=bogus', {
+    const response = await $fetch.raw('/api/auth/github/callback?code=abc&state=bogus', {
       method: 'GET',
       redirect: 'manual',
     });
     expect(response.status).toBe(302);
-    expect(response.headers?.get('location')?.includes('/login')).toBe(true);
+    expect(response.headers.get('location')?.includes('/login')).toBe(true);
   });
 
   it('rejects missing code parameter', async () => {
-    const response = await $fetch('/api/auth/github/callback?state=valid', {
+    const response = await $fetch.raw('/api/auth/github/callback?state=valid', {
       method: 'GET',
       redirect: 'manual',
     });
     expect(response.status).toBe(302);
-    expect(response.headers?.get('location')?.includes('/login')).toBe(true);
+    expect(response.headers.get('location')?.includes('/login')).toBe(true);
   });
 
   it('rejects expired or missing session state', async () => {
     // Without an active session containing oauthState, the callback should fail.
-    const response = await $fetch('/api/auth/github/callback?code=abc&state=xyz', {
+    const response = await $fetch.raw('/api/auth/github/callback?code=abc&state=xyz', {
       method: 'GET',
       redirect: 'manual',
     });
     expect(response.status).toBe(302);
-    expect(response.headers?.get('location')?.includes('/login')).toBe(true);
+    expect(response.headers.get('location')?.includes('/login')).toBe(true);
   });
 });

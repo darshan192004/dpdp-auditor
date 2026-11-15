@@ -24,14 +24,14 @@ describe('Resolve rate limit policy (P2-17 / P2-20)', () => {
   }
 
   it('allows requests under the 30/min limit', async () => {
-    const store = makeStore([1, 29]);
+    const store = makeStore([1, 30]);
     const first = await checkRateLimit(store, RESOLVE_POLICY, 'usr_test');
     expect(first.allowed).toBe(true);
     expect(first.remaining).toBe(29);
 
-    const nearLimit = await checkRateLimit(store, RESOLVE_POLICY, 'usr_test');
-    expect(nearLimit.allowed).toBe(true);
-    expect(nearLimit.remaining).toBe(0);
+    const atLimit = await checkRateLimit(store, RESOLVE_POLICY, 'usr_test');
+    expect(atLimit.allowed).toBe(true);
+    expect(atLimit.remaining).toBe(0);
   });
 
   it('denies the 31st request with retry-after', async () => {
