@@ -1,5 +1,5 @@
 import { KubeConfig, CoreV1Api, BatchV1Api } from '@kubernetes/client-node';
-import type { V1Secret, V1Job } from '@kubernetes/client-node';
+import type { V1Secret, V1Job, V1JobStatus } from '@kubernetes/client-node';
 import type { Env } from '../../config/env.js';
 
 /**
@@ -64,5 +64,14 @@ export class K8sClient {
   /** Delete a job by name. */
   async deleteJob(name: string): Promise<void> {
     await this.batch.deleteNamespacedJob({ name, namespace: this.namespace });
+  }
+
+  /** Read a job's status (P3-16 watcher). */
+  async getJobStatus(name: string): Promise<V1JobStatus | undefined> {
+    const res = (await this.batch.readNamespacedJobStatus({
+      name,
+      namespace: this.namespace,
+    })) as unknown as { body: V1Job };
+    return res.body?.status;
   }
 }

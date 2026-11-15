@@ -2,6 +2,7 @@ import { Module, type Provider } from '@nestjs/common';
 import { ENV, type Env } from '../../config/env.js';
 import { DockerRunner } from './docker-driver.js';
 import { DockerScanExecutor } from './docker-scan-executor.js';
+import { JobWatcherService } from './job-watcher.js';
 import { K8sClient } from './k8s-client.js';
 import { KubernetesScanExecutor } from './kubernetes-scan-executor.js';
 import { SCAN_EXECUTOR, type ScanExecutor } from './scan-executor.js';
@@ -32,10 +33,11 @@ const RUNNER_PROVIDERS: Provider[] = [
     inject: [K8sClient, DockerRunner, ENV],
   },
   ScanExecuteRunner,
+  JobWatcherService,
 ];
 
 @Module({
   providers: RUNNER_PROVIDERS,
-  exports: [ScanExecuteRunner],
+  exports: [ScanExecuteRunner, JobWatcherService],
 })
 export class RunnerModule {}
