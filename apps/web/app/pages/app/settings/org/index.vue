@@ -4,6 +4,12 @@ import { computed, reactive, ref, watch } from 'vue';
 import PageHeader from '~/components/shell/PageHeader.vue';
 import ErrorState from '~/components/ui/ErrorState.vue';
 import {
+  InviteInputError,
+  parseInviteInput,
+  type CreateInviteResult,
+  type PendingInvite,
+} from '~~/shared/invite';
+import {
   canManageOrg,
   MEMBER_ROLES,
   OrgInputError,
@@ -24,12 +30,24 @@ definePageMeta({ layout: 'app' });
 // decides which controls render (docs/api.md §7.2–7.3).
 const orgRequest = await useFetch<{ data: OrgDetail }>('/api/v1/org');
 const membersRequest = await useFetch<{ data: OrgMember[] }>('/api/v1/org/members');
+const invitesRequest = await useFetch<{ data: PendingInvite[] }>('/api/v1/org/invites', {
+  immediate: false,
+});
 
 const org = computed(() => orgRequest.data.value?.data ?? null);
 const members = computed(() => membersRequest.data.value?.data ?? []);
+const invites = computed(() => invitesRequest.data.value?.data ?? []);
 const canManage = computed(() => canManageOrg(org.value?.role));
 const isOwner = computed(() => org.value?.role === 'owner');
 const loading = computed(() => orgRequest.status.value === 'pending');
+
+watch(
+  canManage,
+  (manage) => {
+    if (manage) void invitesRequest.refresh();
+  },
+  { immediate: true },
+);
 
 const ROLE_LABELS: Record<MemberRole, string> = {
   owner: 'Owner',
@@ -63,7 +81,10 @@ const actionError = ref<string | null>(null);
 const notice = ref<string | null>(null);
 
 const addForm = reactive({ email: '', role: 'viewer' as MemberRole });
+const inviteForm = reactive({ email: '', role: 'viewer' as MemberRole });
+const lastInviteToken = ref<{ email: string; token: string } | null>(null);
 const confirmingRemoval = ref<string | null>(null);
+const confirmingInviteRevocation = ref<string | null>(null);
 
 const loadError = computed(() => {
   const failure = orgRequest.error.value as {
@@ -87,8 +108,11 @@ function input<T>(parse: () => T): T | null {
   try {
     return parse();
   } catch (cause) {
-    actionError.value =
-      cause instanceof OrgInputError ? cause.message : 'Check the form and try again.';
+    if (cause instanceof OrgInputError || cause instanceof InviteInputError) {
+      actionError.value = cause.message;
+    } else {
+      actionError.value = 'Check the form and try again.';
+    }
     return null;
   }
 }
@@ -148,6 +172,38 @@ async function addMember(): Promise<void> {
     addForm.role = 'viewer';
     await membersRequest.refresh();
   }, `Added ${body.email}.`);
+}
+
+async function inviteMember(): Promise<void> {
+  const body = input(() => parseInviteInput({ email: inviteForm.email, role: inviteForm.role }));
+  if (body === null) return;
+
+  await run(async () => {
+    const response = await $fetch<{ data: CreateInviteResult }>('/api/v1/org/invites', {
+      method: 'POST',
+      body,
+    });
+    inviteForm.email = '';
+    inviteForm.role = 'viewer';
+    if (response.data.kind === 'member') {
+      await membersRequest.refresh();
+      notice.value = `${body.email} was added as a member.`;
+    } else if (response.data.token) {
+      lastInviteToken.value = { email: body.email, token: response.data.token };
+      await invitesRequest.refresh();
+      notice.value = `Invitation created for ${body.email}. Copy the link below — it is shown once.`;
+    } else {
+      await invitesRequest.refresh();
+    }
+  }, `Invitation sent to ${body.email}.`);
+}
+
+async function revokeInvite(invite: PendingInvite): Promise<void> {
+  await run(async () => {
+    await $fetch(`/api/v1/org/invites/${encodeURIComponent(invite.id)}`, { method: 'DELETE' });
+    confirmingInviteRevocation.value = null;
+    await invitesRequest.refresh();
+  }, `Revoked invitation for ${invite.email}.`);
 }
 
 /** Only owners may grant, change, or remove the owner role (api.md §7.3). */
@@ -380,64 +436,127 @@ async function removeMember(member: OrgMember): Promise<void> {
           </span>
         </div>
 
-        <form
-          v-if="canManage"
-          class="border-ink-200 border-b px-4 py-4"
-          novalidate
-          @submit.prevent="addMember"
-        >
-          <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
-            <div class="min-w-0 flex-1">
-              <label for="member-email" class="text-ink-700 mb-1 block text-xs font-medium">
-                Add an existing account
-              </label>
-              <input
-                id="member-email"
-                v-model="addForm.email"
-                name="email"
-                type="email"
-                autocomplete="email"
-                :disabled="pending"
-                placeholder="teammate@acme.example"
-                class="border-ink-200 text-ink-900 placeholder:text-ink-400 focus-visible:ring-brand-500 disabled:bg-ink-100 bg-surface w-full rounded-[var(--radius-control)] border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
-              />
-            </div>
-            <div class="sm:w-40">
-              <label for="member-role" class="text-ink-700 mb-1 block text-xs font-medium">
-                Role
-              </label>
-              <select
-                id="member-role"
-                v-model="addForm.role"
-                name="role"
-                :disabled="pending"
-                class="border-ink-200 text-ink-900 focus-visible:ring-brand-500 disabled:bg-ink-100 bg-surface w-full rounded-[var(--radius-control)] border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
-              >
-                <option
-                  v-for="role in MEMBER_ROLES"
-                  :key="role"
-                  :value="role"
-                  :disabled="role === 'owner' && !isOwner"
+        <div v-if="canManage" class="border-ink-200 space-y-4 border-b px-4 py-4">
+          <form novalidate @submit.prevent="addMember">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
+              <div class="min-w-0 flex-1">
+                <label for="member-email" class="text-ink-700 mb-1 block text-xs font-medium">
+                  Add an existing account
+                </label>
+                <input
+                  id="member-email"
+                  v-model="addForm.email"
+                  name="email"
+                  type="email"
+                  autocomplete="email"
+                  :disabled="pending"
+                  placeholder="teammate@acme.example"
+                  class="border-ink-200 text-ink-900 placeholder:text-ink-400 focus-visible:ring-brand-500 disabled:bg-ink-100 bg-surface w-full rounded-[var(--radius-control)] border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
+                />
+              </div>
+              <div class="sm:w-40">
+                <label for="member-role" class="text-ink-700 mb-1 block text-xs font-medium">
+                  Role
+                </label>
+                <select
+                  id="member-role"
+                  v-model="addForm.role"
+                  name="role"
+                  :disabled="pending"
+                  class="border-ink-200 text-ink-900 focus-visible:ring-brand-500 disabled:bg-ink-100 bg-surface w-full rounded-[var(--radius-control)] border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
                 >
-                  {{ ROLE_LABELS[role] }}
-                </option>
-              </select>
+                  <option
+                    v-for="role in MEMBER_ROLES"
+                    :key="role"
+                    :value="role"
+                    :disabled="role === 'owner' && !isOwner"
+                  >
+                    {{ ROLE_LABELS[role] }}
+                  </option>
+                </select>
+              </div>
+              <div>
+                <button
+                  type="submit"
+                  :disabled="pending"
+                  class="bg-brand-500 hover:bg-brand-600 focus-visible:ring-brand-500 text-ink-50 inline-flex w-full items-center justify-center rounded-[var(--radius-control)] px-3 py-2 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Add member
+                </button>
+              </div>
             </div>
-            <div>
-              <button
-                type="submit"
-                :disabled="pending"
-                class="bg-brand-500 hover:bg-brand-600 focus-visible:ring-brand-500 text-ink-50 inline-flex w-full items-center justify-center rounded-[var(--radius-control)] px-3 py-2 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                Add member
-              </button>
+            <p class="text-ink-500 mt-2 text-xs">The person must have signed in once.</p>
+          </form>
+
+          <form novalidate @submit.prevent="inviteMember">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
+              <div class="min-w-0 flex-1">
+                <label for="invite-email" class="text-ink-700 mb-1 block text-xs font-medium">
+                  Invite by email
+                </label>
+                <input
+                  id="invite-email"
+                  v-model="inviteForm.email"
+                  name="inviteEmail"
+                  type="email"
+                  autocomplete="off"
+                  :disabled="pending"
+                  placeholder="new-user@acme.example"
+                  class="border-ink-200 text-ink-900 placeholder:text-ink-400 focus-visible:ring-brand-500 disabled:bg-ink-100 bg-surface w-full rounded-[var(--radius-control)] border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
+                />
+              </div>
+              <div class="sm:w-40">
+                <label for="invite-role" class="text-ink-700 mb-1 block text-xs font-medium">
+                  Role
+                </label>
+                <select
+                  id="invite-role"
+                  v-model="inviteForm.role"
+                  name="inviteRole"
+                  :disabled="pending"
+                  class="border-ink-200 text-ink-900 focus-visible:ring-brand-500 disabled:bg-ink-100 bg-surface w-full rounded-[var(--radius-control)] border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
+                >
+                  <option
+                    v-for="role in MEMBER_ROLES"
+                    :key="`invite-${role}`"
+                    :value="role"
+                    :disabled="role === 'owner' && !isOwner"
+                  >
+                    {{ ROLE_LABELS[role] }}
+                  </option>
+                </select>
+              </div>
+              <div>
+                <button
+                  type="submit"
+                  :disabled="pending"
+                  class="border-ink-200 text-ink-800 hover:bg-ink-50 focus-visible:ring-brand-500 inline-flex w-full items-center justify-center rounded-[var(--radius-control)] border px-3 py-2 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Create invite
+                </button>
+              </div>
             </div>
+            <p class="text-ink-500 mt-2 text-xs">
+              Creates a 7-day invitation link for someone who has not signed in yet.
+            </p>
+          </form>
+
+          <div
+            v-if="lastInviteToken"
+            class="bg-status-warning-bg text-status-warning-text rounded-[var(--radius-control)] px-3 py-2 text-sm"
+          >
+            <p class="font-medium">Invitation link for {{ lastInviteToken.email }}</p>
+            <p class="mt-1 font-mono text-xs break-all">/invites/{{ lastInviteToken.token }}</p>
+            <p class="mt-1 text-xs opacity-80">Copy this now; the token is not shown again.</p>
+            <button
+              type="button"
+              class="mt-2 text-xs font-medium underline"
+              @click="lastInviteToken = null"
+            >
+              Dismiss
+            </button>
           </div>
-          <p class="text-ink-500 mt-2 text-xs">
-            The person must have signed in once. Invitations for new accounts arrive in a later
-            release.
-          </p>
-        </form>
+        </div>
 
         <p v-if="members.length === 0" class="text-ink-500 px-4 py-4 text-sm">
           No members to show yet.
@@ -537,6 +656,55 @@ async function removeMember(member: OrgMember): Promise<void> {
             <dd>{{ ROLE_HELP[role] }}</dd>
           </div>
         </dl>
+
+        <div v-if="canManage && invites.length > 0" class="border-ink-200 border-t px-4 py-4">
+          <h3 class="text-ink-900 mb-2 text-sm font-semibold">Pending invitations</h3>
+          <ul class="divide-ink-200 divide-y">
+            <li
+              v-for="invite in invites"
+              :key="invite.id"
+              class="flex flex-wrap items-center justify-between gap-2 py-2"
+            >
+              <div>
+                <span class="text-ink-800 block text-sm">{{ invite.email }}</span>
+                <span class="text-ink-500 block text-xs">
+                  {{ ROLE_LABELS[invite.role] }} · expires {{ formatTimestamp(invite.expiresAt) }}
+                </span>
+              </div>
+              <div>
+                <template v-if="confirmingInviteRevocation === invite.id">
+                  <span class="text-ink-600 mr-2 text-xs">Revoke?</span>
+                  <button
+                    type="button"
+                    :disabled="pending"
+                    class="focus-visible:ring-risk-critical-solid text-risk-critical-text rounded-[var(--radius-control)] px-2 py-1 text-xs font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-40"
+                    @click="revokeInvite(invite)"
+                  >
+                    Revoke
+                  </button>
+                  <button
+                    type="button"
+                    :disabled="pending"
+                    class="text-ink-600 hover:text-ink-900 focus-visible:ring-brand-500 rounded-[var(--radius-control)] px-2 py-1 text-xs font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-40"
+                    @click="confirmingInviteRevocation = null"
+                  >
+                    Cancel
+                  </button>
+                </template>
+                <button
+                  v-else
+                  type="button"
+                  :disabled="pending"
+                  :aria-label="`Revoke invitation for ${invite.email}`"
+                  class="text-ink-600 hover:text-risk-critical-text focus-visible:ring-risk-critical-solid rounded-[var(--radius-control)] px-2 py-1 text-xs font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-40"
+                  @click="confirmingInviteRevocation = invite.id"
+                >
+                  Revoke
+                </button>
+              </div>
+            </li>
+          </ul>
+        </div>
       </section>
 
       <p class="text-ink-500 text-xs">
