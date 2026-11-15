@@ -80,13 +80,44 @@ function report(overrides: Partial<Report> = {}): Report & {
 }
 
 function make(found: ReturnType<typeof report> | null = report()) {
-  const reports = { findById: vi.fn().mockResolvedValue(found) };
+  const reports = {
+    findById: vi.fn().mockResolvedValue(found),
+    findByScanId: vi.fn().mockResolvedValue(null),
+    create: vi.fn(),
+    markComplete: vi.fn(),
+    markRendering: vi.fn(),
+    markFailed: vi.fn(),
+    countCreatedSince: vi.fn().mockResolvedValue(0),
+  };
   const findings = { topForScan: vi.fn().mockResolvedValue([]) };
+  const scans = { findById: vi.fn(), recordUsage: vi.fn().mockResolvedValue(true) };
+  const audit = { record: vi.fn() };
+  const queue = { enqueue: vi.fn() };
+  const storage = {
+    upload: vi.fn().mockReturnValue({
+      storageKey: 'reports/rpt.pdf',
+      sha256: 'abc',
+      sizeBytes: 100,
+      expiresAt: new Date(),
+      downloadUrl: 'https://example.com/signed',
+    }),
+    signedUrl: vi.fn().mockReturnValue('https://example.com/signed'),
+  };
+  const organizations = {
+    findById: vi.fn().mockResolvedValue({ id: ORG_ID, plan: 'enterprise', slug: 'acme' }),
+  };
+  const email = { sendReportReady: vi.fn().mockResolvedValue(undefined) };
   const service = new ReportsService(
     reports as unknown as ReportsRepository,
     findings as unknown as FindingsRepository,
+    scans as unknown as ConstructorParameters<typeof ReportsService>[2],
+    audit as unknown as ConstructorParameters<typeof ReportsService>[3],
+    queue as unknown as ConstructorParameters<typeof ReportsService>[4],
+    storage as unknown as ConstructorParameters<typeof ReportsService>[5],
+    organizations as unknown as ConstructorParameters<typeof ReportsService>[6],
+    email as unknown as ConstructorParameters<typeof ReportsService>[7],
   );
-  return { service, reports, findings };
+  return { service, reports, findings, scans, audit, queue, storage, organizations, email };
 }
 
 describe('ReportsService (P4-20)', () => {

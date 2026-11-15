@@ -18,6 +18,11 @@ export const envSchema = z.object({
   SCANNERS_NAMESPACE: z.string().min(1).default('scanners'),
   RUNNER_IMAGE: z.string().min(1).default('registry.example.com/dpdpa/scan-runner@sha256:<digest>'),
   ORCHESTRATOR_CALLBACK_URL: z.string().url().optional(),
+  // Email configuration for report notifications (dev/test only)
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().optional(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

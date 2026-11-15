@@ -6,6 +6,7 @@ export interface RetentionCounts {
   deletedScans: number;
   purgedSessions: number;
   clearedIdempotencyKeys: number;
+  expiredReports: number;
 }
 
 /** database.md §9: idempotency keys are valid for 7 days. */
@@ -32,6 +33,7 @@ export class RetentionService {
     let markedExpired = 0;
     let deletedScans = 0;
     let clearedIdempotencyKeys = 0;
+    let expiredReports = 0;
     for (const org of orgs) {
       const counts = await this.prisma.$transaction(async (tx) => {
         // set_config, not SET LOCAL: Prisma parameterizes interpolations and
@@ -61,14 +63,24 @@ export class RetentionService {
           data: { idempotencyKey: null },
         });
 
-        return { marked, deleted, keys: keys.count };
+        // P5-24: expire reports whose signed URL window passed
+        const reportExpired = await tx.report.updateMany({
+          where: {
+            status: 'ready',
+            expiresAt: { lt: new Date() },
+          },
+          data: { status: 'expired' },
+        });
+
+        return { marked, deleted, keys: keys.count, reportExpired: reportExpired.count };
       });
       markedExpired += counts.marked;
       deletedScans += counts.deleted;
       clearedIdempotencyKeys += counts.keys;
+      expiredReports += counts.reportExpired;
     }
 
-    return { markedExpired, deletedScans, purgedSessions, clearedIdempotencyKeys };
+    return { markedExpired, deletedScans, purgedSessions, clearedIdempotencyKeys, expiredReports };
   }
 
   /** database.md L567: expired, idle-beyond-limit, or revoked over 24 h. */
