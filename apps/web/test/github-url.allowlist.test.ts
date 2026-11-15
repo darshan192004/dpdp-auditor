@@ -11,14 +11,14 @@ describe('GitHub URL validation (P2-09)', () => {
   });
 
   it('accepts the same URL with a trailing .git', () => {
-    const result = validateResolveInput({ githubUrl: 'https://github.com/acme/repo.git' });
+    const result = validateResolveInput({
+      githubUrl: 'https://github.com/acme/repo.git',
+    });
     expect(result.githubUrl).toBe('https://github.com/acme/repo.git');
   });
 
   it('rejects missing githubUrl', () => {
-    expect(() => validateResolveInput({})).toThrow(
-      'Enter a GitHub repository URL.',
-    );
+    expect(() => validateResolveInput({})).toThrow('Enter a GitHub repository URL.');
   });
 
   it('rejects empty githubUrl', () => {
@@ -46,7 +46,9 @@ describe('GitHub URL validation (P2-09)', () => {
   });
 
   it('trims whitespace from the URL', () => {
-    const result = validateResolveInput({ githubUrl: '  https://github.com/acme/repo  ' });
+    const result = validateResolveInput({
+      githubUrl: '  https://github.com/acme/repo  ',
+    });
     expect(result.githubUrl).toBe('https://github.com/acme/repo');
   });
 

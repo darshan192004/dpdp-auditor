@@ -48,9 +48,9 @@ describe('GitHub URL allowlist (P2-09)', () => {
   });
 
   it('rejects github.com with credentials in URL', () => {
-    expect(() =>
-      parseGithubRepoUrl('https://user:pass@github.com/acme/repo'),
-    ).toThrow('The repository URL must not contain credentials or query parameters.');
+    expect(() => parseGithubRepoUrl('https://user:pass@github.com/acme/repo')).toThrow(
+      'The repository URL must not contain credentials or query parameters.',
+    );
   });
 
   it('rejects invalid owner or repository name', () => {
