@@ -33,7 +33,7 @@ describe('GitHub ls-remote probe (P2-09)', () => {
     const [file, args, options] = execFileMock.mock.calls[0] as [
       string,
       string[],
-      { env: Record<string, string> },
+      { env: Record<string, string>; timeout: number; maxBuffer: number },
     ];
     expect(file).toBe('git');
     expect(args).toEqual(['ls-remote', '--symref', 'https://github.com/acme/repo', 'HEAD']);
