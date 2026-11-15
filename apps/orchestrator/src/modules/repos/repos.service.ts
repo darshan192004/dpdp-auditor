@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { Organization, Repository } from '@prisma/client';
 import { ApiError } from '../../common/api-error.js';
+import { PLAN_LIMITS } from '../../common/plan-limits.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { OrganizationsRepository } from '../identity/organizations.repository.js';
@@ -70,6 +71,18 @@ export class ReposService {
       );
       if (existing) {
         throw new ApiError('REPO_ALREADY_CONNECTED', 'That repository is already connected.');
+      }
+
+      // Enforce plan limit (P2-C): count active repos inside the transaction.
+      const planLimit = PLAN_LIMITS[organization.plan].repositories;
+      if (planLimit !== null) {
+        const activeCount = await this.repos.countActiveForOrg(organization.id, tx);
+        if (activeCount >= planLimit) {
+          throw new ApiError(
+            'PLAN_LIMIT_EXCEEDED',
+            `Your ${organization.plan} plan allows ${planLimit} ${planLimit === 1 ? 'repository' : 'repositories'}. Upgrade to connect more.`,
+          );
+        }
       }
 
       const record = toRecord(organization.id, resolved, input.actorUserId ?? null);

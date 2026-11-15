@@ -899,6 +899,10 @@ Reject if the timestamp is more than 300 seconds from server time, the signature
 | GET | `/internal/v1/reports/:reportId/view-model` | Renderer data |
 | POST | `/internal/v1/reports/:reportId/complete` | Renderer completion |
 | POST | `/internal/v1/repos/resolve` | Resolve a GitHub URL to a repository |
+| POST | `/internal/v1/repos` | Save a resolved repository (plan limit enforced) |
+| GET | `/internal/v1/repos` | List active repositories for an organisation |
+| GET | `/internal/v1/repos/:repoId` | Repository detail and scan statistics |
+| DELETE | `/internal/v1/repos/:repoId` | Disconnect (soft delete) a repository |
 | GET | `/internal/v1/health` | Liveness/readiness |
 
 ### 10.3 Create scan
