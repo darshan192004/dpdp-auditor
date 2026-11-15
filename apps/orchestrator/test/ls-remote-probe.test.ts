@@ -26,7 +26,9 @@ describe('GitHub ls-remote probe (P2-09)', () => {
       ) => callback(null, { stdout }),
     );
 
-    await expect(defaultGitRunner('https://github.com/acme/repo')).resolves.toContain('refs/heads/main');
+    await expect(defaultGitRunner('https://github.com/acme/repo')).resolves.toContain(
+      'refs/heads/main',
+    );
 
     const [file, args, options] = execFileMock.mock.calls[0] as [
       string,
@@ -53,6 +55,8 @@ describe('GitHub ls-remote probe (P2-09)', () => {
       ) => callback(new Error('repository not found')),
     );
 
-    await expect(defaultGitRunner('https://github.com/acme/repo')).rejects.toThrow('repository not found');
+    await expect(defaultGitRunner('https://github.com/acme/repo')).rejects.toThrow(
+      'repository not found',
+    );
   });
 });

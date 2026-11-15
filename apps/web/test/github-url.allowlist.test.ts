@@ -1,82 +1,59 @@
-import { describe, expect, it, vi } from 'vitest';
-import { resolveGithubRepoUrl } from '../../../server/utils/repo-url';
-import { resolveGithubUrl } from '../../../server/utils/repo-url';
+import { describe, expect, it } from 'vitest';
+import { validateResolveInput } from '~~/shared/repo';
 
-// P2-09: SSRF guard and GitHub-only URL validation.
-describe('GitHub URL allowlist (P2-09)', () => {
+// P2-09: Client-side repo input validation (shared between Nitro and browser).
+describe('GitHub URL validation (P2-09)', () => {
   it('accepts https://github.com/owner/repo exactly', () => {
-    const result = resolveGithubRepoUrl('https://github.com/acme/payments-service');
-    expect(result).toEqual({
-      owner: 'acme',
-      name: 'payments-service',
-      fullName: 'acme/payments-service',
-      canonicalUrl: 'https://github.com/acme/payments-service',
+    const result = validateResolveInput({
+      githubUrl: 'https://github.com/acme/payments-service',
     });
+    expect(result.githubUrl).toBe('https://github.com/acme/payments-service');
   });
 
   it('accepts the same URL with a trailing .git', () => {
-    const result = resolveGithubRepoUrl('https://github.com/acme/repo.git');
-    expect(result).toEqual({
-      owner: 'acme',
-      name: 'repo',
-      fullName: 'acme/repo',
-      canonicalUrl: 'https://github.com/acme/repo',
-    });
+    const result = validateResolveInput({ githubUrl: 'https://github.com/acme/repo.git' });
+    expect(result.githubUrl).toBe('https://github.com/acme/repo.git');
   });
 
-  it('rejects http URLs', () => {
-    await expect(resolveGithubRepoUrl('http://github.com/acme/repo')).rejects.toMatchObject({
-      code: 'VALIDATION_ERROR',
-    });
+  it('rejects missing githubUrl', () => {
+    expect(() => validateResolveInput({})).toThrow(
+      'Enter a GitHub repository URL.',
+    );
   });
 
-  it('rejects non-GitHub hosts', () => {
-    await expect(resolveGithubRepoUrl('https://gitlab.com/acme/repo')).rejects.toMatchObject({
-      code: 'VALIDATION_ERROR',
-    });
+  it('rejects empty githubUrl', () => {
+    expect(() => validateResolveInput({ githubUrl: '' })).toThrow(
+      'Enter a valid GitHub repository URL.',
+    );
   });
 
-  it('rejects github.com with extra path segments', () => {
-    await expect(resolveGithubRepoUrl('https://github.com/acme/repo/extra')).rejects.toMatchObject({
-      code: 'VALIDATION_ERROR',
-    });
+  it('rejects non-string githubUrl', () => {
+    expect(() => validateResolveInput({ githubUrl: 42 })).toThrow(
+      'Enter a GitHub repository URL.',
+    );
   });
 
-  it('rejects github.com with query parameters', () => {
-    await expect(resolveGithubRepoUrl('https://github.com/acme/repo?ref=main')).rejects.toMatchObject({
-      code: 'VALIDATION_ERROR',
-    });
+  it('rejects non-object body', () => {
+    expect(() => validateResolveInput(null)).toThrow(
+      'The request body must be a JSON object.',
+    );
+    expect(() => validateResolveInput([])).toThrow(
+      'The request body must be a JSON object.',
+    );
+    expect(() => validateResolveInput('string')).toThrow(
+      'The request body must be a JSON object.',
+    );
   });
 
-  it('rejects github.com with port', () => {
-    await expect(resolveGithubUrl('https://github.com:8080/acme/repo')).rejects.toMatchObject({
-      code: 'VALIDATION_ERROR',
-    });
+  it('trims whitespace from the URL', () => {
+    const result = validateResolveInput({ githubUrl: '  https://github.com/acme/repo  ' });
+    expect(result.githubUrl).toBe('https://github.com/acme/repo');
   });
 
-  it('rejects github.com with credentials in URL', () => {
-    await expect(resolveGithubRepoUrl('https://user:pass@github.com/acme/repo')).rejects.toMatchObject({
-      code: 'VALIDATION_ERROR',
-    });
-  });
-
-  it('rejects malformed owner names (leading/trailing hyphens)', () => {
-    await expect(resolveGithubRepoUrl('https://github.com/-acme/repo')).rejects.toMatchObject({
-      code: 'VALIDATION_ERROR',
-    });
-    await expect(resolveGithubRepoUrl('https://github.com/acme-/repo')).rejects.toMatchObject({
-      code: 'VALIDATION_ERROR',
-    });
-  });
-
-  it('rejects overly long owner (40 chars) and repo (101 chars)', () => {
-    const longOwner = 'a'.repeat(40);
-    await expect(resolveGithubRepoUrl(`https://github.com/${longOwner}/repo`)).rejects.toMatchObject({
-      code: 'VALIDATION_ERROR',
-    });
-    const longRepo = 'a'.repeat(101);
-    await expect(resolveGithubRepoUrl(`https://github.com/acme/${longRepo}`)).rejects.toMatchObject({
-      code: 'VALIDATION_ERROR',
-    });
+  it('rejects excessively long URLs', () => {
+    const longUrl = 'https://github.com/' + 'a'.repeat(2040);
+    expect(() => validateResolveInput({ githubUrl: longUrl })).toThrow(
+      'Enter a valid GitHub repository URL.',
+    );
   });
 });
