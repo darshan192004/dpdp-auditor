@@ -26,12 +26,18 @@ const ENV: Env = {
 };
 
 describe('queue definitions', () => {
-  it('names the three queues (tasks.md P1-18)', () => {
-    expect(QUEUE_NAMES).toEqual(['scan.execute', 'report.render', 'retention']);
+  it('names the queues (tasks.md P1-18)', () => {
+    expect(QUEUE_NAMES).toEqual([
+      'scan.execute',
+      'scan.execute.watcher',
+      'report.render',
+      'retention',
+    ]);
   });
 
   it('gives each queue a dead-letter companion', () => {
     expect(dlqName('scan.execute')).toBe('scan.execute.dlq');
+    expect(dlqName('scan.execute.watcher')).toBe('scan.execute.watcher.dlq');
     expect(dlqName('report.render')).toBe('report.render.dlq');
     expect(dlqName('retention')).toBe('retention.dlq');
   });
