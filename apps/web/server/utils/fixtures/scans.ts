@@ -1,8 +1,8 @@
-import type { ScanDetail } from '~~/shared/scan';
+﻿import type { ScanDetail, ScanListPage } from '~~/shared/scan';
 import { FIXTURE_SCAN_ID, FixtureNotFoundError } from './findings';
 
 /**
- * Contract-shaped scan fixtures (docs/api.md §3.2) for the scorecard.
+ * Contract-shaped scan fixtures (docs/api.md A3.2) for the scorecard.
  *
  * Two scans exist so the page can be exercised in both states the design
  * calls out: full coverage with a grade and a trend, and partial coverage
@@ -105,4 +105,32 @@ export function getFixtureScan(scanId: string): ScanDetail {
   const scan = FIXTURE_SCANS.find((candidate) => candidate.id === scanId);
   if (scan === undefined) throw new FixtureNotFoundError('The scan does not exist.');
   return structuredClone(scan);
+}
+
+/** Contract-shaped scan list fixture (docs/api.md A3.4) for the scans page. */
+/** Contract-shaped scan list fixture (docs/api.md A3.4) for the scans page. */
+export function fixtureScanList(status?: string | string[]): ScanListPage {
+  const statuses = status === undefined ? [] : Array.isArray(status) ? status : [status];
+  const matched = FIXTURE_SCANS.filter(
+    (scan) => statuses.length === 0 || statuses.includes(scan.status),
+  );
+  return {
+    items: matched.map((scan) => ({
+      id: scan.id,
+      repositoryId: REPOSITORY.id,
+      repositoryFullName: REPOSITORY.fullName,
+      status: scan.status,
+      score: scan.score,
+      grade: scan.grade,
+      counts: scan.counts,
+      createdAt: scan.timestamps.queuedAt,
+      completedAt: scan.timestamps.completedAt,
+    })),
+    pagination: {
+      page: 1,
+      pageSize: 20,
+      totalItems: matched.length,
+      totalPages: matched.length === 0 ? 0 : 1,
+    },
+  };
 }

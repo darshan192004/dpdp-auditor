@@ -215,3 +215,20 @@ export function formatDuration(ms: number | null): string {
 export function shortCommit(sha: string | null): string {
   return sha === null ? '—' : sha.slice(0, 7);
 }
+
+export interface ScanSummary {
+  id: string;
+  repositoryId: string;
+  repositoryFullName: string;
+  status: ScanStatus;
+  score: number | null;
+  grade: ScanGrade | null;
+  counts: ScanCounts;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+export interface ScanListPage {
+  items: ScanSummary[];
+  pagination: { page: number; pageSize: number; totalItems: number; totalPages: number };
+}
