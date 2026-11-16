@@ -1,9 +1,10 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed } from 'vue';
 
 import ScoreCard from '~/components/scan/ScoreCard.vue';
 import SectionBreakdown from '~/components/scan/SectionBreakdown.vue';
 import PageHeader from '~/components/shell/PageHeader.vue';
+import { useAppContext } from '~/composables/useAppContext';
 import ErrorState from '~/components/ui/ErrorState.vue';
 import {
   coverageFor,
@@ -56,6 +57,8 @@ const sections = computed(() =>
 );
 
 const isCompleted = computed(() => scan.value?.status === 'completed');
+const { org } = useAppContext();
+const canExport = computed(() => ['auditor', 'admin', 'owner'].includes(org.value?.role ?? ''));
 const statusLabel = computed(() =>
   scan.value === null ? '' : SCAN_STATUS_LABELS[scan.value.status],
 );
@@ -68,12 +71,15 @@ const statusLabel = computed(() =>
       :breadcrumbs="[{ label: 'Scans', to: '/app/scans' }, { label: shortId }]"
     >
       <template #actions>
-        <NuxtLink
-          :to="`/app/scans/${scanId}/findings`"
-          class="bg-brand-500 hover:bg-brand-600 focus-visible:ring-brand-500 text-ink-50 inline-flex items-center rounded-[var(--radius-control)] px-3 py-1.5 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-        >
-          View findings
-        </NuxtLink>
+        <div class="flex flex-wrap items-center gap-2">
+          <ReportDownloadButton v-if="isCompleted" :scan-id="scanId" :can-export="canExport" />
+          <NuxtLink
+            :to="`/app/scans/${scanId}/findings`"
+            class="bg-brand-500 hover:bg-brand-600 focus-visible:ring-brand-500 text-ink-50 inline-flex items-center rounded-[var(--radius-control)] px-3 py-1.5 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+          >
+            View findings
+          </NuxtLink>
+        </div>
       </template>
     </PageHeader>
 
@@ -101,32 +107,36 @@ const statusLabel = computed(() =>
             />
             {{ statusLabel }}
           </dd>
-          <dd v-else class="text-ink-500 mt-1 text-sm">—</dd>
+          <dd v-else class="text-ink-500 mt-1 text-sm">â€”</dd>
         </div>
         <div class="px-4 py-3">
           <dt class="text-ink-400 font-mono text-xs tracking-widest uppercase">Commit</dt>
           <dd v-if="scan !== null" class="text-ink-800 mt-1 font-mono text-xs">
             {{ scan.ref }} @ {{ shortCommit(scan.commitSha) }}
           </dd>
-          <dd v-else class="text-ink-500 mt-1 text-sm">—</dd>
+          <dd v-else class="text-ink-500 mt-1 text-sm">â€”</dd>
         </div>
         <div class="px-4 py-3">
           <dt class="text-ink-400 font-mono text-xs tracking-widest uppercase">Completed</dt>
           <dd class="text-ink-800 mt-1 text-sm tabular-nums">
-            {{ scan?.timestamps.completedAt ? formatTimestamp(scan.timestamps.completedAt) : '—' }}
+            {{
+              scan?.timestamps.completedAt ? formatTimestamp(scan.timestamps.completedAt) : 'â€”'
+            }}
           </dd>
         </div>
         <div class="px-4 py-3">
           <dt class="text-ink-400 font-mono text-xs tracking-widest uppercase">Duration</dt>
           <dd class="text-ink-800 mt-1 text-sm tabular-nums">
             {{
-              scan?.timestamps.durationMs != null ? formatDuration(scan.timestamps.durationMs) : '—'
+              scan?.timestamps.durationMs != null
+                ? formatDuration(scan.timestamps.durationMs)
+                : 'â€”'
             }}
           </dd>
         </div>
         <div class="px-4 py-3">
           <dt class="text-ink-400 font-mono text-xs tracking-widest uppercase">Rule pack</dt>
-          <dd class="text-ink-800 mt-1 font-mono text-xs">{{ scan?.rulePackVersion ?? '—' }}</dd>
+          <dd class="text-ink-800 mt-1 font-mono text-xs">{{ scan?.rulePackVersion ?? 'â€”' }}</dd>
         </div>
         <div class="px-4 py-3">
           <dt class="text-ink-400 font-mono text-xs tracking-widest uppercase">Scan</dt>
