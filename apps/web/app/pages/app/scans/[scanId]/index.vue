@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed } from 'vue';
 
 import ScoreCard from '~/components/scan/ScoreCard.vue';
@@ -107,36 +107,32 @@ const statusLabel = computed(() =>
             />
             {{ statusLabel }}
           </dd>
-          <dd v-else class="text-ink-500 mt-1 text-sm">â€”</dd>
+          <dd v-else class="text-ink-500 mt-1 text-sm">—</dd>
         </div>
         <div class="px-4 py-3">
           <dt class="text-ink-400 font-mono text-xs tracking-widest uppercase">Commit</dt>
           <dd v-if="scan !== null" class="text-ink-800 mt-1 font-mono text-xs">
             {{ scan.ref }} @ {{ shortCommit(scan.commitSha) }}
           </dd>
-          <dd v-else class="text-ink-500 mt-1 text-sm">â€”</dd>
+          <dd v-else class="text-ink-500 mt-1 text-sm">—</dd>
         </div>
         <div class="px-4 py-3">
           <dt class="text-ink-400 font-mono text-xs tracking-widest uppercase">Completed</dt>
           <dd class="text-ink-800 mt-1 text-sm tabular-nums">
-            {{
-              scan?.timestamps.completedAt ? formatTimestamp(scan.timestamps.completedAt) : 'â€”'
-            }}
+            {{ scan?.timestamps.completedAt ? formatTimestamp(scan.timestamps.completedAt) : '—' }}
           </dd>
         </div>
         <div class="px-4 py-3">
           <dt class="text-ink-400 font-mono text-xs tracking-widest uppercase">Duration</dt>
           <dd class="text-ink-800 mt-1 text-sm tabular-nums">
             {{
-              scan?.timestamps.durationMs != null
-                ? formatDuration(scan.timestamps.durationMs)
-                : 'â€”'
+              scan?.timestamps.durationMs != null ? formatDuration(scan.timestamps.durationMs) : '—'
             }}
           </dd>
         </div>
         <div class="px-4 py-3">
           <dt class="text-ink-400 font-mono text-xs tracking-widest uppercase">Rule pack</dt>
-          <dd class="text-ink-800 mt-1 font-mono text-xs">{{ scan?.rulePackVersion ?? 'â€”' }}</dd>
+          <dd class="text-ink-800 mt-1 font-mono text-xs">{{ scan?.rulePackVersion ?? '—' }}</dd>
         </div>
         <div class="px-4 py-3">
           <dt class="text-ink-400 font-mono text-xs tracking-widest uppercase">Scan</dt>

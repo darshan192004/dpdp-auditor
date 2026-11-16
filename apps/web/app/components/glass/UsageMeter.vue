@@ -1,24 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import type { OrgSummary } from '~~/shared/org';
+import { planLabel, type OrgSummary } from '~~/shared/org';
 
 const props = withDefaults(defineProps<{ summary?: OrgSummary | null }>(), { summary: null });
 
-const planLabel = computed(() => {
-  switch (props.summary?.plan) {
-    case 'free':
-      return 'Free';
-    case 'starter':
-      return 'Starter';
-    case 'growth':
-      return 'Growth';
-    case 'enterprise':
-      return 'Enterprise';
-    default:
-      return props.summary?.plan?.toUpperCase() ?? '—';
-  }
-});
+const plan = computed(() => planLabel(props.summary?.plan));
 
 const scansPercent = computed(() => {
   const summary = props.summary;
@@ -48,7 +35,7 @@ const reportsAria = computed(() => {
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
         <p class="text-ink-400 font-mono text-xs tracking-widest uppercase">Plan</p>
-        <p class="text-ink-900 mt-1 text-sm font-semibold">{{ planLabel }}</p>
+        <p class="text-ink-900 mt-1 text-sm font-semibold">{{ plan }}</p>
       </div>
     </div>
 

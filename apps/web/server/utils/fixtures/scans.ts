@@ -1,4 +1,4 @@
-﻿import type { ScanDetail, ScanListPage } from '~~/shared/scan';
+import type { ScanDetail, ScanListPage } from '~~/shared/scan';
 import { FIXTURE_SCAN_ID, FixtureNotFoundError } from './findings';
 
 /**

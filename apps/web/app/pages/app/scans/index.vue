@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed, ref } from 'vue';
 
 import PageHeader from '~/components/shell/PageHeader.vue';
@@ -64,16 +64,22 @@ function changePage(next: number): void {
 </script>
 
 <template>
-  <div class="space-y-5">
+  <div class="max-w-full min-w-0 space-y-5 overflow-x-auto">
     <PageHeader title="Scans" :breadcrumbs="[{ label: 'Scans' }]" />
 
     <div
-      class="bg-surface flex flex-wrap items-center gap-x-5 gap-y-3 rounded-[var(--radius-card)] px-4 py-3 shadow-[var(--shadow-card)]"
+      class="bg-surface flex min-w-0 flex-wrap items-center gap-x-5 gap-y-3 rounded-[var(--radius-card)] px-4 py-3 shadow-[var(--shadow-card)]"
       role="group"
       aria-label="Filter scans by status"
     >
-      <span class="text-ink-400 font-mono text-xs tracking-widest uppercase">Status</span>
-      <div class="flex flex-wrap items-center gap-1.5" role="radiogroup" aria-label="Status filter">
+      <span class="text-ink-400 flex-shrink-0 font-mono text-xs tracking-widest uppercase"
+        >Status</span
+      >
+      <div
+        class="min-w-0 flex-[1_1_0%] overflow-x-auto"
+        role="radiogroup"
+        aria-label="Status filter"
+      >
         <button
           v-for="option in [
             { value: '' as const, label: 'All' },
@@ -116,18 +122,18 @@ function changePage(next: number): void {
     <template v-else>
       <section
         aria-labelledby="scan-list-heading"
-        class="bg-surface overflow-hidden rounded-[var(--radius-card)] shadow-[var(--shadow-card)]"
+        class="bg-surface min-w-0 overflow-x-auto rounded-[var(--radius-card)] shadow-[var(--shadow-card)]"
       >
         <div
-          class="border-ink-200 flex flex-wrap items-baseline justify-between gap-2 border-b px-4 py-3"
+          class="border-ink-200 flex min-w-0 flex-wrap items-baseline justify-between gap-2 border-b px-4 py-3"
         >
           <h2 id="scan-list-heading" class="text-ink-900 text-sm font-semibold">Recent scans</h2>
           <span class="text-ink-500 text-xs tabular-nums">
             {{ pagination?.totalItems ?? items.length }} total
           </span>
         </div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-sm">
+        <div class="max-w-full min-w-0 overflow-x-auto">
+          <table class="w-full table-fixed text-left text-sm">
             <caption class="sr-only">
               Scan history with repository, status, score, grade, and completion time
             </caption>

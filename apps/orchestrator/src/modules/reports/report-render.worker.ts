@@ -1,4 +1,4 @@
-﻿import { Inject, Injectable, OnApplicationShutdown } from '@nestjs/common';
+import { Inject, Injectable, OnApplicationShutdown } from '@nestjs/common';
 import { Worker, type Job } from 'bullmq';
 import { logger } from '../../common/logger.js';
 import { ENV, type Env } from '../../config/env.js';

@@ -1,12 +1,19 @@
 import { getQuery } from 'h3';
 import { callOrchestrator } from '../../../utils/orchestrator';
-import { requireIdentity } from '../../../utils/org-request';
+import { fixturesAnswer, requireIdentity } from '../../../utils/org-request';
+import { fixtureAuditLogNdjson } from '../../../utils/fixtures/audit';
 
 /**
  * GET /api/v1/audit-logs/export — P5-31
  * Streams audit logs as NDJSON. Role: owner/admin.
  */
 export default defineEventHandler((event) => {
+  if (fixturesAnswer(event)) {
+    setHeader(event, 'content-type', 'application/x-ndjson');
+    setHeader(event, 'content-disposition', 'attachment; filename="audit-logs.jsonl"');
+    return fixtureAuditLogNdjson(getQuery(event));
+  }
+
   requireIdentity(event);
   const query = getQuery(event);
   const params = new URLSearchParams();

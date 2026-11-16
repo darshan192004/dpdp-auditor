@@ -1,4 +1,4 @@
-﻿import { callOrchestrator } from '../../../../../utils/orchestrator';
+import { callOrchestrator } from '../../../../../utils/orchestrator';
 import { fixtureReportViewModel } from '../../../../../utils/fixtures/reports';
 import { getFixtureScan } from '../../../../../utils/fixtures/scans';
 import { FIXTURE_SCAN_ID } from '../../../../../utils/fixtures/findings';

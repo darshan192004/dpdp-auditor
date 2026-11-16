@@ -87,6 +87,26 @@ export class OrgInputError extends Error {
   }
 }
 
+/** Display label for a plan slug - one spelling across sidebar, cards, settings. */
+export function planLabel(plan: string | null | undefined): string {
+  switch (plan) {
+    case 'free':
+      return 'Free';
+    case 'starter':
+      return 'Starter';
+    case 'growth':
+      return 'Growth';
+    case 'enterprise':
+      return 'Enterprise';
+    case null:
+    case undefined:
+    case '':
+      return '—';
+    default:
+      return plan.charAt(0).toUpperCase() + plan.slice(1);
+  }
+}
+
 export function canManageOrg(role: string | null | undefined): boolean {
   return role === 'owner' || role === 'admin';
 }

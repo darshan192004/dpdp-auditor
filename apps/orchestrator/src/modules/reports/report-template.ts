@@ -1,4 +1,4 @@
-﻿/**
+/**
  * P5-18: PDF template v1 (docs/design.md report section, docs/api.md 10.6).
  *
  * Pure HTML string builder over the shared report view model - the same

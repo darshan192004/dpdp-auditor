@@ -1,4 +1,4 @@
-﻿import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { InternalScansController } from '../src/modules/scans/internal-scans.controller.js';
 import type { ScansService } from '../src/modules/scans/scans.service.js';
 import { PLAN_LIMITS, monthStart } from '../src/common/plan-limits.js';

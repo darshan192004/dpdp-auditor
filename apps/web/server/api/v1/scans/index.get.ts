@@ -1,4 +1,4 @@
-﻿import { fixturesAnswer } from '../../../utils/org-request';
+import { fixturesAnswer } from '../../../utils/org-request';
 
 /**
  * GET /api/v1/scans - docs/api.md A3.4.

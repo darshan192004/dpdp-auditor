@@ -1,4 +1,4 @@
-﻿import { test, expect } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 
 /**
  * P5-21/P5-22: report request, status polling, and the accessible HTML

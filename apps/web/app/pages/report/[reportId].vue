@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 /**
  * P5-22: accessible HTML report preview (docs/api.md 10.6). Same view model
  * the PDF renderer consumes, so the numbers on screen equal the numbers in
@@ -65,6 +65,9 @@ const sections = computed(() =>
   report.value === null ? [] : scanSections(report.value.scan.sectionScores),
 );
 const loading = computed(() => status.value === 'pending');
+// Nuxt serialises a successful fetch with no error key, so the value is
+// undefined rather than null - a strict !== null would always be true.
+const failed = computed(() => error.value != null);
 const loadError = computed(() => {
   const failure = error.value as { data?: { error?: { message?: string } } } | null;
   return failure?.data?.error?.message ?? 'The report could not be loaded.';
@@ -108,7 +111,7 @@ function duration(ms: number | null): string {
 
     <p v-if="loading" role="status" class="text-ink-500">Loading report.</p>
 
-    <p v-else-if="error !== null" role="alert" class="text-risk-critical-text">{{ loadError }}</p>
+    <p v-else-if="failed" role="alert" class="text-risk-critical-text">{{ loadError }}</p>
 
     <template v-else-if="report !== null">
       <section aria-labelledby="summary-heading" class="space-y-3">

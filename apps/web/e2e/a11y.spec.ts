@@ -1,7 +1,7 @@
-﻿import AxeBuilder from '@axe-core/playwright';
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
-// design.md Â§9: public surfaces must hold zero serious/critical violations.
+// design.md §9: public surfaces must hold zero serious/critical violations.
 
 // P5-14 widens the sweep to every authenticated data surface plus the
 // accessible report preview.

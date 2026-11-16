@@ -39,8 +39,11 @@ test.describe('Overview Dashboard', () => {
   });
 
   test('displays usage meter with plan information', async ({ page }) => {
-    // Fixture plan is "starter" → UsageMeter renders "Starter".
-    await expect(page.getByText('Starter')).toBeVisible();
+    // Fixture plan is "starter" → UsageMeter renders "Starter". Scope to the
+    // main landmark: the sidebar plan badge also reads "Starter" and would
+    // trip strict mode.
+    const main = page.locator('main, #main').first();
+    await expect(main.getByText('Starter')).toBeVisible();
 
     // Verify usage labels
     await expect(page.getByText('Scans this month')).toBeVisible();

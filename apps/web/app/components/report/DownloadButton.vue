@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 /**
  * P5-21: request a PDF for a completed scan, poll its status, then offer the
  * download (docs/api.md 6.1-6.3). The idempotency key is generated once per

@@ -1,4 +1,4 @@
-﻿import type { ScanDetail } from '~~/shared/scan';
+import type { ScanDetail } from '~~/shared/scan';
 import { FIXTURE_SCAN_ID } from './findings';
 
 /** P5-18/P5-21/P5-22: report fixtures for dev/CI (docs/api.md 6.1-6.3, 10.6). */
