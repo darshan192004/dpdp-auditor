@@ -50,14 +50,9 @@ export class JobWatcherService {
           return { state: 'succeeded' } as const;
         }
 
-        const failedCondition = status.conditions?.find(
-          (c) => c.type === 'Failed' && c.status === 'True',
-        );
-        if (failedCondition || (status.failed ?? 0) > 0) {
-          const reason = normalizeReason(failedCondition?.reason);
-          const outcome: JobWatchOutcome = failedCondition?.message
-            ? { state: 'failed', reason, message: failedCondition.message }
-            : { state: 'failed', reason };
+        if ((status.failed ?? 0) > 0) {
+          const reason = normalizeReason(undefined);
+          const outcome: JobWatchOutcome = { state: 'failed', reason };
           span.setAttribute('scan.failure_reason', reason);
           span.setStatus({ code: SpanStatusCode.OK });
           return outcome;

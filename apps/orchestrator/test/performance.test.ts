@@ -16,13 +16,13 @@ import type { PrismaService } from '../src/prisma/prisma.service.js';
 
 describe('Performance benchmarks (P6-17)', () => {
   // Deterministic mock data for benchmark validation
-  const _deterministicScanTimes = [45, 120, 180, 240, 300, 360, 420, 480, 540, 599]; // seconds, max 10min
+  const deterministicScanTimes = [45, 120, 180, 240, 300, 360, 420, 480, 540, 599]; // seconds, max 10min
   const _deterministicPdfTimes = [2, 3, 4, 5, 6, 7, 8, 9, 9.5, 9.9]; // seconds, all <10
   const _deterministicApiTimes = [50, 60, 70, 80, 90, 100, 110, 120, 130, 140]; // ms, all <400
 
   it('measures scan completion time < 10 minutes (p95)', async () => {
     // Mock repository matching PrismaService shape: .scan.findFirst(...)
-    const originalScanTimes = [45, 120, 180, 240, 300, 360, 420, 480, 540, 599]; // deterministic times for validation
+    const originalScanTimes = [...deterministicScanTimes];
     const scanTimes = [...originalScanTimes];
     const mockRepo = {
       scan: {
@@ -52,14 +52,14 @@ describe('Performance benchmarks (P6-17)', () => {
 
   it('measures API response time < 400ms (p95)', () => {
     const sorted = [..._deterministicApiTimes].sort((a, b) => a - b);
-    const p95 = sorted[Math.ceil(sorted.length * 0.95) - 1];
+    const p95 = sorted[Math.ceil(sorted.length * 0.95) - 1] ?? sorted[sorted.length - 1];
     expect(sorted.every((t) => t < 400)).toBe(true);
     expect(p95).toBeLessThan(400);
   });
 
   it('measures PDF generation time < 10 seconds (p95)', () => {
     const sorted = [..._deterministicPdfTimes].sort((a, b) => a - b);
-    const p95 = sorted[Math.ceil(sorted.length * 0.95) - 1];
+    const p95 = sorted[Math.ceil(sorted.length * 0.95) - 1] ?? sorted[sorted.length - 1];
     expect(sorted.every((t) => t < 10)).toBe(true);
     expect(p95).toBeLessThan(10);
   });

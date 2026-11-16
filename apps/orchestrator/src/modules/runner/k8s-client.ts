@@ -32,12 +32,12 @@ export class K8sClient {
       data,
       type: 'Opaque',
     };
-    await this.core.createNamespacedSecret({ namespace: this.namespace, body });
+    await this.core.createNamespacedSecret(this.namespace, body);
   }
 
   /** Delete a secret by name. */
   async deleteSecret(name: string): Promise<void> {
-    await this.core.deleteNamespacedSecret({ name, namespace: this.namespace });
+    await this.core.deleteNamespacedSecret(name, this.namespace);
   }
 
   /**
@@ -45,33 +45,27 @@ export class K8sClient {
    * `ownerReference` to the Job after creation (architecture.md §7.2).
    */
   async patchSecret(name: string, patch: Record<string, unknown>): Promise<void> {
-    await this.core.patchNamespacedSecret({
-      name,
-      namespace: this.namespace,
-      body: patch,
-    });
+    await this.core.patchNamespacedSecret(name, this.namespace, patch);
   }
 
   /** Create a job from the specification. */
   async createJob(spec: V1Job): Promise<V1Job> {
-    const res = (await this.batch.createNamespacedJob({
-      namespace: this.namespace,
-      body: spec,
-    })) as unknown as { body: V1Job };
+    const res = (await this.batch.createNamespacedJob(this.namespace, spec)) as unknown as {
+      body: V1Job;
+    };
     return res.body;
   }
 
   /** Delete a job by name. */
   async deleteJob(name: string): Promise<void> {
-    await this.batch.deleteNamespacedJob({ name, namespace: this.namespace });
+    await this.batch.deleteNamespacedJob(name, this.namespace);
   }
 
   /** Read a job's status (P3-16 watcher). */
   async getJobStatus(name: string): Promise<V1JobStatus | undefined> {
-    const res = (await this.batch.readNamespacedJobStatus({
-      name,
-      namespace: this.namespace,
-    })) as unknown as { body: V1Job };
+    const res = (await this.batch.readNamespacedJobStatus(name, this.namespace)) as unknown as {
+      body: V1Job;
+    };
     return res.body?.status;
   }
 }

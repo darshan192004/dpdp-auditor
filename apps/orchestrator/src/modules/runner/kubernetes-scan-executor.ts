@@ -18,7 +18,7 @@ export class KubernetesScanExecutor implements ScanExecutor {
     orgId: string,
     secretData: Record<string, string>,
   ): Promise<string> {
-    return tracer.startActiveSpan('scan.k8s.create', async (span) => {
+    return tracer.startActiveSpan('scan.k8s.create', async (span): Promise<string> => {
       span.setAttribute('scan.id', scanId);
       span.setAttribute('scan.org_id', orgId);
       span.setAttribute('k8s.job_name', jobName);
@@ -149,7 +149,7 @@ export class KubernetesScanExecutor implements ScanExecutor {
           });
 
           span.setStatus({ code: SpanStatusCode.OK });
-          return jobNameFinal;
+          return String(jobNameFinal);
         } catch (error) {
           // cleanup secret on job creation failure (architecture.md §7.2)
           await this.k8s.deleteSecret(jobName).catch(() => {
