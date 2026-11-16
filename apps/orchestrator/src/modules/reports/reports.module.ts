@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { FindingsModule } from '../findings/findings.module.js';
 import { ScansModule } from '../scans/scans.module.js';
 import { AuditModule } from '../audit/audit.module.js';
@@ -12,7 +12,13 @@ import { ReportRenderRunner } from './report-render.worker.js';
 import { EmailService } from './email.service.js';
 
 @Module({
-  imports: [FindingsModule, InternalAuthModule, AuditModule, ScansModule, IdentityModule],
+  imports: [
+    FindingsModule,
+    InternalAuthModule,
+    AuditModule,
+    ScansModule,
+    forwardRef(() => IdentityModule),
+  ],
   controllers: [InternalReportsController],
   providers: [
     ReportsService,

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { IdentityModule } from '../identity/identity.module.js';
 import { InternalAuthModule } from '../internal-auth/internal-auth.module.js';
 import { ReposModule } from '../repos/repos.module.js';
@@ -10,7 +10,12 @@ import { ScansRepository } from './scans.repository.js';
 import { ScansService } from './scans.service.js';
 
 @Module({
-  imports: [IdentityModule, ReposModule, InternalAuthModule, RulePackModule],
+  imports: [
+    forwardRef(() => ReposModule),
+    forwardRef(() => IdentityModule),
+    InternalAuthModule,
+    RulePackModule,
+  ],
   controllers: [InternalScansController],
   providers: [ScansService, ScansRepository, ScanScoringService, EmailService],
   exports: [ScansService, ScansRepository, ScanScoringService],
