@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue';
 
 import PageHeader from '~/components/shell/PageHeader.vue';
@@ -21,14 +21,17 @@ import {
   type MemberRole,
   type OrgDetail,
   type OrgMember,
+  type OrgSummary,
 } from '~~/shared/org';
 import { formatTimestamp } from '~~/shared/scan';
+import UsageMeter from '~/components/glass/UsageMeter.vue';
 
 definePageMeta({ layout: 'app' });
 
 // Both reads are tenant-scoped by the session; the role inside `OrgDetail`
-// decides which controls render (docs/api.md §7.2–7.3).
+// decides which controls render (docs/api.md Â§7.2â€“7.3).
 const orgRequest = await useFetch<{ data: OrgDetail }>('/api/v1/org');
+const summaryRequest = await useFetch<{ data: OrgSummary }>('/api/v1/org/summary');
 const membersRequest = await useFetch<{ data: OrgMember[] }>('/api/v1/org/members');
 const invitesRequest = await useFetch<{ data: PendingInvite[] }>('/api/v1/org/invites', {
   immediate: false,
@@ -191,7 +194,7 @@ async function inviteMember(): Promise<void> {
     } else if (response.data.token) {
       lastInviteToken.value = { email: body.email, token: response.data.token };
       await invitesRequest.refresh();
-      notice.value = `Invitation created for ${body.email}. Copy the link below — it is shown once.`;
+      notice.value = `Invitation created for ${body.email}. Copy the link below â€” it is shown once.`;
     } else {
       await invitesRequest.refresh();
     }
@@ -206,7 +209,7 @@ async function revokeInvite(invite: PendingInvite): Promise<void> {
   }, `Revoked invitation for ${invite.email}.`);
 }
 
-/** Only owners may grant, change, or remove the owner role (api.md §7.3). */
+/** Only owners may grant, change, or remove the owner role (api.md Â§7.3). */
 function canTouch(member: OrgMember): boolean {
   return canManage.value && (member.role !== 'owner' || isOwner.value);
 }
@@ -247,7 +250,7 @@ async function removeMember(member: OrgMember): Promise<void> {
     />
 
     <p v-else-if="loading && org === null" role="status" class="text-ink-500 text-sm">
-      Loading organisation…
+      Loading organisationâ€¦
     </p>
 
     <template v-else-if="org !== null">
@@ -420,6 +423,21 @@ async function removeMember(member: OrgMember): Promise<void> {
           >
             Save preference
           </button>
+        </div>
+      </section>
+
+      <section
+        aria-labelledby="org-plan-heading"
+        class="bg-surface overflow-hidden rounded-[var(--radius-card)] shadow-[var(--shadow-card)]"
+      >
+        <div class="border-ink-200 border-b px-4 py-3">
+          <h2 id="org-plan-heading" class="text-ink-900 text-sm font-semibold">Plan and usage</h2>
+          <p class="text-ink-500 mt-1 text-xs">
+            Read-only at MVP. Quotas reset at the start of each UTC month.
+          </p>
+        </div>
+        <div class="px-4 py-4">
+          <UsageMeter :summary="summaryRequest.data.value?.data ?? null" />
         </div>
       </section>
 
@@ -643,7 +661,7 @@ async function removeMember(member: OrgMember): Promise<void> {
                       Remove
                     </button>
                   </template>
-                  <span v-else class="text-ink-400 text-xs">—</span>
+                  <span v-else class="text-ink-400 text-xs">â€”</span>
                 </td>
               </tr>
             </tbody>
@@ -668,7 +686,7 @@ async function removeMember(member: OrgMember): Promise<void> {
               <div>
                 <span class="text-ink-800 block text-sm">{{ invite.email }}</span>
                 <span class="text-ink-500 block text-xs">
-                  {{ ROLE_LABELS[invite.role] }} · expires {{ formatTimestamp(invite.expiresAt) }}
+                  {{ ROLE_LABELS[invite.role] }} Â· expires {{ formatTimestamp(invite.expiresAt) }}
                 </span>
               </div>
               <div>
