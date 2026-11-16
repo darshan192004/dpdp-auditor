@@ -107,6 +107,17 @@ export class InternalIdentityController {
     };
   }
 
+  /** P5-01: org summary for the overview dashboard (usage, quotas). */
+  @Get('org/summary')
+  async getOrgSummary(
+    @Headers('x-org-id') orgHeader: string | undefined,
+    @Headers('x-user-id') userHeader: string | undefined,
+  ) {
+    return {
+      data: await this.identity.getOrgSummary(orgIdFrom(orgHeader), userIdFrom(userHeader)),
+    };
+  }
+
   @Patch('org')
   async updateOrganization(
     @Headers('x-org-id') orgHeader: string | undefined,

@@ -21,6 +21,6 @@ import { EmailService } from './email.service.js';
     ReportRenderRunner,
     EmailService,
   ],
-  exports: [ReportsService, ReportRenderRunner],
+  exports: [ReportsService, ReportRenderRunner, ReportsRepository],
 })
 export class ReportsModule {}

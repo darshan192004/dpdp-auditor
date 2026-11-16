@@ -104,10 +104,22 @@ describe('InternalScansController', () => {
 
 describe('plan limits', () => {
   it('matches the published plan table', () => {
-    expect(PLAN_LIMITS.free).toEqual({ repositories: 2, scansPerMonth: 5 });
-    expect(PLAN_LIMITS.starter).toEqual({ repositories: 10, scansPerMonth: 50 });
-    expect(PLAN_LIMITS.growth).toEqual({ repositories: 50, scansPerMonth: 300 });
-    expect(PLAN_LIMITS.enterprise).toEqual({ repositories: null, scansPerMonth: null });
+    expect(PLAN_LIMITS.free).toEqual({ repositories: 2, scansPerMonth: 5, reportsPerMonth: 3 });
+    expect(PLAN_LIMITS.starter).toEqual({
+      repositories: 10,
+      scansPerMonth: 50,
+      reportsPerMonth: 20,
+    });
+    expect(PLAN_LIMITS.growth).toEqual({
+      repositories: 50,
+      scansPerMonth: 300,
+      reportsPerMonth: 100,
+    });
+    expect(PLAN_LIMITS.enterprise).toEqual({
+      repositories: null,
+      scansPerMonth: null,
+      reportsPerMonth: null,
+    });
   });
 
   it('resets quotas at the start of the UTC month', () => {

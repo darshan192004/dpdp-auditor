@@ -65,6 +65,30 @@ const PATHS: Record<string, string[]> = {
   ],
   key: ['M15 9a3 3 0 1 0-3-3', 'm12 9-9 9v3h3l9-9'],
   lock: ['M5 11h14v10H5z', 'M8 11V7a4 4 0 0 1 8 0v4'],
+  'bar-chart-2': ['M3 3v16h2V3', 'M9 3v14h2V3', 'M15 3v8h2V3', 'M21 3v16h2V3'],
+  activity: ['M22 12h-4l3 3L9 3l3 3H2'],
+  users: ['M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'],
+  'file-text': [
+    'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z',
+    'M14 2v6h6',
+    'M16 13H8',
+    'M16 17H8',
+    'M18 9h2',
+    'M16 15h2',
+    'M18 5h2',
+  ],
+  'layout-grid': ['M3 3h18v18H3V3zm16 16h-4v-4h4v4zm0-8h-4V7h4v4zM7 11H3V7h4v4zm12-4h-4V3h4v4z'],
+  'trending-up': [
+    'M23 4v16H1',
+    'M23 4l-9 15',
+    'M1 20l9-15',
+    'M21 4h-4a4 4 0 0 0-4 4v12a4 4 0 0 0 4 4h4',
+  ],
+  clock: ['M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20', 'M12 12H7m5 6V7'],
+  folder: [
+    'M22 19a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2V4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v13z',
+    'M2 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2H2V6z',
+  ],
 };
 
 const paths = computed(() => PATHS[props.name] ?? []);

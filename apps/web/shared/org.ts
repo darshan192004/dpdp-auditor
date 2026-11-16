@@ -30,6 +30,18 @@ export interface OrgDetail {
   role: MemberRole;
 }
 
+/** `GET /api/v1/org/summary` (P5-01): usage vs plan quota for the dashboard. */
+export interface OrgSummary {
+  id: string;
+  name: string;
+  slug: string;
+  plan: string;
+  scansPerMonth: number | null;
+  scansUsedThisMonth: number;
+  reportsPerMonth: number | null;
+  reportsUsedThisMonth: number;
+}
+
 /** `GET /api/v1/org/members` (api.md §7.3). */
 export interface OrgMember {
   userId: string;
