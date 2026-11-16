@@ -20,6 +20,14 @@ const REPO_NAME = /^[A-Za-z0-9._-]{1,100}$/;
  */
 export function parseGithubRepoUrl(input: string): ParsedRepoUrl {
   const raw = input.trim();
+  if (raw.includes('%')) {
+    throw new ApiError('VALIDATION_ERROR', 'The URL must not contain percent-encoded characters.');
+  }
+  // Reject path traversal tokens before URL normalization can hide them.
+  const rawPath = raw.split('://')[1] ?? '';
+  if (/\.\.\/|\.\.$/.test(rawPath)) {
+    throw new ApiError('VALIDATION_ERROR', 'Path traversal is not allowed.');
+  }
   let url: URL;
   try {
     url = new URL(raw);
@@ -43,6 +51,9 @@ export function parseGithubRepoUrl(input: string): ParsedRepoUrl {
   const segments = url.pathname.split('/').filter((segment) => segment.length > 0);
   if (segments.length !== 2) {
     throw new ApiError('VALIDATION_ERROR', 'The URL must point at a repository: /<owner>/<repo>.');
+  }
+  if (segments.some((s) => s === '.' || s === '..')) {
+    throw new ApiError('VALIDATION_ERROR', 'Path traversal is not allowed.');
   }
 
   const [owner = '', rawName = ''] = segments;
