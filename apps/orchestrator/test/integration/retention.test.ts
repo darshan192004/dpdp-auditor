@@ -32,6 +32,7 @@ describeDb('retention job (database.md §9)', () => {
   let findingId: string;
   const sessionIds: string[] = [];
   let keepSessionId: string;
+  const reportIds: string[] = [];
 
   beforeAll(async () => {
     // Literal-only template: Prisma parameterizes interpolations and
@@ -113,6 +114,18 @@ describeDb('retention job (database.md §9)', () => {
         },
       })
     ).id;
+    // Only ready reports past retention should expire; preserve fresh and queued reports.
+    for (const report of [
+      { status: 'ready' as const, expiresAt: new Date(Date.now() - HOUR) },
+      { status: 'ready' as const, expiresAt: new Date(Date.now() + DAY) },
+      { status: 'queued' as const, expiresAt: new Date(Date.now() - HOUR) },
+    ]) {
+      const created = await owner.report.create({
+        data: { orgId, scanId: freshScanId, templateVersion: 'standard', ...report },
+      });
+      reportIds.push(created.id);
+    }
+
     // Key older than 7 days: nulled. Fresh key: kept.
     keyScanId = (
       await owner.scan.create({
@@ -192,6 +205,14 @@ describeDb('retention job (database.md §9)', () => {
     expect(await owner.scannerFinding.findUnique({ where: { id: findingId } })).toBeNull();
     expect(counts.deletedScans).toBeGreaterThanOrEqual(1);
 
+    expect(counts.expiredReports).toBeGreaterThanOrEqual(1);
+    const reports = await owner.report.findMany({ where: { id: { in: reportIds } } });
+    expect(reportIds.map((id) => reports.find((report) => report.id === id)?.status)).toEqual([
+      'expired',
+      'ready',
+      'queued',
+    ]);
+
     // Recent scan untouched.
     expect((await owner.scan.findUnique({ where: { id: freshScanId } }))?.status).toBe('completed');
 
@@ -217,6 +238,7 @@ describeDb('retention job (database.md §9)', () => {
       deletedScans: 0,
       purgedSessions: 0,
       clearedIdempotencyKeys: 0,
+      expiredReports: 0,
     });
     // The just-marked scan has updated_at = now → not deleted before 24h.
     expect(await owner.scan.findUnique({ where: { id: oldScanId } })).not.toBeNull();
@@ -227,12 +249,12 @@ describeDb('retention job (database.md §9)', () => {
     try {
       await ensureRetentionSchedule(queue);
       await ensureRetentionSchedule(queue);
-      const repeatables = (await queue.getRepeatableJobs()).filter((r) => r.name === 'run');
+      const repeatables = (await queue.getJobSchedulers()).filter((r) => r.name === 'run');
       expect(repeatables).toHaveLength(1);
       expect(repeatables[0]?.pattern).toBe('0 * * * *');
     } finally {
-      const repeatables = await queue.getRepeatableJobs();
-      for (const r of repeatables) await queue.removeRepeatableByKey(r.key);
+      const repeatables = await queue.getJobSchedulers();
+      for (const r of repeatables) await queue.removeJobScheduler(r.key);
       await queue.close();
     }
   });
