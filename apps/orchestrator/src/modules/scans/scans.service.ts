@@ -487,6 +487,54 @@ export class ScansService {
     if (!scan) throw new ApiError('NOT_FOUND', 'The scan does not exist.');
     return scan;
   }
+
+  /**
+   * P3-16: called by the scan.execute.watcher worker once the K8s Job is
+   * terminal. Transitions the scan row to `scanning`/`failed` and writes a
+   * lifecycle event. The scan must still be active (queued/cloning/scanning) —
+   * late callbacks are rejected with `INVALID_STATE_TRANSITION`.
+   */
+  async markJobSucceeded(scanId: string, orgId: string, secretName: string): Promise<void> {
+    const scan = await this.requireScan(orgId, scanId);
+    if (!isActive(scan.status)) {
+      throw new ApiError('INVALID_STATE_TRANSITION', 'The scan is no longer active.');
+    }
+    await this.prisma.$transaction(async (tx) => {
+      await this.scans.update(
+        scan.id,
+        { status: 'scanning', startedAt: scan.startedAt ?? new Date() },
+        tx,
+      );
+      await this.scans.appendEvent(scan.id, orgId, 'job_started', { secretName }, tx);
+    });
+  }
+
+  async markJobFailed(
+    scanId: string,
+    orgId: string,
+    code: string,
+    message: string,
+    secretName: string,
+  ): Promise<void> {
+    const scan = await this.requireScan(orgId, scanId);
+    if (!isActive(scan.status)) {
+      throw new ApiError('INVALID_STATE_TRANSITION', 'The scan is no longer active.');
+    }
+    const completedAt = new Date();
+    await this.prisma.$transaction(async (tx) => {
+      await this.scans.update(
+        scan.id,
+        {
+          status: 'failed',
+          errorCode: code,
+          errorMessage: message,
+          completedAt,
+        },
+        tx,
+      );
+      await this.scans.appendEvent(scan.id, orgId, 'failed', { code, message, secretName }, tx);
+    });
+  }
 }
 
 function isActive(status: string): boolean {

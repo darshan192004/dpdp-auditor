@@ -30,6 +30,7 @@ import {
 } from '../src/modules/runner/scan.execute.worker.js';
 import type { ScanExecutor } from '../src/modules/runner/scan-executor.js';
 import type { QueueService } from '../src/queue/queue.service.js';
+import type { ScansRepository } from '../src/modules/scans/scans.repository.js';
 
 const ENV: Env = {
   NODE_ENV: 'test',
@@ -53,14 +54,24 @@ interface FakeWorker {
 
 function fakeExecutor() {
   return {
-    run: vi.fn().mockResolvedValue('scan-1'),
+    run: vi.fn().mockResolvedValue('scan-s1'),
   } as unknown as ScanExecutor & { run: ReturnType<typeof vi.fn> };
 }
 
 function fakeQueues() {
   return {
     moveToDlq: vi.fn().mockResolvedValue(undefined),
-  } as unknown as QueueService & { moveToDlq: ReturnType<typeof vi.fn> };
+    enqueue: vi.fn().mockResolvedValue(undefined),
+  } as unknown as QueueService & {
+    moveToDlq: ReturnType<typeof vi.fn>;
+    enqueue: ReturnType<typeof vi.fn>;
+  };
+}
+
+function fakeScansRepository() {
+  return {
+    setJobInfo: vi.fn().mockResolvedValue(undefined),
+  } as unknown as ScansRepository & { setJobInfo: ReturnType<typeof vi.fn> };
 }
 
 function lastWorker(): FakeWorker {
@@ -84,7 +95,9 @@ afterEach(() => {
 describe('createScanExecuteWorker', () => {
   it('runs on the scan.execute queue with the shared worker settings', async () => {
     const executor = fakeExecutor();
-    createScanExecuteWorker(ENV, executor, fakeQueues());
+    const queues = fakeQueues();
+    const scans = fakeScansRepository();
+    createScanExecuteWorker(ENV, executor, queues, scans);
     const worker = lastWorker();
 
     expect(worker.name).toBe('scan.execute');
@@ -109,11 +122,19 @@ describe('createScanExecuteWorker', () => {
       REF: 'main',
       HMAC_KEY: 'abc',
     });
+    // P3-16: persist Job/Secret correlation, then hand off to the watcher queue.
+    expect(scans.setJobInfo).toHaveBeenCalledWith('s1', 'scan-s1', 'scan-s1');
+    expect(queues.enqueue).toHaveBeenCalledWith('scan.execute.watcher', 'watch', {
+      scanId: 's1',
+      orgId: 'o1',
+      jobName: 'scan-s1',
+      secretName: 'scan-s1',
+    });
   });
 
   it('dead-letters only after the final failed attempt', () => {
     const queues = fakeQueues();
-    createScanExecuteWorker(ENV, fakeExecutor(), queues);
+    createScanExecuteWorker(ENV, fakeExecutor(), queues, fakeScansRepository());
     const worker = lastWorker();
 
     const early = { id: 'j1', attemptsMade: 2, opts: { attempts: 3 } };
@@ -129,7 +150,7 @@ describe('createScanExecuteWorker', () => {
 
   it('ignores a failed event without a job and survives DLQ errors', async () => {
     const queues = fakeQueues();
-    createScanExecuteWorker(ENV, fakeExecutor(), queues);
+    createScanExecuteWorker(ENV, fakeExecutor(), queues, fakeScansRepository());
     const worker = lastWorker();
 
     fire(worker, 'failed', undefined, new Error('no job'));
@@ -148,7 +169,7 @@ describe('createScanExecuteWorker', () => {
 describe('ScanExecuteRunner', () => {
   it('starts once and closes the worker on shutdown', async () => {
     const queues = fakeQueues();
-    const runner = new ScanExecuteRunner(ENV, fakeExecutor(), queues);
+    const runner = new ScanExecuteRunner(ENV, fakeExecutor(), queues, fakeScansRepository());
 
     await runner.start();
     await runner.start();
@@ -156,5 +177,47 @@ describe('ScanExecuteRunner', () => {
 
     await runner.onApplicationShutdown();
     expect(lastWorker().close).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('scan.execute.worker error handling', () => {
+  it('logs but continues when setJobInfo fails', async () => {
+    const executor = fakeExecutor();
+    const queues = fakeQueues();
+    const scans = fakeScansRepository();
+    (scans.setJobInfo as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('db down'));
+
+    createScanExecuteWorker(ENV, executor, queues, scans);
+    const worker = lastWorker();
+
+    const payload: ScanExecutePayload = {
+      scanId: 's1',
+      orgId: 'o1',
+      repoUrl: 'https://github.com/org/repo',
+      ref: 'main',
+      hmacKey: 'abc',
+    };
+    await expect(worker.processor({ data: payload } as never)).resolves.toBeUndefined();
+    expect(queues.enqueue).toHaveBeenCalled();
+  });
+
+  it('logs but continues when enqueue fails', async () => {
+    const executor = fakeExecutor();
+    const queues = fakeQueues();
+    const scans = fakeScansRepository();
+    (queues.enqueue as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('redis down'));
+
+    createScanExecuteWorker(ENV, executor, queues, scans);
+    const worker = lastWorker();
+
+    const payload: ScanExecutePayload = {
+      scanId: 's1',
+      orgId: 'o1',
+      repoUrl: 'https://github.com/org/repo',
+      ref: 'main',
+      hmacKey: 'abc',
+    };
+    await expect(worker.processor({ data: payload } as never)).resolves.toBeUndefined();
+    expect(scans.setJobInfo).toHaveBeenCalled();
   });
 });
