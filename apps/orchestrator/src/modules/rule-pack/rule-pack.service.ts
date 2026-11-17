@@ -1,5 +1,6 @@
 import { Inject, Injectable, type OnModuleInit } from '@nestjs/common';
 import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { ENV, type Env } from '../../config/env.js';
 import { loadRulePack, type LoadedRulePack } from './rule-pack.loader.js';
 
@@ -24,7 +25,10 @@ export class RulePackService implements OnModuleInit {
   }
 
   private dir(): string {
-    return this.env.RULE_PACK_DIR ?? resolve(process.cwd(), '../../packages/rule-packs');
+    return (
+      this.env.RULE_PACK_DIR ??
+      resolve(fileURLToPath(new URL('../../../../../packages/rule-packs', import.meta.url)))
+    );
   }
 
   private publicKey(): string | undefined {
