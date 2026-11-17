@@ -12,22 +12,15 @@ export const RETENTION_QUEUE: QueueName = 'retention';
 export const RETENTION_JOB_NAME = 'run';
 /** database.md §9: "Runs hourly in the orchestrator". */
 export const RETENTION_CRON = '0 * * * *';
-/** Stable id so re-adding the repeatable job is a no-op (BullMQ repeat key). */
+/** Stable scheduler id makes repeated startup registration idempotent. */
 export const RETENTION_JOB_ID = 'retention.hourly';
 
-/**
- * Ensure the hourly trigger exists. Safe to call repeatedly: the repeat key is
- * derived from name + options (including jobId), so a duplicate add updates the
- * same repeatable job instead of creating a second schedule.
- */
+/** Ensure the hourly trigger exists using BullMQ's job scheduler API. */
 export async function ensureRetentionSchedule(queue: Queue): Promise<void> {
-  await queue.add(
-    RETENTION_JOB_NAME,
-    {},
-    {
-      repeat: { pattern: RETENTION_CRON },
-      jobId: RETENTION_JOB_ID,
-    },
+  await queue.upsertJobScheduler(
+    RETENTION_JOB_ID,
+    { pattern: RETENTION_CRON },
+    { name: RETENTION_JOB_NAME, data: {} },
   );
 }
 
