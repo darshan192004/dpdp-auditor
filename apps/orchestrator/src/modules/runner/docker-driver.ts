@@ -22,14 +22,14 @@ export class DockerRunner {
       name: `scan-${scanId}`,
     });
     await container.start();
-    return container.id;
+    return (container as unknown as { id: string }).id;
   }
 
   /** Stop and remove the container for the scan. */
   async stop(scanId: string): Promise<void> {
     const container = this.docker.getContainer(`scan-${scanId}`);
-    await container.stop();
-    await container.remove();
+    await (container as unknown as { stop: () => Promise<void> }).stop();
+    await (container as unknown as { remove: () => Promise<void> }).remove();
   }
 
   private get image(): string {
