@@ -1,3 +1,4 @@
+import { PrismaPg } from '@prisma/adapter-pg';
 import { afterAll, beforeAll, expect, it } from 'vitest';
 import { PrismaClient } from '@prisma/client';
 import { AuditService } from '../../src/modules/audit/audit.service.js';
@@ -7,7 +8,7 @@ import { describeDb, dbUrl } from './helpers/db.js';
 const RUNTIME_PASSWORD = 'test-only-runtime-password';
 
 describeDb('audit_logs append-only + RLS', () => {
-  const owner = new PrismaClient({ datasourceUrl: dbUrl! });
+  const owner = new PrismaClient({ adapter: new PrismaPg({ connectionString: dbUrl! }) });
   let runtime: PrismaClient;
   let orgId: string;
 
@@ -18,7 +19,7 @@ describeDb('audit_logs append-only + RLS', () => {
     const url = new URL(dbUrl!);
     url.username = 'dpdpa_runtime';
     url.password = RUNTIME_PASSWORD;
-    runtime = new PrismaClient({ datasourceUrl: url.toString() });
+    runtime = new PrismaClient({ adapter: new PrismaPg({ connectionString: url.toString() }) });
     const org = await owner.organization.create({
       data: { name: 'Audit RLS Org', slug: `audit-rls-${Date.now()}` },
     });
