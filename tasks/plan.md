@@ -44,19 +44,21 @@ Complete all remaining Phase 6 (Hardening and closed beta) tasks with real, veri
 - [ ] Task E2: Verify CI passes
 
 ## Checkpoint: All Phase 6 tasks done
+
 - [ ] All P6 tasks marked done in docs/tasks.md
 - [ ] CI green on the Phase 6 branch
 - [ ] Review with human before merging to main
 
 ## Risks and Mitigations
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| Chaos tests may be flaky in CI | High | Use testcontainers with health checks; mark as integration tests, not unit |
-| Load test may be slow | Medium | Use small concurrency (10 not 50) for CI; full 50-scan load is a staging activity |
-| External pen test cannot be automated | Medium | Document scope, timeline, and acceptance criteria; track as a human task |
-| Golden repos need real content | Low | Each fixture is a small file with a manifest; easy to add |
+| Risk                                  | Impact | Mitigation                                                                        |
+| ------------------------------------- | ------ | --------------------------------------------------------------------------------- |
+| Chaos tests may be flaky in CI        | High   | Use testcontainers with health checks; mark as integration tests, not unit        |
+| Load test may be slow                 | Medium | Use small concurrency (10 not 50) for CI; full 50-scan load is a staging activity |
+| External pen test cannot be automated | Medium | Document scope, timeline, and acceptance criteria; track as a human task          |
+| Golden repos need real content        | Low    | Each fixture is a small file with a manifest; easy to add                         |
 
 ## Open Questions
+
 - [ ] Has the human approved the external pen test vendor and timeline?
 - [ ] Has the human approved the design partner onboarding plan?
