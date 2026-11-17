@@ -1,11 +1,11 @@
 # DPDPA GitHub Code Auditor — Customer Quickstart
 
-| Field | Value |
-|---|---|
-| Document version | 1.0 |
-| Status | Approved for MVP build |
-| Date | 2026-11-04 |
-| Audience | Customer success, DPO, engineering |
+| Field             | Value                                          |
+| ----------------- | ---------------------------------------------- |
+| Document version  | 1.0                                            |
+| Status            | Approved for MVP build                         |
+| Date              | 2026-11-04                                     |
+| Audience          | Customer success, DPO, engineering             |
 | Related documents | `PRD.md`, `api.md`, `security.md`, `design.md` |
 
 ---
@@ -30,19 +30,23 @@
 ## 3. First scan (API)
 
 ```bash
+
 # 1. Resolve a repository
+
 curl -X POST https://app.dpdpa-auditor.example/api/v1/repos/resolve \
   -H "Authorization: Bearer $DPDPA_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"url": "https://github.com/owner/repo"}'
 
 # 2. Create a scan
+
 curl -X POST https://app.dpdpa-auditor.example/api/v1/scans \
   -H "Authorization: Bearer $DPDPA_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"orgId": "<your-org-id>", "repoId": "<repo-id-from-step-1>"}'
 
 # 3. Poll for results
+
 curl https://app.dpdpa-auditor.example/api/v1/scans/<scan-id> \
   -H "Authorization: Bearer $DPDPA_API_KEY"
 ```
@@ -70,13 +74,13 @@ See `security.md` §1 for the full data-handling policy.
 
 ## 6. Common issues
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| `404` on scan create | Foreign org ID or missing repository | Confirm the repo ID belongs to your org |
-| `422` on resolve | Invalid URL or private repo | Use a public `https://github.com/<owner>/<repo>` URL |
-| `429` | Rate limit exceeded | Wait for the `Retry-After` window, then retry |
-| `503` | Service temporarily unavailable | Check the status page; retry after 30 seconds |
-| Scan stays `queued` | Runner capacity or GitHub rate limit | Check `GET /api/v1/scans/<id>` for status and error code |
+| Symptom              | Likely cause                         | Fix                                                      |
+| -------------------- | ------------------------------------ | -------------------------------------------------------- |
+| `404` on scan create | Foreign org ID or missing repository | Confirm the repo ID belongs to your org                  |
+| `422` on resolve     | Invalid URL or private repo          | Use a public `https://github.com/<owner>/<repo>` URL     |
+| `429`                | Rate limit exceeded                  | Wait for the `Retry-After` window, then retry            |
+| `503`                | Service temporarily unavailable      | Check the status page; retry after 30 seconds            |
+| Scan stays `queued`  | Runner capacity or GitHub rate limit | Check `GET /api/v1/scans/<id>` for status and error code |
 
 ## 7. Need help?
 
