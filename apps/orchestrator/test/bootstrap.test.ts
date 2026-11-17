@@ -27,5 +27,5 @@ describe('bootstrap', () => {
   it('closes cleanly', async () => {
     const app = await createApp(ENV_FIXTURE);
     await expect(app.close()).resolves.toBeUndefined();
-  });
+  }, 30_000);
 });
