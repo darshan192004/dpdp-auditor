@@ -79,6 +79,21 @@ describe.each([false, true])('ReportsRepository (transaction: %s)', (transaction
   });
 });
 
+describe('report completion lock', () => {
+  it('locks the tenant report in the caller transaction', async () => {
+    const query = vi.fn();
+    const repo = new ReportsRepository({} as PrismaService);
+    await repo.lockForCompletion('org', 'report', {
+      $queryRaw: query,
+    } as unknown as Prisma.TransactionClient);
+    expect(query).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.stringContaining('FROM reports WHERE id = ')]),
+      'report',
+      'org',
+    );
+  });
+});
+
 describe('atomic report reservation', () => {
   const input = {
     orgId: '11111111-1111-4111-8111-111111111111',

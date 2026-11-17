@@ -2,157 +2,113 @@
 
 | Field | Value |
 |---|---|
-| Trigger | `report_render_duration_seconds` p95 > 10 s for 15 min or `renderer` pod crash |
+| Trigger | `report_render_duration_seconds` p95 > 10 s for 15 min, failed PDF requests, or report worker crashes |
 | Severity | P2 |
-| Recipient | On‑call |
+| Recipient | On-call |
 | Related | `operations.md` §4, `architecture.md` §8, `security.md` §18 |
 
----
+## Runtime and impact
 
-## Symptoms
+The orchestrator consumes BullMQ's `report.render` queue, builds the HTML with
+`apps/orchestrator/src/modules/reports/report-template.ts`, and connects to a
+separately operated Chromium browser. The distroless API image does not launch a
+local browser. Render failures propagate to BullMQ; an empty placeholder is never
+published as a ready PDF.
 
-- Users receive a *"Report generation failed"* error when downloading a PDF.
-- The dashboard shows the **Report render latency** alert (`report_render_duration_seconds` p95 > 10 s).
-- `renderer` pod restarts repeatedly (`CrashLoopBackOff`) or shows *OOMKilled* in the pod status.
-- S3 bucket does **not** contain a new PDF object for the affected `reportId`.
-- Orchestrator logs contain `renderer.callback.timeout` or `renderer.upload.error` entries.
-- The **renderer health endpoint** (`/internal/health`) returns `status: degraded`.
-
-## Impact
-
-- Affected users cannot obtain the PDF audit report; they must wait for a retry or fallback to the HTML view.
-- Scan‑to‑PDF SLO (p95 < 10 s) error budget burns, possibly triggering a canary rollback if the fast‑burn window is exceeded.
-- No data loss: the intermediate findings remain persisted in PostgreSQL, and the HTML view model is still available.
-- **Compliance impact:** PDF is the formal artifact for audit customers; prolonged unavailability may affect contractual SLA.
+PDF bytes are stored on a filesystem, not in S3. `REPORTS_STORAGE_DIR` defaults to
+`/tmp/dpdpa-reports`; production must use a durable volume shared by every API and
+worker replica. A report's file is `<REPORTS_STORAGE_DIR>/<reportId>/report.pdf`;
+its database storage key is `reports/<reportId>.pdf`. A missing or inaccessible
+volume can break downloads even when rendering succeeded. Findings remain in
+PostgreSQL, but lost PDF files must be regenerated.
 
 ## Diagnosis
 
-1. **Check renderer health endpoint**
-   ```bash
-   curl -s http://renderer.internal/internal/health | python3 -m json.tool
-   ```
-   - Look for `status: degraded` or `error: <message>`.
+1. **Identify the report and its state.** With the affected tenant's authenticated
+   session, inspect `GET /api/v1/report/pdf/<reportId>` and the failed
+   request in the browser network panel. Distinguish `queued`, `rendering`,
+   `failed`, `ready`, and expired downloads. Fresh download grants last 15 minutes;
+   PDF retention is 30 days. Do not put session cookies or download tokens in an
+   incident ticket.
 
-2. **Inspect renderer pod status**
-   ```bash
-   kubectl get pods -n app -l app.kubernetes.io/name=renderer
-   kubectl describe pod -n app $(kubectl get pods -n app -l app.kubernetes.io/name=renderer -o jsonpath='{.items[0].metadata.name}')
-   ```
-   - Verify if the pod is *CrashLoopBackOff*, *OOMKilled*, or *ImagePullBackOff*.
+2. **Inspect the orchestrator and browser deployment.** Substitute the actual
+   namespace and pod names used by your deployment:
 
-3. **View recent renderer logs**
    ```bash
-   kubectl logs -n app -l app.kubernetes.io/name=renderer --tail=200
+   kubectl describe pod -n <namespace> <orchestrator-pod>
+   kubectl logs -n <namespace> <orchestrator-pod> --tail=200
+   kubectl top pod -n <namespace> <orchestrator-pod>
    ```
-   - Look for `PuppeteerError`, `TemplateRenderError`, `S3UploadFailed`, or `SIGKILL` messages.
 
-4. **Validate the HTML view model**
-   ```bash
-   # Request the view model for a known reportId
-   curl -s https://orchestrator.internal/internal/v1/reports/<reportId>/view-model | python3 -m json.tool
-   ```
-   - Ensure the JSON is well‑formed and contains required fields (`scanId`, `orgId`, `findings`).
+   Check pod restarts, `OOMKilled`, volume mounts, and the separately operated
+   browser's health/logs. Orchestrator `/health` and `/ready` endpoints do not prove
+   that Chromium or report storage is healthy. Look for `report.render worker
+   error`, `queued report recovery failed`, and queue connection errors; inspect
+   the BullMQ job's `failedReason`, `attemptsMade`, and state using approved queue
+   tooling. Rendering errors include missing browser configuration, failed
+   WebSocket handshakes, and page/PDF errors. Filesystem errors such as `EACCES`,
+   `ENOENT`, `EROFS`, or `ENOSPC` indicate a storage problem.
 
-5. **Check S3 upload permissions**
-   ```bash
-   # Attempt a test upload with the service account used by the renderer
-   aws s3 cp /dev/null s3://reports-test/<timestamp>.tmp --endpoint-url https://s3.example.com
-   ```
-   - Verify IAM role / bucket policy allows `PutObject` for the `reports/<orgId>/` prefix.
+3. **Verify the browser connection.** `REPORTS_BROWSER_WS_ENDPOINT` must be a
+   reachable DevTools **browser** WebSocket URL. Remote connections require
+   `wss://` through a bridge that explicitly authenticates and authorizes each
+   worker. Chromium DevTools has no built-in client authentication; network
+   placement or adding credentials to a URL does not provide authorization.
+   Treat bridge credentials in the URL as secrets. A loopback-only sidecar may use
+   `ws://localhost`, `ws://127.0.0.1`, or `ws://[::1]` within the same isolated
+   pod/network namespace. Remote cleartext WebSocket URLs are rejected; browser
+   connection handshakes time out after 15 seconds.
 
-6. **Inspect resource utilization**
-   ```bash
-   kubectl top pod -n app -l app.kubernetes.io/name=renderer
-   ```
-   - Check CPU/memory usage; high memory may indicate a rendering‑heavy template or a memory leak.
+4. **Check the shared report volume.** Confirm the same `REPORTS_STORAGE_DIR`
+   value and persistent volume are mounted in API and worker replicas. Verify the
+   non-root orchestrator UID can create directories and write/read files there;
+   check free bytes, inodes, read-only mounts, and mount events. For a ready
+   report, inspect `<REPORTS_STORAGE_DIR>/<reportId>/report.pdf` and compare its
+   SHA-256 and byte length with the report row. Use approved storage/debug tooling
+   with the same mount and UID; the distroless application container has no shell.
+   Do not upload a test object to S3 or change IAM policies: this implementation
+   has no S3 client. Avoid deleting or overwriting an existing ready PDF.
 
-7. **Confirm the retry/back‑off state**
-   - The orchestrator enqueues a `report.render` job with a 3‑attempt exponential back‑off (`30 s, 2 m, 10 m`). Verify the job’s `attemptsMade` field via the BullMQ dashboard or Redis:
-   ```bash
-   redis-cli -h <redis-host> -a <redis-pass> HGET "dpdpa:report:job:<reportId>" "attemptsMade"
-   ```
+5. **Inspect the retry state.** Jobs use the report ID as their BullMQ job ID and
+   have three total attempts, with 30-second and 2-minute waits before the second
+   and third attempts. The worker marks the report failed after exhaustion.
+   Queued database rows are reconciled every 30 seconds, including retrying a
+   retained failed queue job when its durable report row is still queued. A
+   retained job alone does not mean the report is eligible for recovery.
 
 ## Remediation
 
-### Transient Failure (rate limit, temporary S3 glitch)
-1. **Allow back‑off to complete.** No manual action required; the job will retry automatically up to three times.
-2. **If the job is stuck in `failed` state**, manually re‑queue:
-   ```bash
-   curl -X POST https://orchestrator.internal/internal/admin/queue/retry \
-     -H "X-Internal-Key: <key>" \
-     -H "X-Signature: <hmac>" \
-     -d '{"reportId": "<reportId>", "reason": "manual_retry"}'
-   ```
+- **Browser outage or configuration failure:** restore the authenticated bridge
+  or isolated sidecar and validate its browser WebSocket endpoint. Restart or
+  redeploy the affected service through the deployment's normal process after
+  configuration changes. Never log the endpoint's credentials.
+- **Storage failure:** restore the shared writable durable mount, correct volume
+  ownership/permissions for the non-root service UID, and resolve capacity or
+  filesystem errors. All replicas must see the same files. An ephemeral `/tmp`
+  directory in separate containers is not shared storage.
+- **OOM or browser crash:** inspect actual resource utilization and adjust the
+  affected orchestrator/browser deployment's limits. Redeploy through the
+  deployment's normal process; this repository does not provide a renderer Helm
+  chart. Do not delete BullMQ Redis keys to force a retry.
+- **Template/data failure:** inspect the report's tenant-scoped view model via
+  the authenticated internal API and fix the template or source data. Internal
+  endpoints require the documented HMAC and tenant headers; do not use an
+  unsigned curl request as a health test.
 
-### Renderer Pod Crash or OOM
-1. **Increase memory limits** in the renderer Deployment (default 2 Gi memory, 4 Gi limit). Edit the Helm chart or manifest:
-   ```yaml
-   resources:
-     requests:
-       cpu: "500m"
-       memory: "3Gi"
-     limits:
-       cpu: "1"
-       memory: "6Gi"
-   ```
-2. **Roll out the updated Deployment**:
-   ```bash
-   helm upgrade --install auditor ./infra/helm/renderer -n app
-   ```
-3. **Validate that the pod stabilises** (`kubectl get pods -w`).
-4. **Clear any stuck jobs** by resetting the BullMQ queue for that report:
-   ```bash
-   redis-cli -h <redis-host> -a <redis-pass> DEL "dpdpa:report:job:<reportId>"
-   ```
-5. **Re‑trigger rendering** (same manual retry as above).
+Allow active jobs to finish their normal retry policy. Preserve durable queued
+rows during ambiguous Redis failures: the recovery sweep reuses the same report
+ID. Do not reset ready/failed/expired rows or invoke an undocumented admin retry
+endpoint. After fixing the dependency, an auditor or higher role can request a
+new PDF for the completed scan through the application (a failed report requires
+a new idempotency key). Confirm the new report reaches `ready`, its PDF downloads
+through the authenticated same-origin URL, and the file's hash/size match stored
+metadata. Repeated completion of a ready report must preserve its original file
+and meter usage once.
 
-### Template or Data Errors
-1. **Identify the problematic scan/template** from the logs (e.g., *TemplateRenderError* mentions a missing field).
-2. **Fix the template** in `apps/renderer/templates/` and redeploy the renderer.
-3. **Run a sanity test** on a small repo:
-   ```bash
-   curl -X POST https://app.example.com/api/v1/report/render \
-     -H "Authorization: Bearer <api-key>" \
-     -d '{"scanId": "<test-scan-id>"}'
-   ```
-   - Verify the PDF appears in S3 and the response returns a signed URL.
+## Escalation and follow-up
 
-### S3 Permission Issues
-1. **Update bucket policy** to allow the renderer’s IAM role `s3:PutObject` on `reports/<orgId>/*`.
-2. **Rotate the renderer’s service‑account credentials** if they were revoked.
-3. **Restart the renderer pods** to pick up the new credentials.
-
-## Escalation
-
-- **Escalate to Platform Engineer** if the renderer pods continue crashing after memory limit adjustments or if the S3 bucket policy cannot be updated promptly.
-- **Escalate to Engineering Manager** if the report‑render latency remains above the SLO for > 30 min, indicating a potential systemic issue.
-- **Page Security Lead** if logs show unexpected data being written to the PDF (possible data‑leak pathway).
-
-## Postmortem
-
-- Record the incident in the incident‑tracking tool within five business days.
-- Include: timeline of alerts, root cause (e.g., OOM, template bug, S3 permission), number of affected reports, actions taken, and verification steps.
-- Add regression tests: render a PDF for a medium‑size scan (≈ 5 MB) and verify it succeeds under load.
-- Update the **renderer health check** (`architecture.md` §10) to surface template rendering errors more clearly.
-- Review the **retry policy** for `report.render` jobs; consider increasing back‑off if external dependencies (S3) are flaky.
-
-
-## Browser connection and queued-job recovery
-
-The orchestrator connects to a separately operated Chromium instance using
-`REPORTS_BROWSER_WS_ENDPOINT` (a private `wss://` DevTools browser
-WebSocket URL). The distroless API image does not launch a local browser. Restrict
-that endpoint to the orchestrator network and expose it through a bridge that
-explicitly authenticates and authorizes each connecting worker. Chromium DevTools
-has no built-in client authentication; network placement or adding credentials to
-a URL does not provide authorization. Treat any bridge credentials in the URL as
-secrets. Alternatively, use a loopback-only browser sidecar (`ws://localhost`,
-`ws://127.0.0.1`, or `ws://[::1]`) isolated within the same pod/network namespace.
-Cleartext WebSocket connections to remote hosts are rejected. If it is absent or rendering fails, the job retries and eventually marks
-the report failed; an empty placeholder is never published as a ready PDF.
-
-Report creation persists a tenant-scoped idempotency key and reserves monthly
-quota under a database lock. If Redis accepts a job but the response is lost,
-retain the queued report row. A recovery sweep every 30 seconds re-enqueues its
-same report ID, which BullMQ deduplicates. Do not delete these rows to clear an
-ambiguous queue failure. Apply the report-idempotency migration before deploying.
+Escalate persistent browser, volume, or pod failures to the deployment owner. Page
+Security if a browser endpoint is exposed or PDF content crosses tenant scope.
+Record the affected report IDs, redacted errors, root cause, recovery, and download
+verification in the incident report. Add regression coverage for a verified
+application defect; do not copy secrets, report contents, or signed URLs into it.

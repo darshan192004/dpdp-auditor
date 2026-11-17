@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vitest';
-import { Prisma } from '@prisma/client';
 import type { Prisma as PrismaTypes } from '@prisma/client';
 import { ScansRepository } from '../src/modules/scans/scans.repository.js';
 import type { PrismaService } from '../src/prisma/prisma.service.js';
@@ -23,7 +22,7 @@ function make() {
     findFirst: vi.fn().mockResolvedValue(null),
   };
   const scannerFinding = { createMany: vi.fn().mockResolvedValue({ count: 1 }) };
-  const usageEvent = { create: vi.fn().mockResolvedValue({}) };
+  const usageEvent = { createMany: vi.fn().mockResolvedValue({ count: 1 }) };
   const prisma = { scan, scanEvent, scannerFinding, usageEvent } as unknown as PrismaService;
   return {
     repo: new ScansRepository(prisma),
@@ -234,7 +233,7 @@ describe('ScansRepository', () => {
     expect(scannerFinding.createMany).not.toHaveBeenCalled();
   });
 
-  it('treats a usage unique violation as success and rethrows other errors', async () => {
+  it('deduplicates usage without a failing SQL statement and rethrows other errors', async () => {
     const { repo, usageEvent } = make();
     const usage = {
       orgId: ORG_ID,
@@ -247,15 +246,11 @@ describe('ScansRepository', () => {
 
     await expect(repo.recordUsage(usage)).resolves.toBe(true);
 
-    usageEvent.create.mockRejectedValue(
-      new Prisma.PrismaClientKnownRequestError('duplicate', {
-        code: 'P2002',
-        clientVersion: '5.22.0',
-      }),
-    );
+    usageEvent.createMany.mockResolvedValue({ count: 0 });
     await expect(repo.recordUsage(usage)).resolves.toBe(false);
+    expect(usageEvent.createMany).toHaveBeenCalledWith({ data: [usage], skipDuplicates: true });
 
-    usageEvent.create.mockRejectedValue(new Error('connection lost'));
+    usageEvent.createMany.mockRejectedValue(new Error('connection lost'));
     await expect(repo.recordUsage(usage)).rejects.toThrow('connection lost');
   });
 

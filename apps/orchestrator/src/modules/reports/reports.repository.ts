@@ -12,6 +12,14 @@ export class ReportsRepository {
     return this.prisma.$transaction(work);
   }
 
+  async lockForCompletion(
+    orgId: string,
+    reportId: string,
+    tx: Prisma.TransactionClient,
+  ): Promise<void> {
+    await tx.$queryRaw`SELECT id FROM reports WHERE id = ${reportId}::uuid AND org_id = ${orgId}::uuid FOR UPDATE`;
+  }
+
   /** The view model needs the scan, its repository, and the organisation branding. */
   findById(orgId: string, reportId: string, tx?: Prisma.TransactionClient) {
     const client = tx ?? this.prisma;

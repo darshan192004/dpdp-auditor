@@ -193,22 +193,54 @@ export class ReportsService {
 
   /** P5-17: Renderer completion callback (api.md §10.6). */
   async complete(orgId: string, reportId: string, body: unknown) {
-    const report = await this.reports.findById(orgId, reportId);
-    if (!report) throw new ApiError('NOT_FOUND', 'The report does not exist.');
-
-    const data = completeReportSchema.parse(body);
-    const pdfBuffer = Buffer.from(data.buffer, 'base64');
-
-    // P5-19: Upload to storage
-    const upload = this.storage.upload(reportId, pdfBuffer);
-
-    // Readiness and metering commit together. Otherwise a failed usage write
-    // could leave a ready report that the renderer skips on every retry.
-    const eventId = createHash('sha256')
-      .update(`report_rendered:${reportId}`, 'utf8')
-      .digest('hex')
-      .slice(0, 32);
-    await this.reports.transaction(async (tx) => {
+    const completion = await this.reports.transaction(async (tx) => {
+      // Serialize callbacks before touching the file. Once a ready PDF commits,
+      // every duplicate returns its persisted metadata without overwriting it.
+      await this.reports.lockForCompletion(orgId, reportId, tx);
+      const report = await this.reports.findById(orgId, reportId, tx);
+      if (!report) throw new ApiError('NOT_FOUND', 'The report does not exist.');
+      if (
+        report.status === 'expired' ||
+        (report.expiresAt && report.expiresAt.getTime() <= Date.now())
+      ) {
+        throw new ApiError('REPORT_EXPIRED', 'The report has expired.');
+      }
+      if (report.status === 'ready') {
+        if (
+          !report.storageKey ||
+          !report.sha256 ||
+          report.sizeBytes === null ||
+          !report.expiresAt
+        ) {
+          throw new ApiError('REPORT_NOT_READY', 'The stored report metadata is incomplete.');
+        }
+        return {
+          newlyCompleted: false,
+          scanId: report.scanId,
+          result: {
+            id: reportId,
+            status: 'ready',
+            storageKey: report.storageKey,
+            sha256: report.sha256,
+            sizeBytes: Number(report.sizeBytes),
+            expiresAt: report.expiresAt,
+            downloadUrl: this.storage.signedUrl(report.storageKey),
+          },
+        };
+      }
+      if (report.status === 'failed') {
+        throw new ApiError(
+          'CONFLICT',
+          'A failed report cannot be completed. Request a new report.',
+        );
+      }
+      const data = completeReportSchema.parse(body);
+      const pdfBuffer = Buffer.from(data.buffer, 'base64');
+      const upload = this.storage.upload(reportId, pdfBuffer);
+      const eventId = createHash('sha256')
+        .update(`report_rendered:${reportId}`, 'utf8')
+        .digest('hex')
+        .slice(0, 32);
       await this.reports.markComplete(
         reportId,
         {
@@ -230,20 +262,24 @@ export class ReportsService {
         },
         tx,
       );
-    });
-
-    // P5-26: transactional email notification (stub)
-    const org = await this.organizations.findById(orgId);
-    if (org) {
-      await this.email.sendReportReady({
-        to: `org-${org.slug}@example.local`,
-        reportId,
+      return {
+        newlyCompleted: true,
         scanId: report.scanId,
-        downloadUrl: upload.downloadUrl,
-      });
+        result: { id: reportId, status: 'ready', ...upload },
+      };
+    });
+    // A duplicate callback does not send another notification.
+    if (completion.newlyCompleted) {
+      const org = await this.organizations.findById(orgId);
+      if (org)
+        await this.email.sendReportReady({
+          to: `org-${org.slug}@example.local`,
+          reportId,
+          scanId: completion.scanId,
+          downloadUrl: completion.result.downloadUrl,
+        });
     }
-
-    return { id: reportId, status: 'ready', ...upload };
+    return completion.result;
   }
 
   /** Read-only view model for dashboard/renderer (api.md §10.6). */

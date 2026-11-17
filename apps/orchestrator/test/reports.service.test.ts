@@ -84,6 +84,7 @@ function make(found: ReturnType<typeof report> | null = report()) {
   const tx = { transaction: true };
   const reports = {
     transaction: vi.fn(async (work) => work(tx)),
+    lockForCompletion: vi.fn(),
     findById: vi.fn().mockResolvedValue(found),
     findByScanId: vi.fn().mockResolvedValue(null),
     reserve: vi.fn().mockResolvedValue(report({ status: 'queued', templateVersion: 'standard' })),
@@ -296,7 +297,7 @@ describe('report lifecycle', () => {
   it.each([true, false])(
     'stores completed PDFs and records usage (organization present: %s)',
     async (exists) => {
-      const m = make();
+      const m = make(report({ status: 'rendering' }));
       if (!exists) m.organizations.findById.mockResolvedValue(null);
       const pdf = Buffer.from('%PDF-test');
       expect(
@@ -321,7 +322,7 @@ describe('report lifecycle', () => {
     },
   );
   it('propagates metering failure out of the shared completion transaction without sending email', async () => {
-    const m = make();
+    const m = make(report({ status: 'rendering' }));
     m.scans.recordUsage.mockRejectedValueOnce(new Error('metering unavailable'));
     await expect(
       m.service.complete(ORG_ID, REPORT_ID, {
@@ -333,6 +334,35 @@ describe('report lifecycle', () => {
     expect(m.scans.recordUsage).toHaveBeenCalledWith(expect.any(Object), m.tx);
     expect(m.email.sendReportReady).not.toHaveBeenCalled();
   });
+  it('returns persisted ready metadata without overwriting the file, metering or notifying again', async () => {
+    const m = make(
+      report({
+        storageKey: 'reports/original.pdf',
+        sha256: 'original-hash',
+        sizeBytes: 42n,
+        expiresAt: new Date('2999-01-01'),
+      }),
+    );
+    expect(
+      await m.service.complete(ORG_ID, REPORT_ID, {
+        buffer: Buffer.from('%PDF-different').toString('base64'),
+      }),
+    ).toMatchObject({ storageKey: 'reports/original.pdf', sha256: 'original-hash', sizeBytes: 42 });
+    expect(m.reports.lockForCompletion).toHaveBeenCalledWith(ORG_ID, REPORT_ID, m.tx);
+    expect(m.storage.upload).not.toHaveBeenCalled();
+    expect(m.scans.recordUsage).not.toHaveBeenCalled();
+    expect(m.email.sendReportReady).not.toHaveBeenCalled();
+  });
+  it.each(['failed', 'expired'] as const)(
+    'rejects a %s completion before uploading',
+    async (status) => {
+      const m = make(report({ status }));
+      await expect(m.service.complete(ORG_ID, REPORT_ID, {})).rejects.toMatchObject({
+        code: status === 'expired' ? 'REPORT_EXPIRED' : 'CONFLICT',
+      });
+      expect(m.storage.upload).not.toHaveBeenCalled();
+    },
+  );
   it('retries a retained failed render job rather than adding the same ID', async () => {
     const m = make();
     const retry = vi.fn();
@@ -358,7 +388,7 @@ describe('report lifecycle', () => {
     },
   );
   it('rejects malformed renderer callbacks before storage writes', async () => {
-    const m = make();
+    const m = make(report({ status: 'rendering' }));
     await expect(m.service.complete(ORG_ID, REPORT_ID, {})).rejects.toThrow();
     expect(m.storage.upload).not.toHaveBeenCalled();
   });

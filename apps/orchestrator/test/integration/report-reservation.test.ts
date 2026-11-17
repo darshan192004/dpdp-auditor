@@ -1,4 +1,9 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { ReportStorageService } from '../../src/modules/reports/report-storage.service.js';
+import type { Env } from '../../src/config/env.js';
 import { afterAll, beforeAll, expect, it, vi } from 'vitest';
 import { ReportsService } from '../../src/modules/reports/reports.service.js';
 import { ScansRepository } from '../../src/modules/scans/scans.repository.js';
@@ -108,5 +113,74 @@ describeDb('concurrent report quota reservations', () => {
     expect(await prisma.usageEvent.count({ where: { orgId, eventType: 'report_rendered' } })).toBe(
       1,
     );
+  });
+  it('keeps duplicate usage non-aborting inside a transaction', async () => {
+    const scans = new ScansRepository(prisma as unknown as PrismaService);
+    const record = {
+      orgId,
+      scanId,
+      eventType: 'report_rendered' as const,
+      eventId: randomUUID(),
+      quantity: 1,
+      metadata: {},
+    };
+    const result = await prisma.$transaction(async (tx) => {
+      const first = await scans.recordUsage(record, tx);
+      const duplicate = await scans.recordUsage(record, tx);
+      // This read fails with 25P02 if duplicate insertion aborted PostgreSQL's transaction.
+      const count = await tx.usageEvent.count({ where: { orgId, eventId: record.eventId } });
+      return { first, duplicate, count };
+    });
+    expect(result).toEqual({ first: true, duplicate: false, count: 1 });
+    expect(await prisma.usageEvent.count({ where: { orgId, eventId: record.eventId } })).toBe(1);
+  });
+  it('preserves committed PDF bytes and meters/notifies once under concurrent and repeated completions', async () => {
+    const report = await prisma.report.create({
+      data: { orgId, scanId, templateVersion: 'standard', status: 'rendering' },
+    });
+    const directory = mkdtempSync(join(tmpdir(), 'report-completion-'));
+    const storage = new ReportStorageService({
+      REPORTS_STORAGE_DIR: directory,
+      ORCHESTRATOR_HMAC_KEY: 'test-only-key'.repeat(4),
+    } as Env);
+    const upload = vi.spyOn(storage, 'upload');
+    const email = { sendReportReady: vi.fn() };
+    const service = new ReportsService(
+      reports,
+      {} as ConstructorParameters<typeof ReportsService>[1],
+      new ScansRepository(prisma as unknown as PrismaService),
+      {} as ConstructorParameters<typeof ReportsService>[3],
+      {} as ConstructorParameters<typeof ReportsService>[4],
+      storage,
+      { findById: async () => ({ slug: 'fixture' }) } as unknown as ConstructorParameters<
+        typeof ReportsService
+      >[6],
+      email as unknown as ConstructorParameters<typeof ReportsService>[7],
+    );
+    const body = (text: string) => ({ buffer: Buffer.from(text).toString('base64') });
+    try {
+      const [first, concurrent] = await Promise.all([
+        service.complete(orgId, report.id, body('%PDF-first')),
+        service.complete(orgId, report.id, body('%PDF-concurrent')),
+      ]);
+      const repeated = await service.complete(orgId, report.id, body('%PDF-repeated'));
+      const stored = readFileSync(join(directory, report.id, 'report.pdf'));
+      const hash = createHash('sha256').update(stored).digest('hex');
+      expect([first.sha256, concurrent.sha256, repeated.sha256]).toEqual([hash, hash, hash]);
+      expect(upload).toHaveBeenCalledOnce();
+      expect(email.sendReportReady).toHaveBeenCalledOnce();
+      expect(await prisma.report.findUnique({ where: { id: report.id } })).toMatchObject({
+        status: 'ready',
+        sha256: hash,
+        sizeBytes: BigInt(stored.length),
+      });
+      const eventId = createHash('sha256')
+        .update(`report_rendered:${report.id}`)
+        .digest('hex')
+        .slice(0, 32);
+      expect(await prisma.usageEvent.count({ where: { orgId, eventId } })).toBe(1);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 });
