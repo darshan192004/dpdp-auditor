@@ -313,7 +313,7 @@ Retired IDs stay reserved: P2-01, P2-02, P2-07, P2-08, P2-10, P2-11, and the old
 | P3-27 | `ScanProgress` component with stage model, per-scanner status, partial warning | M | Frontend | P3-22 |
 | P3-28 | `useScanPolling` composable with backoff, visibility pause, terminal stop | M | Frontend | P3-22 |
 | P3-29 | Scan timeline component fed by `/events` | S | Frontend | P3-22 |
-| P3-30 | Scan list page with filters and pagination | M | Frontend | P3-22 |
+| P3-30 | Scan list page with filters and pagination | M | Frontend | P3-22 | ✅ Done |
 
 ### Exit criteria
 
