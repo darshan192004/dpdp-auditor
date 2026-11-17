@@ -6,5 +6,11 @@ fallback_models = ["groq/openai/gpt-oss-120b", "openrouter/free"]
 custom_model_max_tokens = 20000
 max_model_tokens = 8000
 
+[github_action_config]
+# Match the workflow's synchronize trigger, including this bot's fix commits.
+handle_push_trigger = true
+push_trigger_ignore_bot_commits = false
+push_commands = ["/review"]
+
 [ignore]
 glob = ["pnpm-lock.yaml", "package-lock.json", "yarn.lock", "**/Cargo.lock"]
