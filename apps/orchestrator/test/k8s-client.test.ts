@@ -74,13 +74,11 @@ describe('K8sClient', () => {
     expect(coreCalls[0]).toEqual({
       method: 'createNamespacedSecret',
       args: [
+        'scanners',
         {
-          namespace: 'scanners',
-          body: {
-            metadata: { name: 'scan-1', namespace: 'scanners' },
-            data: { TOKEN: 'abc' },
-            type: 'Opaque',
-          },
+          metadata: { name: 'scan-1', namespace: 'scanners' },
+          data: { TOKEN: 'abc' },
+          type: 'Opaque',
         },
       ],
     });
@@ -93,7 +91,7 @@ describe('K8sClient', () => {
     expect(coreCalls).toHaveLength(1);
     expect(coreCalls[0]).toEqual({
       method: 'deleteNamespacedSecret',
-      args: [{ name: 'scan-1', namespace: 'scanners' }],
+      args: ['scan-1', 'scanners'],
     });
   });
 
@@ -107,13 +105,11 @@ describe('K8sClient', () => {
     expect(coreCalls[0]).toEqual({
       method: 'patchNamespacedSecret',
       args: [
+        'scan-1',
+        'scanners',
         {
-          name: 'scan-1',
-          namespace: 'scanners',
-          body: {
-            metadata: {
-              ownerReferences: [{ apiVersion: 'batch/v1', kind: 'Job', name: 'scan-1' }],
-            },
+          metadata: {
+            ownerReferences: [{ apiVersion: 'batch/v1', kind: 'Job', name: 'scan-1' }],
           },
         },
       ],
@@ -128,7 +124,7 @@ describe('K8sClient', () => {
     expect(batchCalls).toHaveLength(1);
     expect(batchCalls[0]).toEqual({
       method: 'createNamespacedJob',
-      args: [{ namespace: 'scanners', body: spec }],
+      args: ['scanners', spec],
     });
     expect(result).toEqual({ metadata: { name: 'scan-1' } });
   });
@@ -140,7 +136,7 @@ describe('K8sClient', () => {
     expect(batchCalls).toHaveLength(1);
     expect(batchCalls[0]).toEqual({
       method: 'deleteNamespacedJob',
-      args: [{ name: 'scan-1', namespace: 'scanners' }],
+      args: ['scan-1', 'scanners'],
     });
   });
 });

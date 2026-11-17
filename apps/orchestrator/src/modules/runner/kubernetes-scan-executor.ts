@@ -134,7 +134,7 @@ export class KubernetesScanExecutor implements ScanExecutor {
           const jobMeta = await this.k8s.createJob(jobSpec);
 
           // patch secret with ownerReference to job
-          const jobNameFinal = jobMeta.metadata?.name ?? jobName;
+          const jobNameFinal = (jobMeta.metadata?.name ?? jobName) as string;
           await this.k8s.patchSecret(jobName, {
             metadata: {
               ownerReferences: [
@@ -149,7 +149,7 @@ export class KubernetesScanExecutor implements ScanExecutor {
           });
 
           span.setStatus({ code: SpanStatusCode.OK });
-          return String(jobNameFinal);
+          return jobNameFinal;
         } catch (error) {
           // cleanup secret on job creation failure (architecture.md §7.2)
           await this.k8s.deleteSecret(jobName).catch(() => {
