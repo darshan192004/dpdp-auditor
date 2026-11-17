@@ -15,6 +15,9 @@ const redisUrl = process.env.REDIS_TEST_URL || null;
       REDIS_URL: redisUrl!,
       ORCHESTRATOR_HMAC_KEY: 'a'.repeat(32),
       ORCHESTRATOR_INTERNAL_KEY: 'b'.repeat(32),
+      RUNNER_DRIVER: 'kubernetes',
+      SCANNERS_NAMESPACE: 'scanners',
+      RUNNER_IMAGE: 'registry.example.com/dpdpa/scan-runner@sha256:test',
     };
     service = new QueueService(env);
   });

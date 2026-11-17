@@ -16,6 +16,8 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@kubernetes/client-node": "^2.0.2",
+    "dockerode": "^5.0.1",
     "@dpdpa/contracts": "workspace:*",
     "@dpdpa/observability": "workspace:*",
     "@nestjs/common": "12.4.1",
@@ -40,7 +42,8 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@nestjs/testing": "12.4.1",
+    "@types/dockerode": "^4.0.2",
+    "@nestjs/testing": "12.4.2",
     "@types/node": "^26.6.6",
     "@vitest/coverage-v8": "^5.1.0",
     "eslint": "^10.14.0",

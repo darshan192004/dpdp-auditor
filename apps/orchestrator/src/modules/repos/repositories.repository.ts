@@ -177,6 +177,13 @@ export class RepositoriesRepository {
     return { totalScans, averageScore, lastScore, trend };
   }
 
+  /** Count active (non-deleted) repositories for an organisation. */
+  countActiveForOrg(orgId: string, tx?: Prisma.TransactionClient): Promise<number> {
+    return this.client(tx).repository.count({
+      where: { orgId, deletedAt: null },
+    });
+  }
+
   private client(tx?: Prisma.TransactionClient): Prisma.TransactionClient | PrismaService {
     return tx ?? this.prisma;
   }

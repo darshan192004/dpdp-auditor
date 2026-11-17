@@ -12,6 +12,7 @@ import { ScansModule } from './modules/scans/scans.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { QueueModule } from './queue/queue.module.js';
 import { RetentionModule } from './modules/retention/retention.module.js';
+import { RunnerModule } from './modules/runner/runner.module.js';
 import { FeatureFlagsModule } from './modules/feature-flags/feature-flags.module.js';
 import { FindingsModule } from './modules/findings/findings.module.js';
 import { RulesModule } from './modules/rules/rules.module.js';
@@ -29,6 +30,7 @@ export class AppModule {
         HealthModule,
         QueueModule,
         RetentionModule,
+        RunnerModule,
         FeatureFlagsModule,
         IdentityModule,
         ApiKeysModule,

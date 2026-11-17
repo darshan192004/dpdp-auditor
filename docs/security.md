@@ -95,7 +95,7 @@
   - `secure: true`
   - `sameSite: 'lax'`
   - `maxAge: 8 hours`, absolute; 30-minute idle timeout enforced server-side
-  - `__Host-` prefix in production
+  - `__Host-` prefix in production (valid only because production cookies are `Secure` with `Path=/`)
 - Session rotation on privilege change and on login.
 - Logout clears the cookie and revokes the server-side session record.
 - CSRF: double-submit token for state-changing browser requests, plus `SameSite=Lax`.
@@ -329,17 +329,33 @@ A single canary hit is a **P1 security incident**, not a test failure to retry.
 Pinned module version: `nuxt-security@^2`. Exact option names follow the pinned release; the configuration below is the contract.
 
 ```ts
-// nuxt.config.ts
+// apps/web/nuxt.config.ts (excerpt)
 export default defineNuxtConfig({
-  modules: ['nuxt-security', 'nuxt-auth-utils', '@pinia/nuxt', '@nuxt/ui'],
+  modules: ['nuxt-security', 'nuxt-auth-utils', '@nuxt/ui'],
 
   runtimeConfig: {
-    redisUrl: process.env.REDIS_URL,
     orchestratorUrl: process.env.ORCHESTRATOR_URL,
     orchestratorHmacKey: process.env.ORCHESTRATOR_HMAC_KEY,
-    githubClientId: process.env.GITHUB_CLIENT_ID,
-    githubClientSecret: process.env.GITHUB_CLIENT_SECRET,
-    sessionPassword: process.env.NUXT_SESSION_PASSWORD,
+    orchestratorInternalKey: process.env.ORCHESTRATOR_INTERNAL_KEY,
+    // `NUXT_APP_SECRET` (≥32 chars; HKDF secret for sealed session + OAuth state).
+    // Nuxt 4.6 derives the nuxt-auth-utils session seal from it (security.md §3.1).
+    appSecret: process.env.NUXT_APP_SECRET,
+    session: {
+      name: process.env.NUXT_SESSION_NAME ?? '__Host-dpdpa_session',
+      maxAge: 60 * 60 * 8,
+      cookie: {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+      },
+    },
+    oauth: {
+      github: {
+        clientId: process.env.NUXT_OAUTH_GITHUB_CLIENT_ID,
+        clientSecret: process.env.NUXT_OAUTH_GITHUB_CLIENT_SECRET,
+      },
+    },
     public: {
       appUrl: process.env.NUXT_PUBLIC_APP_URL,
       sentryDsn: process.env.NUXT_PUBLIC_SENTRY_DSN,

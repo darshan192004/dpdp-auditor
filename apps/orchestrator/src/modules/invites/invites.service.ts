@@ -172,6 +172,14 @@ export class InvitesService {
     return this.invites.listPending(orgId, new Date());
   }
 
+  async revokeInvite(orgId: string, inviteId: string): Promise<void> {
+    const invite = await this.invites.findById(inviteId);
+    if (!invite || invite.orgId !== orgId || invite.acceptedAt) {
+      throw new ApiError('NOT_FOUND', 'The invitation does not exist.');
+    }
+    await this.prisma.membershipInvite.delete({ where: { id: inviteId } });
+  }
+
   /** P2-21 expiry cleanup; the hourly retention pass can call this. */
   cleanupExpired(now: Date = new Date()): Promise<number> {
     return this.invites.deleteExpired(now);

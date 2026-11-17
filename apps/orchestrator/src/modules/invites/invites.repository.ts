@@ -39,6 +39,10 @@ export class InvitesRepository {
     });
   }
 
+  findById(id: string, tx?: Prisma.TransactionClient): Promise<MembershipInvite | null> {
+    return this.client(tx).membershipInvite.findUnique({ where: { id } });
+  }
+
   listPending(
     orgId: string,
     now: Date,

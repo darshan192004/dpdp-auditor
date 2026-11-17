@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { IdentityModule } from '../identity/identity.module.js';
+import { InternalReposController } from './internal-repos.controller.js';
 import {
   defaultGithubFetch,
   defaultGitRunner,
@@ -12,6 +13,7 @@ import { ReposService } from './repos.service.js';
 
 @Module({
   imports: [IdentityModule],
+  controllers: [InternalReposController],
   providers: [
     ReposService,
     RepositoriesRepository,

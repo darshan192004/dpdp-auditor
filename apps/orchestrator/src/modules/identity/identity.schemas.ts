@@ -32,6 +32,29 @@ export const createOrganizationSchema = z.strictObject({
 });
 export type CreateOrganizationInput = z.input<typeof createOrganizationSchema>;
 
+/**
+ * api.md §7.2: `PATCH /api/v1/org` accepts the profile, retention, and
+ * notification settings only. Plan and data-region changes are billing
+ * operations and are rejected by the service with `FORBIDDEN`.
+ */
+export const updateOrganizationSchema = z.strictObject({
+  name: z.string().trim().min(2).max(120).optional(),
+  retentionDays: z.number().int().min(7).max(365).optional(),
+  settings: z
+    .strictObject({
+      notifications: z.boolean().optional(),
+    })
+    .optional(),
+});
+export type UpdateOrganizationInput = z.input<typeof updateOrganizationSchema>;
+
+/** api.md §7.3: add an existing account to the organisation by email. */
+export const addMemberByEmailSchema = z.strictObject({
+  email: z.email().max(320),
+  role: memberRoleSchema.default('viewer'),
+});
+export type AddMemberByEmailInput = z.input<typeof addMemberByEmailSchema>;
+
 export const addMembershipSchema = z.strictObject({
   orgId: z.uuid(),
   userId: z.uuid(),
@@ -47,3 +70,15 @@ export const changeRoleSchema = z.strictObject({
   role: memberRoleSchema,
 });
 export type ChangeRoleInput = z.input<typeof changeRoleSchema>;
+
+/**
+ * Server-side session creation (security.md §3.1). Nitro mints the sealed
+ * cookie; the orchestrator owns the record that makes it revocable.
+ */
+export const createSessionSchema = z.strictObject({
+  userId: z.uuid(),
+  activeOrgId: z.uuid().nullable().optional(),
+  ip: z.string().trim().max(64).nullable().optional(),
+  userAgent: z.string().trim().max(1024).nullable().optional(),
+});
+export type CreateSessionInput = z.input<typeof createSessionSchema>;

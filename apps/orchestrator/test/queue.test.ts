@@ -20,15 +20,24 @@ const ENV: Env = {
   REDIS_URL: 'redis://127.0.0.1:6379',
   ORCHESTRATOR_HMAC_KEY: 'a'.repeat(32),
   ORCHESTRATOR_INTERNAL_KEY: 'b'.repeat(32),
+  RUNNER_DRIVER: 'kubernetes',
+  SCANNERS_NAMESPACE: 'scanners',
+  RUNNER_IMAGE: 'registry.example.com/dpdpa/scan-runner@sha256:test',
 };
 
 describe('queue definitions', () => {
-  it('names the three queues (tasks.md P1-18)', () => {
-    expect(QUEUE_NAMES).toEqual(['scan.execute', 'report.render', 'retention']);
+  it('names the queues (tasks.md P1-18)', () => {
+    expect(QUEUE_NAMES).toEqual([
+      'scan.execute',
+      'scan.execute.watcher',
+      'report.render',
+      'retention',
+    ]);
   });
 
   it('gives each queue a dead-letter companion', () => {
     expect(dlqName('scan.execute')).toBe('scan.execute.dlq');
+    expect(dlqName('scan.execute.watcher')).toBe('scan.execute.watcher.dlq');
     expect(dlqName('report.render')).toBe('report.render.dlq');
     expect(dlqName('retention')).toBe('retention.dlq');
   });

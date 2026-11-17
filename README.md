@@ -2,7 +2,7 @@
 
 Specification pack for **DPDPA GitHub Code Auditor** — a B2B SaaS that audits GitHub repositories for compliance with India's Digital Personal Data Protection Act, 2023.
 
-> **Status: documentation only.** This repository contains the product, architecture, and delivery specifications. No application code exists yet; `tasks.md` defines the build sequence.
+> **Status: Phase 2 in progress.** Phase 0 (foundations) and Phase 1 (platform skeleton and frontend foundation) are merged. Phase 2 delivers identity: GitHub OAuth with a sealed, revocable session (P2-A, merged) and organisation/member administration (P2-B). Remaining slices and phases are tracked in `docs/tasks.md` and `docs/superpowers/plans/`.
 
 ## Documents
 

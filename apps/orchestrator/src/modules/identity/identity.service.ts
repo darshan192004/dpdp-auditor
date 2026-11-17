@@ -5,14 +5,20 @@ import { ApiError } from '../../common/api-error.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import {
+  addMemberByEmailSchema,
   addMembershipSchema,
   changeRoleSchema,
   createOrganizationSchema,
   githubProfileSchema,
+  updateOrganizationSchema,
+  type AddMemberByEmailInput,
   type AddMembershipInput,
   type ChangeRoleInput,
   type CreateOrganizationInput,
   type GithubProfileInput,
+  type MemberRole,
+  type MembershipStatus,
+  type UpdateOrganizationInput,
 } from './identity.schemas.js';
 import { MembershipsRepository } from './memberships.repository.js';
 import { OrganizationsRepository } from './organizations.repository.js';
@@ -21,6 +27,52 @@ import { UsersRepository } from './users.repository.js';
 export interface CreatedOrganization {
   organization: Organization;
   membership: Membership;
+}
+
+/** Wire shape for `/api/v1/me` (api.md §2/§8); never includes secrets. */
+export interface UserView {
+  id: string;
+  email: string;
+  name: string | null;
+  avatarUrl: string | null;
+}
+
+export interface OrganizationView {
+  id: string;
+  name: string;
+  slug: string;
+  plan: string;
+  retentionDays: number;
+}
+
+export interface MembershipView {
+  orgId: string;
+  role: MemberRole;
+  status: MembershipStatus;
+  organization: OrganizationView;
+}
+
+export interface MeView {
+  user: UserView;
+  memberships: MembershipView[];
+}
+
+/** api.md §7.2: organisation profile for the settings page. */
+export interface OrgDetailView extends OrganizationView {
+  dataRegion: string;
+  scanConcurrency: number;
+  settings: unknown;
+  role: MemberRole;
+}
+
+/** api.md §7.3: one member row. */
+export interface MemberView {
+  userId: string;
+  name: string | null;
+  email: string;
+  role: MemberRole;
+  status: MembershipStatus;
+  lastLoginAt: string | null;
 }
 
 /**
@@ -148,6 +200,145 @@ export class IdentityService {
     });
   }
 
+  /**
+   * Onboarding (`POST /api/v1/org`): the signed-in user is always the owner;
+   * the client never supplies `ownerUserId`.
+   */
+  async createOrganizationForUser(
+    ownerUserId: string,
+    raw: Pick<CreateOrganizationInput, 'name' | 'slug'>,
+  ): Promise<OrgDetailView> {
+    const { organization, membership } = await this.createOrganization({
+      ...raw,
+      ownerUserId,
+    });
+    return toOrgDetailView(organization, membership.role);
+  }
+
+  /** api.md §7.2: the org profile plus the caller's role. */
+  async getOrganization(orgId: string, userId: string): Promise<OrgDetailView> {
+    const organization = await this.organizations.findById(orgId);
+    if (!organization) throw new ApiError('NOT_FOUND', 'The organisation does not exist.');
+    const membership = await this.requireRole(orgId, userId, [
+      'owner',
+      'admin',
+      'auditor',
+      'viewer',
+    ]);
+    return toOrgDetailView(organization, membership.role);
+  }
+
+  /**
+   * api.md §7.2: profile/retention/notification edits only. Plan and region
+   * are billing operations, so they are rejected here rather than silently
+   * ignored (a strict schema would turn them into a 422 instead of a 403).
+   */
+  async updateOrganization(
+    orgId: string,
+    actorUserId: string,
+    raw: UpdateOrganizationInput,
+  ): Promise<OrgDetailView> {
+    assertNoBillingFields(raw);
+    const input = updateOrganizationSchema.parse(raw);
+
+    return this.prisma.$transaction(async (tx) => {
+      const actor = await this.requireRole(orgId, actorUserId, ['owner', 'admin'], tx);
+      const organization = await this.organizations.findById(orgId, tx);
+      if (!organization) throw new ApiError('NOT_FOUND', 'The organisation does not exist.');
+
+      const updated = await this.organizations.update(
+        orgId,
+        {
+          ...(input.name === undefined ? {} : { name: input.name }),
+          ...(input.retentionDays === undefined ? {} : { retentionDays: input.retentionDays }),
+          ...(input.settings === undefined ? {} : { settings: input.settings }),
+        },
+        tx,
+      );
+      await this.audit.record(
+        {
+          orgId,
+          actorType: 'user',
+          actorUserId,
+          action: 'org.updated',
+          resourceType: 'organization',
+          resourceId: orgId,
+          metadata: {
+            name: updated.name,
+            retentionDays: updated.retentionDays,
+            settings: updated.settings,
+          },
+        },
+        tx,
+      );
+      return toOrgDetailView(updated, actor.role);
+    });
+  }
+
+  /** api.md §7.3: any active member may read the member list. */
+  async listMemberViews(orgId: string, actorUserId: string): Promise<MemberView[]> {
+    await this.requireRole(orgId, actorUserId, ['owner', 'admin', 'auditor', 'viewer']);
+    const memberships = await this.memberships.listForOrg(orgId);
+    return memberships.map(toMemberView);
+  }
+
+  /**
+   * api.md §7.3: existing accounts are added immediately. Unknown emails need
+   * the invitation flow (P2-D), so this returns `NOT_FOUND` until then.
+   */
+  async addMemberByEmail(
+    orgId: string,
+    actorUserId: string,
+    raw: AddMemberByEmailInput,
+  ): Promise<MemberView> {
+    const input = addMemberByEmailSchema.parse(raw);
+
+    return this.prisma.$transaction(async (tx) => {
+      const actor = await this.requireRole(orgId, actorUserId, ['owner', 'admin'], tx);
+      if (input.role === 'owner' && actor.role !== 'owner') {
+        throw new ApiError('FORBIDDEN', 'Only an owner can grant the owner role.');
+      }
+
+      const user = await this.users.findByEmail(input.email, tx);
+      if (!user || user.deletedAt) {
+        throw new ApiError('NOT_FOUND', 'No account exists for that email yet.');
+      }
+      const existing = await this.memberships.find(orgId, user.id, tx);
+      if (existing) throw new ApiError('CONFLICT', 'The user is already a member.');
+
+      try {
+        const membership = await this.memberships.create(
+          {
+            orgId,
+            userId: user.id,
+            role: input.role,
+            status: 'active',
+            invitedBy: actorUserId,
+          },
+          tx,
+        );
+        await this.audit.record(
+          {
+            orgId,
+            actorType: 'user',
+            actorUserId,
+            action: 'member.invited',
+            resourceType: 'membership',
+            resourceId: user.id,
+            metadata: { role: membership.role, status: membership.status },
+          },
+          tx,
+        );
+        return toMemberView({ ...membership, user });
+      } catch (error) {
+        if (isUniqueViolation(error)) {
+          throw new ApiError('CONFLICT', 'The user is already a member.');
+        }
+        throw error;
+      }
+    });
+  }
+
   async addMember(raw: AddMembershipInput): Promise<Membership> {
     const input = addMembershipSchema.parse(raw);
 
@@ -193,11 +384,22 @@ export class IdentityService {
   }
 
   /** database.md §4.3: the last active owner can never be demoted. */
-  async changeRole(raw: ChangeRoleInput): Promise<Membership> {
+  async changeRole(raw: ChangeRoleInput, actorUserId?: string): Promise<Membership> {
     const input = changeRoleSchema.parse(raw);
 
     return this.prisma.$transaction(async (tx) => {
+      const actor = actorUserId
+        ? await this.requireRole(input.orgId, actorUserId, ['owner', 'admin'], tx)
+        : null;
       const membership = await this.requireMembership(input.orgId, input.userId, tx);
+      if (actor && actor.role !== 'owner') {
+        if (membership.role === 'owner') {
+          throw new ApiError('FORBIDDEN', 'Only an owner can change an owner.');
+        }
+        if (input.role === 'owner') {
+          throw new ApiError('FORBIDDEN', 'Only an owner can grant the owner role.');
+        }
+      }
       if (membership.role === 'owner' && membership.status === 'active' && input.role !== 'owner') {
         await this.assertNotLastOwner(input.orgId, tx);
       }
@@ -205,7 +407,8 @@ export class IdentityService {
       await this.audit.record(
         {
           orgId: input.orgId,
-          actorType: 'system',
+          actorType: actor ? 'user' : 'system',
+          actorUserId: actor ? actorUserId : null,
           action: 'member.role_changed',
           resourceType: 'membership',
           resourceId: input.userId,
@@ -218,9 +421,15 @@ export class IdentityService {
   }
 
   /** database.md §4.3: the last active owner can never be removed. */
-  async removeMember(orgId: string, userId: string): Promise<void> {
+  async removeMember(orgId: string, userId: string, actorUserId?: string): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
+      const actor = actorUserId
+        ? await this.requireRole(orgId, actorUserId, ['owner', 'admin'], tx)
+        : null;
       const membership = await this.requireMembership(orgId, userId, tx);
+      if (actor && actor.role !== 'owner' && membership.role === 'owner') {
+        throw new ApiError('FORBIDDEN', 'Only an owner can remove an owner.');
+      }
       if (membership.role === 'owner' && membership.status === 'active') {
         await this.assertNotLastOwner(orgId, tx);
       }
@@ -228,7 +437,8 @@ export class IdentityService {
       await this.audit.record(
         {
           orgId,
-          actorType: 'system',
+          actorType: actor ? 'user' : 'system',
+          actorUserId: actor ? actorUserId : null,
           action: 'member.removed',
           resourceType: 'membership',
           resourceId: userId,
@@ -255,6 +465,28 @@ export class IdentityService {
     return this.memberships.listActiveForUser(userId);
   }
 
+  /**
+   * Everything `/api/v1/me` needs, in one call: the user, their active
+   * memberships (with the organisation each grants access to), and the role
+   * the UI gates on. Feature flags are added by the controller.
+   */
+  async me(userId: string): Promise<MeView> {
+    const user = await this.users.findById(userId);
+    if (!user || user.deletedAt) {
+      throw new ApiError('UNAUTHENTICATED', 'The user is no longer active.');
+    }
+    const memberships = await this.memberships.listActiveForUser(userId);
+    return {
+      user: toUserView(user),
+      memberships: memberships.map((membership) => ({
+        orgId: membership.orgId,
+        role: membership.role,
+        status: membership.status,
+        organization: toOrganizationView(membership.organization),
+      })),
+    };
+  }
+
   getMembership(orgId: string, userId: string): Promise<Membership | null> {
     return this.memberships.find(orgId, userId);
   }
@@ -272,6 +504,24 @@ export class IdentityService {
       },
       tx,
     );
+  }
+
+  private async requireRole(
+    orgId: string,
+    userId: string,
+    allowed: readonly MemberRole[],
+    tx?: Prisma.TransactionClient,
+  ): Promise<Membership> {
+    const membership = await this.memberships.find(orgId, userId, tx);
+    if (!membership || membership.status !== 'active') {
+      // Cross-tenant and non-member callers get the same answer as a missing
+      // organisation: never confirm that someone else's org exists.
+      throw new ApiError('NOT_FOUND', 'The organisation does not exist.');
+    }
+    if (!allowed.includes(membership.role)) {
+      throw new ApiError('FORBIDDEN', 'Your role cannot perform this action.');
+    }
+    return membership;
   }
 
   private async requireMembership(
@@ -294,4 +544,47 @@ export class IdentityService {
 
 function isUniqueViolation(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+}
+
+function toUserView(user: User): UserView {
+  return { id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl };
+}
+
+function toOrganizationView(organization: Organization): OrganizationView {
+  return {
+    id: organization.id,
+    name: organization.name,
+    slug: organization.slug,
+    plan: organization.plan,
+    retentionDays: organization.retentionDays,
+  };
+}
+
+function toOrgDetailView(organization: Organization, role: MemberRole): OrgDetailView {
+  return {
+    ...toOrganizationView(organization),
+    dataRegion: organization.dataRegion,
+    scanConcurrency: organization.scanConcurrency,
+    settings: organization.settings,
+    role,
+  };
+}
+
+function toMemberView(membership: Membership & { user: User }): MemberView {
+  return {
+    userId: membership.userId,
+    name: membership.user.name,
+    email: membership.user.email,
+    role: membership.role,
+    status: membership.status,
+    lastLoginAt: membership.user.lastLoginAt ? membership.user.lastLoginAt.toISOString() : null,
+  };
+}
+
+/** api.md §7.2: plan/region are billing fields, not org-settings fields. */
+function assertNoBillingFields(raw: unknown): void {
+  if (typeof raw !== 'object' || raw === null) return;
+  if ('plan' in raw || 'dataRegion' in raw) {
+    throw new ApiError('FORBIDDEN', 'Plan and data-region changes are billing operations.');
+  }
 }
