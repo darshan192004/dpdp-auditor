@@ -23,6 +23,9 @@ import {
 import { MembershipsRepository } from './memberships.repository.js';
 import { OrganizationsRepository } from './organizations.repository.js';
 import { UsersRepository } from './users.repository.js';
+import { monthStart, PLAN_LIMITS } from '../../common/plan-limits.js';
+import { ReportsRepository } from '../reports/reports.repository.js';
+import { ScansRepository } from '../scans/scans.repository.js';
 
 export interface CreatedOrganization {
   organization: Organization;
@@ -43,6 +46,18 @@ export interface OrganizationView {
   slug: string;
   plan: string;
   retentionDays: number;
+}
+
+/** P5-01: org summary for the overview dashboard (usage vs quota). */
+export interface OrgSummaryView {
+  id: string;
+  name: string;
+  slug: string;
+  plan: string;
+  scansPerMonth: number | null;
+  scansUsedThisMonth: number;
+  reportsPerMonth: number | null;
+  reportsUsedThisMonth: number;
 }
 
 export interface MembershipView {
@@ -87,6 +102,8 @@ export class IdentityService {
     private readonly organizations: OrganizationsRepository,
     private readonly memberships: MembershipsRepository,
     private readonly audit: AuditService,
+    private readonly reports: ReportsRepository,
+    private readonly scans: ScansRepository,
   ) {}
 
   /**
@@ -226,6 +243,29 @@ export class IdentityService {
       'viewer',
     ]);
     return toOrgDetailView(organization, membership.role);
+  }
+
+  /** P5-01: org summary for the overview dashboard (usage vs quota). */
+  async getOrgSummary(orgId: string, userId: string): Promise<OrgSummaryView> {
+    await this.requireRole(orgId, userId, ['owner', 'admin', 'auditor', 'viewer']);
+    const organization = await this.organizations.findById(orgId);
+    if (!organization) throw new ApiError('NOT_FOUND', 'The organisation does not exist.');
+
+    const limits = PLAN_LIMITS[organization.plan];
+    const month = monthStart(new Date());
+    const scansThisMonth = await this.scans.countCreatedSince(orgId, month);
+    const reportsThisMonth = await this.reports.countCreatedSince(orgId, month);
+
+    return {
+      id: organization.id,
+      name: organization.name,
+      slug: organization.slug,
+      plan: organization.plan,
+      scansPerMonth: limits.scansPerMonth,
+      scansUsedThisMonth: scansThisMonth,
+      reportsPerMonth: limits.reportsPerMonth,
+      reportsUsedThisMonth: reportsThisMonth,
+    };
   }
 
   /**

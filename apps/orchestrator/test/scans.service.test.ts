@@ -159,6 +159,11 @@ function make(options?: { scan?: Scan | null; repo?: Repository | null; org?: ty
     }),
   };
 
+  const email = {
+    sendReportReady: vi.fn().mockResolvedValue(undefined),
+    sendScanCompleted: vi.fn().mockResolvedValue(undefined),
+    sendScanFailed: vi.fn().mockResolvedValue(undefined),
+  };
   const service = new ScansService(
     prisma,
     scans as unknown as ScansRepository,
@@ -168,8 +173,20 @@ function make(options?: { scan?: Scan | null; repo?: Repository | null; org?: ty
     queue as unknown as QueueService,
     audit as unknown as AuditService,
     scoring as unknown as ScanScoringService,
+    email as unknown as ConstructorParameters<typeof ScansService>[8],
   );
-  return { service, tx, scans, repositories, organizations, resolver, queue, audit, scoring };
+  return {
+    service,
+    tx,
+    scans,
+    repositories,
+    organizations,
+    resolver,
+    queue,
+    audit,
+    scoring,
+    email,
+  };
 }
 
 describe('ScansService.lifecycle (P3-16)', () => {

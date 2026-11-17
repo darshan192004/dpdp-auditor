@@ -1,12 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Prisma } from '@prisma/client';
 import { ApiError } from '../src/common/api-error.js';
+import { PLAN_LIMITS } from '../src/common/plan-limits.js';
 import { IdentityService } from '../src/modules/identity/identity.service.js';
 import type { MembershipsRepository } from '../src/modules/identity/memberships.repository.js';
 import type { OrganizationsRepository } from '../src/modules/identity/organizations.repository.js';
 import type { UsersRepository } from '../src/modules/identity/users.repository.js';
 import type { PrismaService } from '../src/prisma/prisma.service.js';
 import type { AuditService } from '../src/modules/audit/audit.service.js';
+import type { ReportsRepository } from '../src/modules/reports/reports.repository.js';
+import type { ScansRepository } from '../src/modules/scans/scans.repository.js';
 
 const ORG_ID = '11111111-1111-4111-8111-111111111111';
 const USER_ID = '22222222-2222-4222-9222-222222222222';
@@ -66,6 +69,8 @@ function makeService() {
     listActiveForUser: vi.fn(),
   };
   const audit = { record: vi.fn().mockResolvedValue(undefined) };
+  const reports = { countCreatedSince: vi.fn().mockResolvedValue(0) };
+  const scans = { countCreatedSince: vi.fn().mockResolvedValue(0) };
 
   const service = new IdentityService(
     prisma,
@@ -73,8 +78,10 @@ function makeService() {
     organizations as unknown as OrganizationsRepository,
     memberships as unknown as MembershipsRepository,
     audit as unknown as AuditService,
+    reports as unknown as ReportsRepository,
+    scans as unknown as ScansRepository,
   );
-  return { service, tx, users, organizations, memberships, audit };
+  return { service, tx, users, organizations, memberships, audit, reports, scans };
 }
 
 describe('IdentityService', () => {
@@ -725,5 +732,44 @@ describe('IdentityService', () => {
     const error = new ApiError('LAST_OWNER', 'keep an owner');
     expect(error.getStatus()).toBe(409);
     expect(error.code).toBe('LAST_OWNER');
+  });
+
+  describe('getOrgSummary', () => {
+    it('returns usage vs quota for scans and reports', async () => {
+      const { service, organizations, reports, scans, memberships } = makeService();
+      organizations.findById.mockResolvedValue({
+        id: ORG_ID,
+        name: 'Acme',
+        slug: 'acme',
+        plan: 'starter',
+      });
+      memberships.find.mockResolvedValue(MEMBERSHIP);
+
+      scans.countCreatedSince.mockResolvedValue(12);
+      reports.countCreatedSince.mockResolvedValue(3);
+
+      const summary = await service.getOrgSummary(ORG_ID, USER_ID);
+
+      expect(summary).toEqual({
+        id: ORG_ID,
+        name: 'Acme',
+        slug: 'acme',
+        plan: 'starter',
+        scansPerMonth: PLAN_LIMITS.starter.scansPerMonth,
+        scansUsedThisMonth: 12,
+        reportsPerMonth: PLAN_LIMITS.starter.reportsPerMonth,
+        reportsUsedThisMonth: 3,
+      });
+    });
+
+    it('rejects when the org does not exist', async () => {
+      const { service, organizations, memberships } = makeService();
+      organizations.findById.mockResolvedValue(null);
+      memberships.find.mockResolvedValue(MEMBERSHIP);
+
+      await expect(service.getOrgSummary(ORG_ID, USER_ID)).rejects.toMatchObject({
+        code: 'NOT_FOUND',
+      });
+    });
   });
 });

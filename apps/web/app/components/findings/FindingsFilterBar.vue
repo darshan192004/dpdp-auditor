@@ -95,7 +95,7 @@ function toggle<T>(current: T[], value: T): T[] {
 <template>
   <div class="space-y-3">
     <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-      <div class="relative min-w-56 flex-1 sm:max-w-sm">
+      <div class="relative min-w-0 flex-1 sm:max-w-sm">
         <AppIcon
           name="search"
           :size="14"

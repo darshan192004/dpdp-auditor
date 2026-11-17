@@ -607,3 +607,20 @@ export function quotaExhausted(quota: ScanQuota | null | undefined): boolean {
   if (quota === null || quota === undefined) return false;
   return quota.limit > 0 && quota.used >= quota.limit;
 }
+
+export interface ScanSummary {
+  id: string;
+  repositoryId: string;
+  repositoryFullName: string;
+  status: ScanStatus;
+  score: number | null;
+  grade: ScanGrade | null;
+  counts: ScanCounts;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+export interface ScanListPage {
+  items: ScanSummary[];
+  pagination: { page: number; pageSize: number; totalItems: number; totalPages: number };
+}

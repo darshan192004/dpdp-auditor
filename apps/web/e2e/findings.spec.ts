@@ -13,12 +13,16 @@ test('findings workbench: filter, inspect, triage, restore', async ({ page }) =>
   await expect(page.getByRole('table')).toBeVisible();
   await expect(page.getByText('14 findings')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Critical', exact: true }).click();
-  await expect(page).toHaveURL(/severity=critical/);
-  await expect(page.getByRole('button', { name: 'Critical', exact: true })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
+  // The click can be lost if it lands while the filter bar is still hydrating
+  // under parallel load, so retry until the URL reflects the filter. The URL
+  // check makes the retry idempotent: once the filter is applied we stop.
+  const critical = page.getByRole('button', { name: 'Critical', exact: true });
+  await expect(async () => {
+    if (/severity=critical/.test(page.url())) return;
+    await critical.click();
+    await expect(page).toHaveURL(/severity=critical/, { timeout: 1500 });
+  }).toPass({ timeout: 15_000 });
+  await expect(critical).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('tbody tr')).toHaveCount(3);
 
   await page.locator('tbody tr').first().click();

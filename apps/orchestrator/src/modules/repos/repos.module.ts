@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { IdentityModule } from '../identity/identity.module.js';
 import { InternalReposController } from './internal-repos.controller.js';
 import {
@@ -12,7 +12,7 @@ import { RepositoriesRepository } from './repositories.repository.js';
 import { ReposService } from './repos.service.js';
 
 @Module({
-  imports: [IdentityModule],
+  imports: [forwardRef(() => IdentityModule)],
   controllers: [InternalReposController],
   providers: [
     ReposService,

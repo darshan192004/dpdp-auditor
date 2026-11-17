@@ -1,5 +1,6 @@
 import { FIXTURE_ORG_ID, FIXTURE_USER_ID } from '~~/shared/fixtures';
 import type { OrgDetail, OrgMember } from '~~/shared/org';
+import type { OrgSummary } from '~~/shared/org';
 
 /**
  * Read-only fixture organisation for dev/CI. The fixture session is an
@@ -11,7 +12,7 @@ export function fixtureOrgDetail(): OrgDetail {
     id: FIXTURE_ORG_ID,
     name: 'Acme Payments',
     slug: 'acme-payments',
-    plan: 'pro',
+    plan: 'starter',
     dataRegion: 'ap-south-1',
     retentionDays: 365,
     scanConcurrency: 3,
@@ -39,4 +40,17 @@ export function fixtureOrgMembers(): OrgMember[] {
       lastLoginAt: '2026-11-12T16:05:00.000Z',
     },
   ];
+}
+
+export function fixtureOrgSummary(): OrgSummary {
+  return {
+    id: FIXTURE_ORG_ID,
+    name: 'Acme Payments',
+    slug: 'acme-payments',
+    plan: 'starter',
+    scansPerMonth: 50,
+    scansUsedThisMonth: 12,
+    reportsPerMonth: 20,
+    reportsUsedThisMonth: 3,
+  };
 }

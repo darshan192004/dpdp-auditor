@@ -46,6 +46,7 @@ const eventsError = computed(() => {
 });
 
 const { org } = useAppContext();
+const canExport = computed(() => ['auditor', 'admin', 'owner'].includes(org.value?.role ?? ''));
 const canCancel = computed(() => canManageScans(org.value?.role ?? null));
 
 const loadError = computed(() => {
@@ -119,12 +120,15 @@ async function retryEvents(): Promise<void> {
       :breadcrumbs="[{ label: 'Scans', to: '/app/scans' }, { label: shortId }]"
     >
       <template #actions>
-        <NuxtLink
-          :to="`/app/scans/${scanId}/findings`"
-          class="bg-brand-500 hover:bg-brand-600 focus-visible:ring-brand-500 text-ink-50 inline-flex items-center rounded-[var(--radius-control)] px-3 py-1.5 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-        >
-          View findings
-        </NuxtLink>
+        <div class="flex flex-wrap items-center gap-2">
+          <ReportDownloadButton v-if="isCompleted" :scan-id="scanId" :can-export="canExport" />
+          <NuxtLink
+            :to="`/app/scans/${scanId}/findings`"
+            class="bg-brand-500 hover:bg-brand-600 focus-visible:ring-brand-500 text-ink-50 inline-flex items-center rounded-[var(--radius-control)] px-3 py-1.5 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+          >
+            View findings
+          </NuxtLink>
+        </div>
       </template>
     </PageHeader>
 

@@ -1,4 +1,4 @@
-import type { ScanDetail, ScanEvent } from '~~/shared/scan';
+import type { ScanDetail, ScanEvent, ScanListPage } from '~~/shared/scan';
 import { FIXTURE_SCAN_ID, FixtureNotFoundError } from './findings';
 
 /**
@@ -239,4 +239,30 @@ export function getFixtureScanEvents(scanId: string): ScanEvent[] {
   const events = FIXTURE_SCAN_EVENTS[scanId];
   if (events === undefined) throw new FixtureNotFoundError('The scan does not exist.');
   return structuredClone([...events]);
+}
+
+export function fixtureScanList(status?: string | string[]): ScanListPage {
+  const statuses = status === undefined ? [] : Array.isArray(status) ? status : [status];
+  const matched = FIXTURE_SCANS.filter(
+    (scan) => statuses.length === 0 || statuses.includes(scan.status),
+  );
+  return {
+    items: matched.map((scan) => ({
+      id: scan.id,
+      repositoryId: REPOSITORY.id,
+      repositoryFullName: REPOSITORY.fullName,
+      status: scan.status,
+      score: scan.score,
+      grade: scan.grade,
+      counts: scan.counts,
+      createdAt: scan.timestamps.queuedAt,
+      completedAt: scan.timestamps.completedAt,
+    })),
+    pagination: {
+      page: 1,
+      pageSize: 20,
+      totalItems: matched.length,
+      totalPages: matched.length === 0 ? 0 : 1,
+    },
+  };
 }
