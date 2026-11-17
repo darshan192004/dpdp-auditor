@@ -1,0 +1,11 @@
+{
+  "targetUrl": "http://localhost:3000",
+  "auth": {
+    "type": "none"
+  },
+  "scanPolicyName": "Default",
+  "contextFile": "",
+  "sessionFile": "",
+  "excludePaths": [],
+  "includePaths": []
+}
