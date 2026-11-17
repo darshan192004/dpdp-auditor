@@ -183,4 +183,44 @@ describeDb('concurrent report quota reservations', () => {
       rmSync(directory, { recursive: true, force: true });
     }
   });
+  it('repairs only rendering rows and preserves completed report identity and metadata', async () => {
+    const report = await prisma.report.create({
+      data: {
+        orgId,
+        scanId,
+        templateVersion: 'standard',
+        status: 'rendering',
+        idempotencyKey: 'repair-missing-job',
+      },
+    });
+    expect((await reports.requeueRendering(report.id)).count).toBe(1);
+    expect((await reports.requeueRendering(report.id)).count).toBe(0);
+    expect(await prisma.report.findUnique({ where: { id: report.id } })).toMatchObject({
+      id: report.id,
+      orgId,
+      scanId,
+      status: 'queued',
+      idempotencyKey: 'repair-missing-job',
+    });
+    await prisma.report.update({
+      where: { id: report.id },
+      data: {
+        status: 'ready',
+        storageKey: `reports/${report.id}.pdf`,
+        sha256: 'a'.repeat(64),
+        sizeBytes: 9n,
+      },
+    });
+    expect((await reports.requeueRendering(report.id)).count).toBe(0);
+    expect(await prisma.report.findUnique({ where: { id: report.id } })).toMatchObject({
+      status: 'ready',
+      storageKey: `reports/${report.id}.pdf`,
+      sha256: 'a'.repeat(64),
+      sizeBytes: 9n,
+    });
+    for (const status of ['failed', 'expired'] as const) {
+      await prisma.report.update({ where: { id: report.id }, data: { status } });
+      expect((await reports.requeueRendering(report.id)).count).toBe(0);
+    }
+  });
 });

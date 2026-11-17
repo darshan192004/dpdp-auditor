@@ -97,14 +97,20 @@ export class ReportsService {
     }
 
     // The failed listener can lose its Redis/DB connection after rendering starts.
-    // Reconcile only confirmed terminal failures; an active/delayed job may retry.
+    // Confirm terminal failures and repair missing jobs from the durable report.
     let afterId: string | undefined;
     while (true) {
       const rendering = await this.reports.rendering(afterId);
       for (const report of rendering) {
         try {
           const job = await this.queue.queue('report.render').getJob(report.id);
-          if (job && (await job.getState()) === 'failed') {
+          if (!job) {
+            // Redis retention/loss cannot prove success or failure. Reuse the
+            // durable report and quota reservation; readiness is guarded in SQL.
+            if ((await this.reports.requeueRendering(report.id)).count > 0) {
+              await this.enqueueReport(report);
+            }
+          } else if ((await job.getState()) === 'failed') {
             await this.markFailed(report.id, 'Rendering failed.');
           }
         } catch (err) {

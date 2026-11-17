@@ -122,7 +122,15 @@ export class ReportsRepository {
       orderBy: { id: 'asc' },
       take: REPORT_RECOVERY_BATCH_SIZE,
       ...(afterId ? { cursor: { id: afterId }, skip: 1 } : {}),
-      select: { id: true, orgId: true },
+      select: { id: true, orgId: true, scanId: true, templateVersion: true },
+    });
+  }
+
+  /** Repair a missing queue job without reopening a completed/failed report. */
+  requeueRendering(reportId: string) {
+    return this.prisma.report.updateMany({
+      where: { id: reportId, status: 'rendering' },
+      data: { status: 'queued' },
     });
   }
 

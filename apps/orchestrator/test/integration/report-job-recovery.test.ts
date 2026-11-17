@@ -173,14 +173,14 @@ const redisUrl = process.env.REDIS_TEST_URL || null;
       await queueService.onModuleDestroy();
     }
   });
-  it('leaves waiting, active, completed and missing render jobs unchanged during reconciliation', async () => {
+  it('leaves waiting, active, delayed and completed render jobs unchanged during reconciliation', async () => {
     const env = { REDIS_URL: redisUrl! } as Env;
     const queueService = new QueueService(env);
     const queue = queueService.queue('report.render');
     const enqueue = vi.spyOn(queueService, 'enqueue');
     const events = new QueueEvents('report.render', { connection: redisConnectionOptions(env) });
     const prefix = `report-states-${Date.now()}`;
-    const ids = ['completed', 'active', 'waiting', 'missing'].map((state) => `${prefix}-${state}`);
+    const ids = ['completed', 'active', 'waiting', 'delayed'].map((state) => `${prefix}-${state}`);
     let releaseActive: () => void = () => {};
     const gate = new Promise<void>((resolve) => {
       releaseActive = resolve;
@@ -197,7 +197,8 @@ const redisUrl = process.env.REDIS_TEST_URL || null;
     );
     const repository = {
       pending: async () => [],
-      rendering: async () => ids.map((id) => ({ id, orgId: 'org' })),
+      rendering: async () =>
+        ids.map((id) => ({ id, orgId: 'org', scanId: 'scan', templateVersion: 'standard' })),
       markFailed: vi.fn(),
     };
     const service = new ReportsService(
@@ -218,22 +219,121 @@ const redisUrl = process.env.REDIS_TEST_URL || null;
       const active = await queue.add('hold', {}, { jobId: ids[1]! });
       await expect.poll(() => active.getState(), { timeout: 10_000 }).toBe('active');
       const waiting = await queue.add('render', {}, { jobId: ids[2]! });
+      const delayed = await queue.add('render', {}, { jobId: ids[3]!, delay: 60_000 });
       expect(await completed.getState()).toBe('completed');
       expect(await active.getState()).toBe('active');
       expect(await waiting.getState()).toBe('waiting');
-      expect(await queue.getJob(ids[3]!)).toBeUndefined();
+      expect(await delayed.getState()).toBe('delayed');
       await service.recoverQueued();
       expect(repository.markFailed).not.toHaveBeenCalled();
       expect(enqueue).not.toHaveBeenCalled();
       expect(await completed.getState()).toBe('completed');
       expect(await active.getState()).toBe('active');
       expect(await waiting.getState()).toBe('waiting');
-      expect(await queue.getJob(ids[3]!)).toBeUndefined();
+      expect(await delayed.getState()).toBe('delayed');
     } finally {
       releaseActive();
       await worker.close();
       await events.close();
       for (const id of ids) await (await queue.getJob(id))?.remove();
+      await queueService.onModuleDestroy();
+    }
+  });
+  it('recreates a removed failed render job with the existing report ID and preserves a ready-state race', async () => {
+    const env = { REDIS_URL: redisUrl! } as Env;
+    const queueService = new QueueService(env);
+    const queue = queueService.queue('report.render');
+    const enqueue = vi.spyOn(queueService, 'enqueue');
+    const events = new QueueEvents('report.render', { connection: redisConnectionOptions(env) });
+    const report = {
+      id: `report-removed-${Date.now()}`,
+      orgId: 'org',
+      scanId: 'scan',
+      templateVersion: 'standard',
+    };
+    let status = 'rendering';
+    let firstAttempt = true;
+    const processedIds: (string | undefined)[] = [];
+    const worker = new Worker(
+      'report.render',
+      async (job) => {
+        processedIds.push(job.id);
+        if (firstAttempt) {
+          firstAttempt = false;
+          throw new UnrecoverableError('terminal failure removed from Redis');
+        }
+        expect(status).toBe('queued');
+        status = 'ready';
+        return 'ready';
+      },
+      { connection: redisConnectionOptions(env) },
+    );
+    const repository = {
+      pending: async () => [],
+      rendering: vi.fn(async () => (status === 'rendering' ? [report] : [])),
+      requeueRendering: vi.fn(async () => {
+        if (status !== 'rendering') return { count: 0 };
+        status = 'queued';
+        return { count: 1 };
+      }),
+      markFailed: vi.fn(),
+      create: vi.fn(),
+      reserve: vi.fn(),
+      countCreatedSince: vi.fn(),
+    };
+    const service = new ReportsService(
+      repository as unknown as ConstructorParameters<typeof ReportsService>[0],
+      {} as ConstructorParameters<typeof ReportsService>[1],
+      {} as ConstructorParameters<typeof ReportsService>[2],
+      {} as ConstructorParameters<typeof ReportsService>[3],
+      queueService,
+      {} as ConstructorParameters<typeof ReportsService>[5],
+      {} as ConstructorParameters<typeof ReportsService>[6],
+      {} as ConstructorParameters<typeof ReportsService>[7],
+    );
+    try {
+      await events.waitUntilReady();
+      await worker.waitUntilReady();
+      const failed = await queue.add(
+        'render',
+        { reportId: report.id },
+        { jobId: report.id, attempts: 3, removeOnFail: true },
+      );
+      await expect(failed.waitUntilFinished(events, 10_000)).rejects.toThrow();
+      await expect.poll(() => queue.getJob(report.id), { timeout: 10_000 }).toBeUndefined();
+      expect(status).toBe('rendering');
+      await service.recoverQueued();
+      const recovered = await queue.getJob(report.id);
+      expect(recovered?.id).toBe(report.id);
+      expect(await recovered?.waitUntilFinished(events, 10_000)).toBe('ready');
+      expect(status).toBe('ready');
+      expect(processedIds).toEqual([report.id, report.id]);
+      expect(enqueue).toHaveBeenCalledExactlyOnceWith(
+        'report.render',
+        'render',
+        {
+          reportId: report.id,
+          orgId: report.orgId,
+          scanId: report.scanId,
+          template: report.templateVersion,
+        },
+        { jobId: report.id },
+      );
+      expect(repository.create).not.toHaveBeenCalled();
+      expect(repository.reserve).not.toHaveBeenCalled();
+      expect(repository.countCreatedSince).not.toHaveBeenCalled();
+      expect(repository.markFailed).not.toHaveBeenCalled();
+
+      // A stale rendering snapshot loses the compare-and-set after readiness commits.
+      repository.rendering.mockResolvedValue([{ ...report, id: `${report.id}-ready-race` }]);
+      await service.recoverQueued();
+      expect(repository.requeueRendering).toHaveBeenLastCalledWith(`${report.id}-ready-race`);
+      expect(enqueue).toHaveBeenCalledTimes(1);
+      expect(status).toBe('ready');
+    } finally {
+      await worker.close();
+      await events.close();
+      await (await queue.getJob(report.id))?.remove();
       await queueService.onModuleDestroy();
     }
   });

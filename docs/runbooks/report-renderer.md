@@ -78,7 +78,11 @@ PostgreSQL, but lost PDF files must be regenerated.
    retained failed queue job when its durable report row is still queued. Rendering rows are also reconciled in pages every sweep: only a confirmed
    terminal `failed` queue job marks the report failed. Redis/database read or
    write failures are logged and retried on a later sweep; active, delayed,
-   waiting, completed, or missing jobs are left unchanged.
+   waiting, and completed jobs are left unchanged. If a queue job is missing,
+   a guarded database update moves a still-rendering row back to queued and
+   re-enqueues the same report ID without consuming another quota reservation.
+   Already-ready/failed/expired rows cannot be reopened by this repair. If enqueue
+   fails, the queued row remains available for the next sweep.
 
 ## Remediation
 

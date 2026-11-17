@@ -90,6 +90,7 @@ function make(found: ReturnType<typeof report> | null = report()) {
     reserve: vi.fn().mockResolvedValue(report({ status: 'queued', templateVersion: 'standard' })),
     pending: vi.fn().mockResolvedValue([]),
     rendering: vi.fn().mockResolvedValue([]),
+    requeueRendering: vi.fn().mockResolvedValue({ count: 1 }),
     create: vi.fn(),
     markComplete: vi.fn(),
     markRendering: vi.fn().mockResolvedValue({ count: 1 }),
@@ -388,17 +389,51 @@ describe('report lifecycle', () => {
       expect(m.queue.enqueue).toHaveBeenCalledOnce();
     },
   );
-  it.each(['failed', 'active', 'waiting', 'delayed', 'completed', 'unknown', 'missing'])(
+  it.each(['failed', 'active', 'waiting', 'delayed', 'completed', 'unknown'])(
     'reconciles a rendering report only when its queue state is terminal (%s)',
     async (state) => {
       const m = make();
       m.reports.rendering.mockResolvedValue([report({ status: 'rendering' })]);
-      m.getJob.mockResolvedValue(state === 'missing' ? undefined : { getState: async () => state });
+      m.getJob.mockResolvedValue({ getState: async () => state });
       await m.service.recoverQueued();
       expect(m.reports.markFailed).toHaveBeenCalledTimes(state === 'failed' ? 1 : 0);
       expect(m.queue.enqueue).not.toHaveBeenCalled();
     },
   );
+  it('repairs a missing job with the same durable report and no new quota reservation', async () => {
+    const m = make();
+    m.reports.rendering.mockResolvedValue([report({ status: 'rendering' })]);
+    await m.service.recoverQueued();
+    expect(m.reports.requeueRendering).toHaveBeenCalledExactlyOnceWith(REPORT_ID);
+    expect(m.queue.enqueue).toHaveBeenCalledExactlyOnceWith(
+      'report.render',
+      'render',
+      { reportId: REPORT_ID, orgId: ORG_ID, scanId: SCAN_ID, template: '2026.1' },
+      { jobId: REPORT_ID },
+    );
+    expect(m.reports.reserve).not.toHaveBeenCalled();
+    expect(m.reports.markFailed).not.toHaveBeenCalled();
+  });
+  it('preserves a report that completes between the recovery read and missing-job repair', async () => {
+    const m = make();
+    m.reports.rendering.mockResolvedValue([report({ status: 'rendering' })]);
+    m.reports.requeueRendering.mockResolvedValue({ count: 0 });
+    await m.service.recoverQueued();
+    expect(m.queue.enqueue).not.toHaveBeenCalled();
+    expect(m.reports.markFailed).not.toHaveBeenCalled();
+  });
+  it('retains the queued repair if Redis rejects its enqueue so the next sweep can retry', async () => {
+    const m = make();
+    m.reports.rendering.mockResolvedValueOnce([report({ status: 'rendering' })]);
+    m.queue.enqueue.mockRejectedValueOnce(new Error('Redis unavailable'));
+    await m.service.recoverQueued();
+    expect(m.reports.requeueRendering).toHaveBeenCalledOnce();
+    m.reports.pending.mockResolvedValue([report({ status: 'queued' })]);
+    await m.service.recoverQueued();
+    expect(m.reports.requeueRendering).toHaveBeenCalledOnce();
+    expect(m.queue.enqueue).toHaveBeenCalledTimes(2);
+    expect(m.reports.reserve).not.toHaveBeenCalled();
+  });
   it('retries a failed reconciliation on the next sweep and continues to other reports', async () => {
     const m = make();
     m.reports.rendering.mockResolvedValue([{ id: 'first' }, { id: 'second' }]);
