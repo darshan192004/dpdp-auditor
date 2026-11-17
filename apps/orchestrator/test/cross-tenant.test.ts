@@ -97,7 +97,7 @@ describe('Cross‑tenant isolation (P6-01)', () => {
           method: route.method as 'POST' | 'PATCH' | 'DELETE',
           url: route.path,
           headers: { 'content-type': 'application/json' },
-          ...(route.payload ? { payload: route.payload } : {}),
+          ...(route.payload === undefined ? {} : { payload: route.payload }),
         });
         // Without internal auth key, routes return 401/404; some may return 400 for bad payloads
         expect([400, 401, 404]).toContain(res.statusCode);

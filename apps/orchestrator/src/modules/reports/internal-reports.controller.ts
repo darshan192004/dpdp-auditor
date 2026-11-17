@@ -20,8 +20,9 @@ export class InternalReportsController {
   @HttpCode(202)
   async create(@Headers('x-org-id') orgHeader: string | undefined, @Body() body: unknown) {
     const input = createReportSchema.parse({
-      orgId: orgIdFrom(orgHeader),
       ...(typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {}),
+      // Tenant scope comes from the trusted BFF header, never the caller's body.
+      orgId: orgIdFrom(orgHeader),
     });
     return { data: await this.reports.request(input) };
   }
