@@ -196,7 +196,7 @@ async function submitScan(payload: {
             {{ pagination?.totalItems ?? items.length }} total
           </span>
         </div>
-        <div class="max-w-full min-w-0 overflow-x-auto">
+        <div class="relative max-w-full min-w-0 overflow-x-auto">
           <table class="w-full text-left text-sm">
             <caption class="sr-only">
               Scan history with repository, status, score, grade, and completion time
