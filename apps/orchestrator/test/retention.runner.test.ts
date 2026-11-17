@@ -58,7 +58,7 @@ interface FakeWorker {
 }
 
 function fakeQueue() {
-  return { add: vi.fn().mockResolvedValue(undefined) };
+  return { upsertJobScheduler: vi.fn().mockResolvedValue(undefined) };
 }
 
 function fakeQueues(queue = fakeQueue()) {
@@ -99,13 +99,10 @@ describe('retention schedule', () => {
   it('registers the hourly repeatable job with a stable id', async () => {
     const queue = fakeQueue();
     await ensureRetentionSchedule(queue as never);
-    expect(queue.add).toHaveBeenCalledWith(
-      RETENTION_JOB_NAME,
-      {},
-      {
-        repeat: { pattern: RETENTION_CRON },
-        jobId: RETENTION_JOB_ID,
-      },
+    expect(queue.upsertJobScheduler).toHaveBeenCalledWith(
+      RETENTION_JOB_ID,
+      { pattern: RETENTION_CRON },
+      { name: RETENTION_JOB_NAME, data: {} },
     );
     expect(RETENTION_CRON).toBe('0 * * * *'); // "Runs hourly" — database.md §9
     expect(RETENTION_QUEUE).toBe('retention'); // tasks.md P1-18 queue list
@@ -174,7 +171,7 @@ describe('RetentionRunner', () => {
     await runner.start();
     expect((Worker as unknown as { instances: unknown[] }).instances).toHaveLength(1);
     expect(queues.queue).toHaveBeenCalledWith('retention');
-    expect(queues.queue('retention').add).toHaveBeenCalledTimes(1);
+    expect(queues.queue('retention').upsertJobScheduler).toHaveBeenCalledTimes(1);
 
     await runner.onApplicationShutdown();
     expect(lastWorker().close).toHaveBeenCalledTimes(1);
@@ -182,7 +179,7 @@ describe('RetentionRunner', () => {
 
   it('never leaves an unhandled rejection when scheduling fails', async () => {
     const queue = fakeQueue();
-    queue.add.mockRejectedValueOnce(new Error('redis down'));
+    queue.upsertJobScheduler.mockRejectedValueOnce(new Error('redis down'));
     const runner = new RetentionRunner(ENV, fakeService(), fakeQueues(queue));
     const spy = vi.spyOn(logger, 'error').mockImplementation(() => undefined);
 
