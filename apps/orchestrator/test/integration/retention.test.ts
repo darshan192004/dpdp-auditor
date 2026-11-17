@@ -1,3 +1,4 @@
+import { PrismaPg } from '@prisma/adapter-pg';
 import { afterAll, beforeAll, expect, it, vi } from 'vitest';
 import { PrismaClient } from '@prisma/client';
 import { Queue } from 'bullmq';
@@ -18,7 +19,7 @@ const redisUrl = process.env.REDIS_TEST_URL || null;
 const redisIt = redisUrl ? it : it.skip;
 
 describeDb('retention job (database.md §9)', () => {
-  const owner = new PrismaClient({ datasourceUrl: dbUrl! });
+  const owner = new PrismaClient({ adapter: new PrismaPg({ connectionString: dbUrl! }) });
   let runtime: PrismaClient;
   let service: RetentionService;
   let orgId: string;
@@ -40,7 +41,7 @@ describeDb('retention job (database.md §9)', () => {
     const url = new URL(dbUrl!);
     url.username = 'dpdpa_runtime';
     url.password = 'test-only-runtime-password';
-    runtime = new PrismaClient({ datasourceUrl: url.toString() });
+    runtime = new PrismaClient({ adapter: new PrismaPg({ connectionString: url.toString() }) });
     // The whole point: NOBYPASSRLS role — every phase must work through the
     // per-org set_config path or it affects 0 rows.
     service = new RetentionService(runtime as unknown as PrismaService);

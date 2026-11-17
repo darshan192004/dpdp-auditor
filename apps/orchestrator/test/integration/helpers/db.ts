@@ -1,3 +1,4 @@
+import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { describe, it } from 'vitest';
 
@@ -22,5 +23,5 @@ export function describeDb(name: string, fn: () => void): void {
 export function makeClient(): PrismaClient {
   if (!dbUrl)
     throw new Error('Integration database unavailable (see test/integration/helpers/db.ts)');
-  return new PrismaClient({ datasourceUrl: dbUrl });
+  return new PrismaClient({ adapter: new PrismaPg({ connectionString: dbUrl }) });
 }
