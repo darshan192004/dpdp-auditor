@@ -11,7 +11,7 @@ import { ScansRepository } from '../scans/scans.repository.js';
 import { buildReportViewModel } from './report-view-model.js';
 import { EmailService } from './email.service.js';
 import { ReportStorageService } from './report-storage.service.js';
-import { ReportsRepository } from './reports.repository.js';
+import { REPORT_RECOVERY_BATCH_SIZE, ReportsRepository } from './reports.repository.js';
 import { completeReportSchema, type CreateReportInput } from './report.schemas.js';
 
 /** api.md §6 + §10.6. Report lifecycle: request → queued → rendering → ready → download → expired. */
@@ -94,6 +94,25 @@ export class ReportsService {
       } catch (err) {
         logger.error({ err, reportId: report.id }, 'queued report recovery failed');
       }
+    }
+
+    // The failed listener can lose its Redis/DB connection after rendering starts.
+    // Reconcile only confirmed terminal failures; an active/delayed job may retry.
+    let afterId: string | undefined;
+    while (true) {
+      const rendering = await this.reports.rendering(afterId);
+      for (const report of rendering) {
+        try {
+          const job = await this.queue.queue('report.render').getJob(report.id);
+          if (job && (await job.getState()) === 'failed') {
+            await this.markFailed(report.id, 'Rendering failed.');
+          }
+        } catch (err) {
+          logger.error({ err, reportId: report.id }, 'rendering report recovery failed');
+        }
+      }
+      if (rendering.length < REPORT_RECOVERY_BATCH_SIZE) break;
+      afterId = rendering[rendering.length - 1]!.id;
     }
   }
 

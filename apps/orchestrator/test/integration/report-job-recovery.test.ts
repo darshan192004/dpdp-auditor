@@ -43,9 +43,10 @@ const redisUrl = process.env.REDIS_TEST_URL || null;
       await expect(job.waitUntilFinished(events, 10_000)).rejects.toThrow('database unavailable');
       expect(await job.getState()).toBe('failed');
       const service = new ReportsService(
-        { pending: async () => [report] } as unknown as ConstructorParameters<
-          typeof ReportsService
-        >[0],
+        {
+          pending: async () => [report],
+          rendering: async () => [],
+        } as unknown as ConstructorParameters<typeof ReportsService>[0],
         {} as ConstructorParameters<typeof ReportsService>[1],
         {} as ConstructorParameters<typeof ReportsService>[2],
         {} as ConstructorParameters<typeof ReportsService>[3],
@@ -106,6 +107,133 @@ const redisUrl = process.env.REDIS_TEST_URL || null;
       await worker.close();
       await events.close();
       await (await queue.getJob(reportId))?.remove();
+      await queueService.onModuleDestroy();
+    }
+  });
+  it('reconciles a retained terminal failure after the failure listener loses its database write', async () => {
+    const env = { REDIS_URL: redisUrl! } as Env;
+    const queueService = new QueueService(env);
+    const queue = queueService.queue('report.render');
+    const enqueue = vi.spyOn(queueService, 'enqueue');
+    const events = new QueueEvents('report.render', { connection: redisConnectionOptions(env) });
+    const reportId = `report-reconcile-${Date.now()}`;
+    let status = 'rendering';
+    const repository = {
+      pending: async () => [],
+      rendering: async () => (status === 'rendering' ? [{ id: reportId, orgId: 'org' }] : []),
+      markFailed: vi
+        .fn()
+        .mockRejectedValueOnce(new Error('database unavailable'))
+        .mockImplementation(async () => {
+          status = 'failed';
+        }),
+    };
+    const service = new ReportsService(
+      repository as unknown as ConstructorParameters<typeof ReportsService>[0],
+      {} as ConstructorParameters<typeof ReportsService>[1],
+      {} as ConstructorParameters<typeof ReportsService>[2],
+      {} as ConstructorParameters<typeof ReportsService>[3],
+      queueService,
+      {} as ConstructorParameters<typeof ReportsService>[5],
+      {} as ConstructorParameters<typeof ReportsService>[6],
+      {} as ConstructorParameters<typeof ReportsService>[7],
+    );
+    vi.spyOn(service, 'markRendering').mockRejectedValue(
+      new UnrecoverableError('terminal render failure'),
+    );
+    const complete = vi.spyOn(service, 'complete');
+    const worker = createReportRenderWorker(env, service, {} as ReportStorageService);
+    try {
+      await events.waitUntilReady();
+      await worker.waitUntilReady();
+      const job = await queue.add(
+        'render',
+        { reportId, orgId: 'org' },
+        { jobId: reportId, attempts: 3, removeOnFail: false },
+      );
+      await expect(job.waitUntilFinished(events, 10_000)).rejects.toThrow(
+        'terminal render failure',
+      );
+      // A Redis failure event does not await the worker's asynchronous listener.
+      await expect.poll(() => repository.markFailed.mock.calls.length, { timeout: 10_000 }).toBe(1);
+      expect(status).toBe('rendering');
+      expect(await job.getState()).toBe('failed');
+      await service.recoverQueued();
+      expect(status).toBe('failed');
+      expect(repository.markFailed).toHaveBeenCalledTimes(2);
+      expect(repository.markFailed).toHaveBeenLastCalledWith(reportId, 'Rendering failed.');
+      await service.recoverQueued();
+      expect(repository.markFailed).toHaveBeenCalledTimes(2);
+      expect(enqueue).not.toHaveBeenCalled();
+      expect(complete).not.toHaveBeenCalled();
+    } finally {
+      await worker.close();
+      await events.close();
+      await (await queue.getJob(reportId))?.remove();
+      await queueService.onModuleDestroy();
+    }
+  });
+  it('leaves waiting, active, completed and missing render jobs unchanged during reconciliation', async () => {
+    const env = { REDIS_URL: redisUrl! } as Env;
+    const queueService = new QueueService(env);
+    const queue = queueService.queue('report.render');
+    const enqueue = vi.spyOn(queueService, 'enqueue');
+    const events = new QueueEvents('report.render', { connection: redisConnectionOptions(env) });
+    const prefix = `report-states-${Date.now()}`;
+    const ids = ['completed', 'active', 'waiting', 'missing'].map((state) => `${prefix}-${state}`);
+    let releaseActive: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      releaseActive = resolve;
+    });
+    const worker = new Worker(
+      'report.render',
+      async (job) => {
+        if (job.name === 'hold') {
+          await gate;
+        }
+        return true;
+      },
+      { connection: redisConnectionOptions(env), concurrency: 1 },
+    );
+    const repository = {
+      pending: async () => [],
+      rendering: async () => ids.map((id) => ({ id, orgId: 'org' })),
+      markFailed: vi.fn(),
+    };
+    const service = new ReportsService(
+      repository as unknown as ConstructorParameters<typeof ReportsService>[0],
+      {} as ConstructorParameters<typeof ReportsService>[1],
+      {} as ConstructorParameters<typeof ReportsService>[2],
+      {} as ConstructorParameters<typeof ReportsService>[3],
+      queueService,
+      {} as ConstructorParameters<typeof ReportsService>[5],
+      {} as ConstructorParameters<typeof ReportsService>[6],
+      {} as ConstructorParameters<typeof ReportsService>[7],
+    );
+    try {
+      await events.waitUntilReady();
+      await worker.waitUntilReady();
+      const completed = await queue.add('render', {}, { jobId: ids[0]! });
+      await completed.waitUntilFinished(events, 10_000);
+      const active = await queue.add('hold', {}, { jobId: ids[1]! });
+      await expect.poll(() => active.getState(), { timeout: 10_000 }).toBe('active');
+      const waiting = await queue.add('render', {}, { jobId: ids[2]! });
+      expect(await completed.getState()).toBe('completed');
+      expect(await active.getState()).toBe('active');
+      expect(await waiting.getState()).toBe('waiting');
+      expect(await queue.getJob(ids[3]!)).toBeUndefined();
+      await service.recoverQueued();
+      expect(repository.markFailed).not.toHaveBeenCalled();
+      expect(enqueue).not.toHaveBeenCalled();
+      expect(await completed.getState()).toBe('completed');
+      expect(await active.getState()).toBe('active');
+      expect(await waiting.getState()).toBe('waiting');
+      expect(await queue.getJob(ids[3]!)).toBeUndefined();
+    } finally {
+      releaseActive();
+      await worker.close();
+      await events.close();
+      for (const id of ids) await (await queue.getJob(id))?.remove();
       await queueService.onModuleDestroy();
     }
   });

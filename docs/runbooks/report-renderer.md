@@ -75,8 +75,10 @@ PostgreSQL, but lost PDF files must be regenerated.
    including unrecoverable stall failures below the processor-attempt limit.
    Retrying jobs in `delayed` or `waiting` remain eligible to render.
    Queued database rows are reconciled every 30 seconds, including retrying a
-   retained failed queue job when its durable report row is still queued. A
-   retained job alone does not mean the report is eligible for recovery.
+   retained failed queue job when its durable report row is still queued. Rendering rows are also reconciled in pages every sweep: only a confirmed
+   terminal `failed` queue job marks the report failed. Redis/database read or
+   write failures are logged and retried on a later sweep; active, delayed,
+   waiting, completed, or missing jobs are left unchanged.
 
 ## Remediation
 

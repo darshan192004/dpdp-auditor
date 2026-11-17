@@ -4,6 +4,8 @@ import type { CreateReportInput } from './report.schemas.js';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
 
+export const REPORT_RECOVERY_BATCH_SIZE = 100;
+
 @Injectable()
 export class ReportsRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -110,6 +112,17 @@ export class ReportsRepository {
       where: { status: 'queued' },
       orderBy: { createdAt: 'asc' },
       take: 100,
+    });
+  }
+
+  /** Page rendering rows so a missed terminal failure can be reconciled later. */
+  rendering(afterId?: string) {
+    return this.prisma.report.findMany({
+      where: { status: 'rendering' },
+      orderBy: { id: 'asc' },
+      take: REPORT_RECOVERY_BATCH_SIZE,
+      ...(afterId ? { cursor: { id: afterId }, skip: 1 } : {}),
+      select: { id: true, orgId: true },
     });
   }
 

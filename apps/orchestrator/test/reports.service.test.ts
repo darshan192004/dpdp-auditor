@@ -89,6 +89,7 @@ function make(found: ReturnType<typeof report> | null = report()) {
     findByScanId: vi.fn().mockResolvedValue(null),
     reserve: vi.fn().mockResolvedValue(report({ status: 'queued', templateVersion: 'standard' })),
     pending: vi.fn().mockResolvedValue([]),
+    rendering: vi.fn().mockResolvedValue([]),
     create: vi.fn(),
     markComplete: vi.fn(),
     markRendering: vi.fn().mockResolvedValue({ count: 1 }),
@@ -387,6 +388,43 @@ describe('report lifecycle', () => {
       expect(m.queue.enqueue).toHaveBeenCalledOnce();
     },
   );
+  it.each(['failed', 'active', 'waiting', 'delayed', 'completed', 'unknown', 'missing'])(
+    'reconciles a rendering report only when its queue state is terminal (%s)',
+    async (state) => {
+      const m = make();
+      m.reports.rendering.mockResolvedValue([report({ status: 'rendering' })]);
+      m.getJob.mockResolvedValue(state === 'missing' ? undefined : { getState: async () => state });
+      await m.service.recoverQueued();
+      expect(m.reports.markFailed).toHaveBeenCalledTimes(state === 'failed' ? 1 : 0);
+      expect(m.queue.enqueue).not.toHaveBeenCalled();
+    },
+  );
+  it('retries a failed reconciliation on the next sweep and continues to other reports', async () => {
+    const m = make();
+    m.reports.rendering.mockResolvedValue([{ id: 'first' }, { id: 'second' }]);
+    m.getJob
+      .mockRejectedValueOnce(new Error('Redis unavailable'))
+      .mockResolvedValue({ getState: async () => 'failed' });
+    await m.service.recoverQueued();
+    expect(m.reports.markFailed).toHaveBeenCalledExactlyOnceWith('second', 'Rendering failed.');
+    m.reports.markFailed.mockClear();
+    await m.service.recoverQueued();
+    expect(m.reports.markFailed.mock.calls).toEqual([
+      ['first', 'Rendering failed.'],
+      ['second', 'Rendering failed.'],
+    ]);
+  });
+  it('continues beyond a full page of active render jobs to reconcile later terminal jobs', async () => {
+    const m = make();
+    const active = Array.from({ length: 100 }, (_, i) => ({ id: `active-${i}` }));
+    m.reports.rendering.mockResolvedValueOnce(active).mockResolvedValueOnce([{ id: 'terminal' }]);
+    m.getJob.mockImplementation(async (id) => ({
+      getState: async () => (id === 'terminal' ? 'failed' : 'active'),
+    }));
+    await m.service.recoverQueued();
+    expect(m.reports.rendering.mock.calls).toEqual([[undefined], ['active-99']]);
+    expect(m.reports.markFailed).toHaveBeenCalledExactlyOnceWith('terminal', 'Rendering failed.');
+  });
   it('rejects malformed renderer callbacks before storage writes', async () => {
     const m = make(report({ status: 'rendering' }));
     await expect(m.service.complete(ORG_ID, REPORT_ID, {})).rejects.toThrow();
