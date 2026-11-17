@@ -25,7 +25,7 @@ vi.mock('@kubernetes/client-node', () => {
     constructor() {}
     createNamespacedJob(...args: unknown[]) {
       batchCalls.push({ method: 'createNamespacedJob', args });
-      return Promise.resolve({ body: { metadata: { name: 'scan-1' } } });
+      return Promise.resolve({ metadata: { name: 'scan-1' } });
     }
     deleteNamespacedJob(...args: unknown[]) {
       batchCalls.push({ method: 'deleteNamespacedJob', args });
@@ -40,7 +40,15 @@ vi.mock('@kubernetes/client-node', () => {
     }
   }
 
-  return { KubeConfig, CoreV1Api, BatchV1Api, coreCalls, batchCalls };
+  return {
+    KubeConfig,
+    CoreV1Api,
+    BatchV1Api,
+    coreCalls,
+    batchCalls,
+    PatchStrategy: { MergePatch: 'application/merge-patch+json' },
+    setHeaderMiddleware: () => 'merge-patch-middleware',
+  };
 });
 
 import { K8sClient } from '../src/modules/runner/k8s-client.js';
@@ -74,11 +82,13 @@ describe('K8sClient', () => {
     expect(coreCalls[0]).toEqual({
       method: 'createNamespacedSecret',
       args: [
-        'scanners',
         {
-          metadata: { name: 'scan-1', namespace: 'scanners' },
-          data: { TOKEN: 'abc' },
-          type: 'Opaque',
+          namespace: 'scanners',
+          body: {
+            metadata: { name: 'scan-1', namespace: 'scanners' },
+            data: { TOKEN: 'abc' },
+            type: 'Opaque',
+          },
         },
       ],
     });
@@ -91,7 +101,7 @@ describe('K8sClient', () => {
     expect(coreCalls).toHaveLength(1);
     expect(coreCalls[0]).toEqual({
       method: 'deleteNamespacedSecret',
-      args: ['scan-1', 'scanners'],
+      args: [{ name: 'scan-1', namespace: 'scanners' }],
     });
   });
 
@@ -105,13 +115,16 @@ describe('K8sClient', () => {
     expect(coreCalls[0]).toEqual({
       method: 'patchNamespacedSecret',
       args: [
-        'scan-1',
-        'scanners',
         {
-          metadata: {
-            ownerReferences: [{ apiVersion: 'batch/v1', kind: 'Job', name: 'scan-1' }],
+          name: 'scan-1',
+          namespace: 'scanners',
+          body: {
+            metadata: {
+              ownerReferences: [{ apiVersion: 'batch/v1', kind: 'Job', name: 'scan-1' }],
+            },
           },
         },
+        { middleware: ['merge-patch-middleware'] },
       ],
     });
   });
@@ -124,7 +137,7 @@ describe('K8sClient', () => {
     expect(batchCalls).toHaveLength(1);
     expect(batchCalls[0]).toEqual({
       method: 'createNamespacedJob',
-      args: ['scanners', spec],
+      args: [{ namespace: 'scanners', body: spec }],
     });
     expect(result).toEqual({ metadata: { name: 'scan-1' } });
   });
@@ -136,7 +149,7 @@ describe('K8sClient', () => {
     expect(batchCalls).toHaveLength(1);
     expect(batchCalls[0]).toEqual({
       method: 'deleteNamespacedJob',
-      args: ['scan-1', 'scanners'],
+      args: [{ name: 'scan-1', namespace: 'scanners' }],
     });
   });
 });
