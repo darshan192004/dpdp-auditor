@@ -119,8 +119,8 @@ jobs:
 
       - name: Create one-version-behind database
         run: >
+          DATABASE_URL=postgresql://test:test@localhost:5432/postgres
           pnpm --filter @dpdpa/orchestrator exec prisma db execute
-          --url postgresql://test:test@localhost:5432/postgres
           --stdin <<< 'CREATE DATABASE dpdpa_behind;'
 
       - name: Upgrade database one version behind

@@ -41,6 +41,7 @@ COPY --from=build --chown=nonroot:nonroot /repo/node_modules ./node_modules
 COPY --from=build --chown=nonroot:nonroot /repo/apps/orchestrator/package.json ./apps/orchestrator/package.json
 COPY --from=build --chown=nonroot:nonroot /repo/apps/orchestrator/dist ./apps/orchestrator/dist
 COPY --from=build --chown=nonroot:nonroot /repo/apps/orchestrator/prisma ./apps/orchestrator/prisma
+COPY --from=build --chown=nonroot:nonroot /repo/apps/orchestrator/prisma.config.ts ./apps/orchestrator/prisma.config.ts
 COPY --from=build --chown=nonroot:nonroot /repo/apps/orchestrator/node_modules ./apps/orchestrator/node_modules
 COPY --from=build --chown=nonroot:nonroot /repo/packages/contracts/package.json ./packages/contracts/package.json
 COPY --from=build --chown=nonroot:nonroot /repo/packages/contracts/dist ./packages/contracts/dist
