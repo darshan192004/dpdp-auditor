@@ -25,7 +25,7 @@ vi.mock('@kubernetes/client-node', () => {
     constructor() {}
     createNamespacedJob(...args: unknown[]) {
       batchCalls.push({ method: 'createNamespacedJob', args });
-      return Promise.resolve({ body: { metadata: { name: 'scan-1' } } });
+      return Promise.resolve({ metadata: { name: 'scan-1' } });
     }
     deleteNamespacedJob(...args: unknown[]) {
       batchCalls.push({ method: 'deleteNamespacedJob', args });
@@ -40,7 +40,15 @@ vi.mock('@kubernetes/client-node', () => {
     }
   }
 
-  return { KubeConfig, CoreV1Api, BatchV1Api, coreCalls, batchCalls };
+  return {
+    KubeConfig,
+    CoreV1Api,
+    BatchV1Api,
+    coreCalls,
+    batchCalls,
+    PatchStrategy: { MergePatch: 'application/merge-patch+json' },
+    setHeaderMiddleware: () => 'merge-patch-middleware',
+  };
 });
 
 import { K8sClient } from '../src/modules/runner/k8s-client.js';
@@ -116,6 +124,7 @@ describe('K8sClient', () => {
             },
           },
         },
+        { middleware: ['merge-patch-middleware'] },
       ],
     });
   });

@@ -227,12 +227,12 @@ describeDb('retention job (database.md §9)', () => {
     try {
       await ensureRetentionSchedule(queue);
       await ensureRetentionSchedule(queue);
-      const repeatables = (await queue.getRepeatableJobs()).filter((r) => r.name === 'run');
+      const repeatables = (await queue.getJobSchedulers()).filter((r) => r.name === 'run');
       expect(repeatables).toHaveLength(1);
       expect(repeatables[0]?.pattern).toBe('0 * * * *');
     } finally {
-      const repeatables = await queue.getRepeatableJobs();
-      for (const r of repeatables) await queue.removeRepeatableByKey(r.key);
+      const repeatables = await queue.getJobSchedulers();
+      for (const r of repeatables) await queue.removeJobScheduler(r.key);
       await queue.close();
     }
   });

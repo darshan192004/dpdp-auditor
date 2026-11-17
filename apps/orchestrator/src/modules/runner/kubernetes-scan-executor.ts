@@ -18,7 +18,7 @@ export class KubernetesScanExecutor implements ScanExecutor {
     orgId: string,
     secretData: Record<string, string>,
   ): Promise<string> {
-    return tracer.startActiveSpan('scan.k8s.create', async (span) => {
+    return tracer.startActiveSpan('scan.k8s.create', async (span): Promise<string> => {
       span.setAttribute('scan.id', scanId);
       span.setAttribute('scan.org_id', orgId);
       span.setAttribute('k8s.job_name', jobName);
@@ -134,7 +134,7 @@ export class KubernetesScanExecutor implements ScanExecutor {
           const jobMeta = await this.k8s.createJob(jobSpec);
 
           // patch secret with ownerReference to job
-          const jobNameFinal = jobMeta.metadata?.name ?? jobName;
+          const jobNameFinal = (jobMeta.metadata?.name ?? jobName) as string;
           await this.k8s.patchSecret(jobName, {
             metadata: {
               ownerReferences: [
