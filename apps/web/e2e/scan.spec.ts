@@ -14,6 +14,9 @@ test('scorecard: score, trend, sections, and links into findings', async ({ page
   await expect(
     page.getByRole('heading', { name: 'acme/payments-service', level: 1 }),
   ).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Scan progress' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Timeline' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Export PDF' })).toBeVisible();
   const scorecard = page.getByRole('region', { name: 'DPDPA score', exact: true });
   await expect(scorecard.getByText('82.6', { exact: true })).toBeVisible();
   await expect(scorecard.getByText('Grade B', { exact: true })).toBeVisible();
