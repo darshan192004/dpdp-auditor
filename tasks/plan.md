@@ -68,7 +68,7 @@ Implementation plan for high-priority Phase 6 tasks (P6-17, P6-05, P6-06, P6-08)
 
 **Verification:**
 
-- [ ] Tests pass: npm test -- --grep 'performance'
+- [ ] Tests pass: `pnpm --filter @dpdpa/orchestrator exec vitest run performance.test.ts`
 - [ ] Build succeeds: npm run build
 - [ ] Manual verification: Load test metrics review
 
@@ -117,6 +117,7 @@ Implementation plan for high-priority Phase 6 tasks (P6-17, P6-05, P6-06, P6-08)
 - [ ] Penetration test scoped and contracted
 - [ ] Test execution completed within agreed timeline
 - [ ] Critical/high vulnerabilities documented
+- [ ] Critical/high findings remediated and verified by retesting
 - [ ] Remediation plan for each finding
 - [ ] External validation of security posture
 

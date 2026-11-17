@@ -2,7 +2,8 @@ declare module 'dockerode' {
   class Container {
     inspect(): Promise<Record<string, unknown>>;
     start(): Promise<void>;
-    logs(options?: Record<string, unknown>): NodeJS.ReadableStream;
+    logs(options: Record<string, unknown> & { follow: true }): Promise<NodeJS.ReadableStream>;
+    logs(options?: Record<string, unknown>): Promise<unknown>;
     remove(options?: Record<string, unknown>): Promise<void>;
   }
 
