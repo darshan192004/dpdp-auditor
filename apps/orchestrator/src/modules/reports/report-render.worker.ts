@@ -73,15 +73,17 @@ export function createReportRenderWorker(
 
   worker.on('error', (error: Error) => logger.error({ err: error }, 'report.render worker error'));
 
-  worker.on('failed', async (job: Job | undefined, error: Error) => {
-    if (!job || job.attemptsMade < (job.opts.attempts ?? 1)) return;
-    const { reportId } = (job?.data ?? {}) as { reportId?: string };
-    if (reportId) {
-      try {
+  worker.on('failed', async (job: Job | undefined, _error: Error) => {
+    const reportId = job?.data?.reportId as string | undefined;
+    if (!job || !reportId) return;
+    try {
+      // BullMQ emits failed for both retries and terminal failures. Stalls and
+      // unrecoverable errors can be terminal before attemptsMade reaches its limit.
+      if ((await job.getState()) === 'failed') {
         await reports.markFailed(reportId, 'Rendering failed.');
-      } catch {
-        logger.error({ err: error, reportId }, 'failed to mark report as failed');
       }
+    } catch (error) {
+      logger.error({ err: error, reportId }, 'failed to finalize report failure');
     }
   });
 

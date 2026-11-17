@@ -71,7 +71,9 @@ PostgreSQL, but lost PDF files must be regenerated.
 
 5. **Inspect the retry state.** Jobs use the report ID as their BullMQ job ID and
    have three total attempts, with 30-second and 2-minute waits before the second
-   and third attempts. The worker marks the report failed after exhaustion.
+   and third attempts. The worker marks the report failed when BullMQ reports a terminal `failed` state,
+   including unrecoverable stall failures below the processor-attempt limit.
+   Retrying jobs in `delayed` or `waiting` remain eligible to render.
    Queued database rows are reconciled every 30 seconds, including retrying a
    retained failed queue job when its durable report row is still queued. A
    retained job alone does not mean the report is eligible for recovery.

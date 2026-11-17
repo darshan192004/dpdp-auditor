@@ -99,7 +99,7 @@ describe('report rendering', () => {
     await fakes.process({ data: { orgId: 'org', reportId: 'report' } });
     expect(reports.complete).toHaveBeenCalledOnce();
   });
-  it('never marks an unsuccessful render ready and marks failure only after retries exhaust', async () => {
+  it('never marks an unsuccessful render ready and marks failure only when BullMQ stops retrying', async () => {
     const { reports, service, env, storage } = setup();
     createReportRenderWorker(env, service, storage);
     fakes.page.pdf.mockRejectedValueOnce(new Error('render failed'));
@@ -110,15 +110,73 @@ describe('report rendering', () => {
     const failed = fakes.handlers.get('failed')!;
     await failed(undefined, new Error('failure'));
     await failed(
-      { data: { reportId: 'report' }, attemptsMade: 1, opts: { attempts: 3 } },
+      {
+        data: { reportId: 'report' },
+        attemptsMade: 1,
+        opts: { attempts: 3 },
+        getState: async () => 'delayed',
+      },
       new Error('failure'),
     );
     expect(reports.markFailed).not.toHaveBeenCalled();
     await failed(
-      { data: { reportId: 'report' }, attemptsMade: 3, opts: { attempts: 3 } },
+      {
+        data: { reportId: 'report' },
+        attemptsMade: 3,
+        opts: { attempts: 3 },
+        getState: async () => 'failed',
+      },
       new Error('failure'),
     );
     expect(reports.markFailed).toHaveBeenCalledExactlyOnceWith('report', 'Rendering failed.');
+  });
+  it('finalizes an unrecoverable stall below the processor attempt limit', async () => {
+    const { reports, service, env, storage } = setup();
+    createReportRenderWorker(env, service, storage);
+    const failed = fakes.handlers.get('failed')!;
+    await failed(
+      {
+        data: { reportId: 'stalled' },
+        attemptsMade: 1,
+        opts: { attempts: 3 },
+        getState: async () => 'failed',
+      },
+      new Error('job stalled more than allowable limit'),
+    );
+    expect(reports.markFailed).toHaveBeenCalledExactlyOnceWith('stalled', 'Rendering failed.');
+  });
+  it.each(['waiting', 'active', 'completed'])(
+    'does not finalize a job already in %s',
+    async (state) => {
+      const { reports, service, env, storage } = setup();
+      createReportRenderWorker(env, service, storage);
+      await fakes.handlers.get('failed')!(
+        {
+          data: { reportId: 'report' },
+          attemptsMade: 3,
+          opts: { attempts: 3 },
+          getState: async () => state,
+        },
+        new Error('previous failure'),
+      );
+      expect(reports.markFailed).not.toHaveBeenCalled();
+    },
+  );
+  it('handles a queue-state read failure without an unhandled listener rejection', async () => {
+    const { reports, service, env, storage } = setup();
+    createReportRenderWorker(env, service, storage);
+    await expect(
+      fakes.handlers.get('failed')!(
+        {
+          data: { reportId: 'report' },
+          getState: async () => {
+            throw new Error('Redis unavailable');
+          },
+        },
+        new Error('render failed'),
+      ),
+    ).resolves.toBeUndefined();
+    expect(reports.markFailed).not.toHaveBeenCalled();
   });
   it('recovers queued work at startup and periodically, then clears the timer on shutdown', async () => {
     vi.useFakeTimers();
