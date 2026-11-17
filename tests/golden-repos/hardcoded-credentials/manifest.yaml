@@ -1,0 +1,15 @@
+# Golden repo #17: hardcoded-credentials
+# P6-15: Golden repo #17 of 20
+# Expected findings: Hardcoded credentials detected
+
+name: hardcoded-credentials
+description: Application with hardcoded database and API credentials
+expectedFindings:
+  - control: DPDPA-8.4-SEC-03
+    severity: critical
+    scanner: gitleaks
+    description: Database password hardcoded in source code
+  - control: DPDPA-8.4-SEC-04
+    severity: critical
+    scanner: gitleaks
+    description: API key hardcoded in source code

@@ -1,0 +1,15 @@
+# Golden repo #16: insecure-cookies
+# P6-15: Golden repo #16 of 20
+# Expected findings: Insecure cookie configuration
+
+name: insecure-cookies
+description: Web app with insecure cookie settings
+expectedFindings:
+  - control: DPDPA-8.4-SEC-01
+    severity: high
+    scanner: semgrep
+    description: Cookies without Secure flag
+  - control: DPDPA-8.4-SEC-02
+    severity: high
+    scanner: semgrep
+    description: Cookies without HttpOnly flag

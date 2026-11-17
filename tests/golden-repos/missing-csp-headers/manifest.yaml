@@ -1,0 +1,15 @@
+# Golden repo #20: missing-csp-headers
+# P6-15: Golden repo #20 of 20
+# Expected findings: Missing Content Security Policy headers
+
+name: missing-csp-headers
+description: Web application without Content Security Policy
+expectedFindings:
+  - control: DPDPA-5.2-SEC-01
+    severity: medium
+    scanner: semgrep
+    description: Missing Content Security Policy header
+  - control: DPDPA-5.2-SEC-02
+    severity: medium
+    scanner: semgrep
+    description: Missing X-Content-Type-Options header

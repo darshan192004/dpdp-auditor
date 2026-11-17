@@ -1,0 +1,11 @@
+# Golden repo #13: missing-encryption-at-rest
+# P6-15: Golden repo #13 of 20
+# Expected findings: Encryption control violations
+
+name: missing-encryption-at-rest
+description: Terraform S3 bucket without server-side encryption
+expectedFindings:
+  - control: DPDPA-8.4-ENC-01
+    severity: high
+    scanner: checkov
+    description: S3 bucket without server-side encryption enabled

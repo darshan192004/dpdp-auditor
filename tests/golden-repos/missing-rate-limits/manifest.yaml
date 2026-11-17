@@ -1,0 +1,15 @@
+# Golden repo #18: missing-rate-limits
+# P6-15: Golden repo #18 of 20
+# Expected findings: Missing rate limiting controls
+
+name: missing-rate-limits
+description: API endpoints without rate limiting
+expectedFindings:
+  - control: DPDPA-8.4-SEC-05
+    severity: medium
+    scanner: semgrep
+    description: API endpoint without rate limiting
+  - control: DPDPA-8.4-SEC-06
+    severity: medium
+    scanner: semgrep
+    description: Login endpoint without brute-force protection

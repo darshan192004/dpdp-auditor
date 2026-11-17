@@ -1,0 +1,15 @@
+# Golden repo #15: missing-audit-logging
+# P6-15: Golden repo #15 of 20
+# Expected findings: Missing audit logging controls
+
+name: missing-audit-logging
+description: Python app without audit logging for data access
+expectedFindings:
+  - control: DPDPA-7.1-LOG-01
+    severity: high
+    scanner: semgrep
+    description: Data access events not logged
+  - control: DPDPA-7.1-LOG-02
+    severity: medium
+    scanner: semgrep
+    description: User authentication events not logged

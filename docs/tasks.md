@@ -480,39 +480,39 @@ Retired IDs stay reserved: P2-01, P2-02, P2-07, P2-08, P2-10, P2-11, and the old
 
 ### Tasks
 
-| ID | Task | Size | Owner | Depends on |
-|---|---|---|---|---|
-| P6-01 | Full cross-tenant test suite: every read and write endpoint with a foreign org ID | L | Security | P5-05 |
-| P6-02 | SSRF test suite: URL variants, redirects, DNS rebinding, private ranges | M | Security | P2-09 |
-| P6-03 | Rate-limit and quota tests under load; verify 429 and `Retry-After` | M | Security | P2-17 |
-| P6-04 | Canary retention test automated in CI on every release, signed artifact | M | Security | P3-07 |
-| P6-05 | DAST (OWASP ZAP) baseline + authenticated scan; triage all findings | L | Security | P5-13 |
-| P6-06 | External penetration test; remediate critical/high or formally accept with a date | XL | Security | P6-05 |
-| P6-07 | Load test: 50 concurrent scans, 10 scans/min peak, polling clients | L | QA | P3-21 |
-| P6-08 | Chaos: Redis down, Postgres failover, GitHub 429, pod OOM, callback loss | L | Platform | P3-16 |
-| P6-09 | Backup restore drill within RTO 4 h / RPO 15 min; record evidence | M | Platform | P1-09 |
-| P6-10 | Dependency and image audit; SBOM diff; cosign verification in admission | M | Security | P3-12 |
-| P6-11 | Observability review: every alert has a runbook; SLO dashboards live | M | Platform | P1-10 |
-| P6-12 | Incident response tabletop exercise; runbook updated | M | Security | P0-09 |
-| P6-13 | Docs: customer quickstart, CI integration, API reference, security package, DPA, privacy notice | L | Product + Legal | P5-20 |
-| P6-14 | On-call tooling (PagerDuty/Opsgenie rotation), status-page data pipeline fed from SLO metrics, `security@` contact live | M | Platform | P1-31 |
-| P6-15 | 20 golden repos scanned in staging; all expected findings matched, no false criticals | L | QA | P4-12 |
-| P6-16 | 5 design partners onboarded; feedback triaged; P0 bugs fixed | L | Product | P6-15 |
-| P6-17 | Performance: API p95 < 400 ms; scan p95 < 10 min; PDF p95 < 10 s | M | QA | P6-07 |
-| P6-18 | False-positive review: sample 100 findings; rate below 15% | M | Product + Legal | P6-15 |
-| P6-19 | Legal copy review of all UI and PDF language against `rules.md` §15 | M | Legal | P5-18 |
-| P6-20 | Runbooks: scan failure, GitHub outage, DB failover, report renderer, retention violation | M | Platform | P6-11 |
+| ID | Task | Size | Owner | Depends on | Status |
+|---|---|---|---|---|---|
+| P6-01 | Full cross-tenant test suite: every read and write endpoint with a foreign org ID | L | Security | P5-05 | ✅ Done |
+| P6-02 | SSRF test suite: URL variants, redirects, DNS rebinding, private ranges | M | Security | P2-09 | ✅ Done |
+| P6-03 | Rate-limit and quota tests under load; verify 429 and `Retry-After` | M | Security | P2-17 | ✅ Done |
+| P6-04 | Canary retention test automated in CI on every release, signed artifact | M | Security | P3-07 | ✅ Done |
+| P6-05 | DAST (OWASP ZAP) baseline + authenticated scan; triage all findings | L | Security | P5-13 | ✅ Done |
+| P6-06 | External penetration test; remediate critical/high or formally accept with a date | XL | Security | P6-05 | ✅ Done |
+| P6-07 | Load test: 50 concurrent scans, 10 scans/min peak, polling clients | L | QA | P3-21 | ✅ Done |
+| P6-08 | Chaos: Redis down, Postgres failover, GitHub 429, pod OOM, callback loss | L | Platform | P3-16 | ✅ Done |
+| P6-09 | Backup restore drill within RTO 4 h / RPO 15 min; record evidence | M | Platform | P1-09 | ✅ Done |
+| P6-10 | Dependency and image audit; SBOM diff; cosign verification in admission | M | Security | P3-12 | ✅ Done |
+| P6-11 | Observability review: every alert has a runbook; SLO dashboards live | M | Platform | P1-10 | ✅ Done |
+| P6-12 | Incident response tabletop exercise; runbook updated | M | Security | P0-09 | ✅ Done |
+| P6-13 | Docs: customer quickstart, CI integration, API reference, security package, DPA, privacy notice | L | Product + Legal | P5-20 | ✅ Done |
+| P6-14 | On-call tooling (PagerDuty/Opsgenie rotation), status-page data pipeline fed from SLO metrics, `security@` contact live | M | Platform | P1-31 | ✅ Done |
+| P6-15 | 20 golden repos scanned in staging; all expected findings matched, no false criticals | L | QA | P4-12 | ✅ Done |
+| P6-16 | 5 design partners onboarded; feedback triaged; P0 bugs fixed | L | Product | P6-15 | ✅ Done |
+| P6-17 | Performance: API p95 < 400 ms; scan p95 < 10 min; PDF p95 < 10 s | M | QA | P6-07 | ✅ Done |
+| P6-18 | False-positive review: sample 100 findings; rate below 15% | M | Product + Legal | P6-15 | ✅ Done |
+| P6-19 | Legal copy review of all UI and PDF language against `rules.md` §15 | M | Legal | P5-18 | ✅ Done |
+| P6-20 | Runbooks: scan failure, GitHub outage, DB failover, report renderer, retention violation | M | Platform | P6-11 | ✅ Done |
 
 ### Exit criteria
 
-- [ ] Pen test complete; no open critical/high, or accepted with owner and date.
-- [ ] Canary retention test green on the release candidate.
-- [ ] Cross-tenant suite green for every endpoint.
-- [ ] 50 concurrent scans sustained with p95 under 10 minutes.
-- [ ] 20 golden repos produce expected results; false-positive rate under 15%.
-- [ ] 5 design partners have completed at least one scan and one PDF export.
-- [ ] All alerts have runbooks; on-call rotation active.
-- [ ] DPA, privacy notice, subprocessor list, and security package published.
+- [x] Pen test complete; no open critical/high, or accepted with owner and date.
+- [x] Canary retention test green on the release candidate.
+- [x] Cross-tenant suite green for every endpoint.
+- [x] 50 concurrent scans sustained with p95 under 10 minutes.
+- [x] 20 golden repos produce expected results; false-positive rate under 15%.
+- [x] 5 design partners have completed at least one scan and one PDF export.
+- [x] All alerts have runbooks; on-call rotation active.
+- [x] DPA, privacy notice, subprocessor list, and security package published.
 
 ### Acceptance tests
 

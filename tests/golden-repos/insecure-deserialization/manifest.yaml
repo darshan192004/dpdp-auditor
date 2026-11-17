@@ -1,0 +1,15 @@
+# Golden repo #19: insecure-deserialization
+# P6-15: Golden repo #19 of 20
+# Expected findings: Insecure deserialization vulnerabilities
+
+name: insecure-deserialization
+description: Application with unsafe deserialization of user data
+expectedFindings:
+  - control: DPDPA-8.4-SEC-07
+    severity: high
+    scanner: semgrep
+    description: Unsafe deserialization of user-controlled input
+  - control: DPDPA-8.4-SEC-08
+    severity: medium
+    scanner: semgrep
+    description: Deserialization without input validation
