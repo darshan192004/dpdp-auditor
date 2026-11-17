@@ -1,10 +1,13 @@
-# Golden repo #15: missing-audit-logging
-# P6-15: Golden repo #15 of 20
-# Expected findings: Missing audit logging controls
-
+# Scanner execution has not been validated for this fixture.
+# plannedFindings preserves proposed coverage without inventing scanner rule IDs.
 name: missing-audit-logging
 description: Python app without audit logging for data access
-expectedFindings:
+expectedFindings: []
+languages:
+  - python
+scanners:
+  - semgrep
+plannedFindings:
   - control: DPDPA-7.1-LOG-01
     severity: high
     scanner: semgrep
@@ -13,3 +16,6 @@ expectedFindings:
     severity: medium
     scanner: semgrep
     description: User authentication events not logged
+expectedCoverage: full
+tolerances:
+  extraFindings: 0

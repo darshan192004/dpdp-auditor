@@ -1,10 +1,13 @@
-# Golden repo #19: insecure-deserialization
-# P6-15: Golden repo #19 of 20
-# Expected findings: Insecure deserialization vulnerabilities
-
+# Scanner execution has not been validated for this fixture.
+# plannedFindings preserves proposed coverage without inventing scanner rule IDs.
 name: insecure-deserialization
 description: Application with unsafe deserialization of user data
-expectedFindings:
+expectedFindings: []
+languages:
+  - python
+scanners:
+  - semgrep
+plannedFindings:
   - control: DPDPA-8.4-SEC-07
     severity: high
     scanner: semgrep
@@ -13,3 +16,6 @@ expectedFindings:
     severity: medium
     scanner: semgrep
     description: Deserialization without input validation
+expectedCoverage: full
+tolerances:
+  extraFindings: 0

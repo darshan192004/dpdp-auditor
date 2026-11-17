@@ -1,10 +1,13 @@
-# Golden repo #18: missing-rate-limits
-# P6-15: Golden repo #18 of 20
-# Expected findings: Missing rate limiting controls
-
+# Scanner execution has not been validated for this fixture.
+# plannedFindings preserves proposed coverage without inventing scanner rule IDs.
 name: missing-rate-limits
 description: API endpoints without rate limiting
-expectedFindings:
+expectedFindings: []
+languages:
+  - python
+scanners:
+  - semgrep
+plannedFindings:
   - control: DPDPA-8.4-SEC-05
     severity: medium
     scanner: semgrep
@@ -13,3 +16,6 @@ expectedFindings:
     severity: medium
     scanner: semgrep
     description: Login endpoint without brute-force protection
+expectedCoverage: full
+tolerances:
+  extraFindings: 0

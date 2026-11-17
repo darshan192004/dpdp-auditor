@@ -2,7 +2,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { QueueService } from '../src/queue/queue.service.js';
 import type { Env } from '../src/config/env.js';
-import { ApiError } from '../src/common/api-error.js';
+import { ServiceUnavailableException } from '@nestjs/common';
+import type { Queue } from 'bullmq';
+
+type GithubError = Error & { status?: number; headers?: Record<string, string> };
 
 /**
  * P6-08 — Chaos testing suite.
@@ -41,7 +44,6 @@ describe('Chaos testing (P6-08)', () => {
     }
 
     beforeEach(() => {
-      mockRedis = createMockRedis(false);
       const mockEnv: Env = {
         NODE_ENV: 'test',
         PORT: 3001,
@@ -64,21 +66,24 @@ describe('Chaos testing (P6-08)', () => {
 
     it('returns 503 with Retry-After when Redis is down', async () => {
       // Simulate Redis failure
-      mockRedis = createMockRedis(true);
+      vi.spyOn(queueService, 'queue').mockReturnValue({
+        add: vi.fn().mockRejectedValue(new Error('ECONNREFUSED')),
+      } as unknown as Queue);
 
       // Queue operations should fail gracefully
       await expect(async () => {
-        await queueService.enqueue('scan.execute', { scanId: 'test-scan' });
+        await queueService.enqueue('scan.execute', 'execute', { scanId: 'test-scan' });
       }).rejects.toThrow();
 
       // Verify the error includes retry information
       try {
-        await queueService.enqueue('scan.execute', { scanId: 'test-scan' });
+        await queueService.enqueue('scan.execute', 'execute', { scanId: 'test-scan' });
         expect.fail('Should have thrown');
       } catch (error) {
         expect(error).toBeDefined();
         // In production, this would be an ApiError with 503 status
-        expect((error as Error).message).toContain('failed');
+        expect(error).toBeInstanceOf(ServiceUnavailableException);
+        expect((error as ServiceUnavailableException).getStatus()).toBe(503);
       }
     });
 
@@ -148,7 +153,10 @@ describe('Chaos testing (P6-08)', () => {
         }),
       };
 
-      // First attempt fails, second succeeds
+      // Assert the failover error before retrying the transaction.
+      await expect(mockTx.$transaction(async () => ({ success: true }))).rejects.toThrow(
+        'Transaction failed due to failover',
+      );
       const result = await mockTx.$transaction(async () => ({ success: true }));
       expect(result).toEqual({ success: true });
       expect(transactionAttempts).toBe(2);
@@ -162,7 +170,7 @@ describe('Chaos testing (P6-08)', () => {
         get: vi.fn().mockImplementation(async () => {
           callCount++;
           if (callCount < 3) {
-            const error = new Error('Rate limit exceeded') as ApiError & { status?: number };
+            const error = new Error('Rate limit exceeded') as GithubError;
             error.status = 429;
             throw error;
           }
@@ -172,11 +180,11 @@ describe('Chaos testing (P6-08)', () => {
 
       // Simulate repo resolver with rate limiting
       const resolver = {
-        resolve: async (url: string) => {
+        resolve: async (url: string): Promise<{ data: { default_branch: string } }> => {
           try {
             return await mockGithubClient.get(url);
           } catch (error) {
-            if ((error as ApiError & { status?: number }).status === 429) {
+            if ((error as GithubError).status === 429) {
               // Backoff and retry
               await new Promise((res) => setTimeout(res, 10));
               return resolver.resolve(url);
@@ -200,14 +208,14 @@ describe('Chaos testing (P6-08)', () => {
         get: vi.fn().mockImplementation(async () => {
           if (!rateLimited) {
             rateLimited = true;
-            const error = new Error('Rate limit exceeded') as ApiError & { status?: number };
+            const error = new Error('Rate limit exceeded') as GithubError;
             error.status = 429;
             error.headers = { 'retry-after': '1' };
             throw error;
           }
           // Wait for rate limit window
           if (Date.now() - startTime < rateLimitWindow) {
-            await new Promise((res) => setTimeout(res, 10));
+            await new Promise((res) => setTimeout(res, rateLimitWindow - (Date.now() - startTime)));
           }
           return { data: { default_branch: 'main' } };
         }),
@@ -229,7 +237,7 @@ describe('Chaos testing (P6-08)', () => {
       const mockGithubClient = {
         get: vi.fn().mockImplementation(async () => {
           callCount++;
-          const error = new Error('Rate limit exceeded') as ApiError & { status?: number };
+          const error = new Error('Rate limit exceeded') as GithubError;
           error.status = 429;
           throw error;
         }),
@@ -386,7 +394,7 @@ describe('Chaos testing (P6-08)', () => {
       let callbackAccepted = false;
 
       const mockCallbackHandler = {
-        acceptCallback: vi.fn().mockImplementation(async (scanId, timestamp) => {
+        acceptCallback: vi.fn().mockImplementation(async (_scanId, timestamp) => {
           const elapsed = Date.now() - timestamp;
           if (elapsed > callbackTimeout) {
             return { accepted: false, reason: 'TIMEOUT' };
@@ -421,7 +429,7 @@ describe('Chaos testing (P6-08)', () => {
         }),
         resolveRepo: vi.fn().mockImplementation(async () => {
           if (githubFailing) {
-            const error = new Error('Rate limited') as ApiError & { status?: number };
+            const error = new Error('Rate limited') as GithubError;
             error.status = 429;
             throw error;
           }

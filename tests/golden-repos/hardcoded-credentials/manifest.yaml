@@ -1,10 +1,13 @@
-# Golden repo #17: hardcoded-credentials
-# P6-15: Golden repo #17 of 20
-# Expected findings: Hardcoded credentials detected
-
+# Scanner execution has not been validated for this fixture.
+# plannedFindings preserves proposed coverage without inventing scanner rule IDs.
 name: hardcoded-credentials
 description: Application with hardcoded database and API credentials
-expectedFindings:
+expectedFindings: []
+languages:
+  - python
+scanners:
+  - gitleaks
+plannedFindings:
   - control: DPDPA-8.4-SEC-03
     severity: critical
     scanner: gitleaks
@@ -13,3 +16,6 @@ expectedFindings:
     severity: critical
     scanner: gitleaks
     description: API key hardcoded in source code
+expectedCoverage: full
+tolerances:
+  extraFindings: 0

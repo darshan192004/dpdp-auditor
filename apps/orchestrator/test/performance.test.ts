@@ -22,7 +22,7 @@ import { computeFingerprint } from '@dpdpa/contracts';
 // --- Helpers to generate realistic test data ---
 
 function generateFindings(count: number) {
-  const findings: ScoreInput['findings'] = [];
+  const findings: (ScoreInput['findings'][number] & { controlCode: string })[] = [];
   const severities = ['critical', 'high', 'medium', 'low', 'info'] as const;
   const statuses = ['open', 'open', 'open', 'false_positive', 'accepted_risk'] as const;
   const controls = [
@@ -37,23 +37,31 @@ function generateFindings(count: number) {
   ];
   for (let i = 0; i < count; i++) {
     findings.push({
-      controlCode: controls[i % controls.length],
-      severity: severities[i % severities.length],
-      status: statuses[i % statuses.length],
+      controlCode: controls[i % controls.length]!,
+      severity: severities[i % severities.length]!,
+      status: statuses[i % statuses.length]!,
     });
   }
   return findings;
 }
 
 function generateControls(count: number) {
-  const controls = [];
+  const controls: ScoreInput['controls'][number][] = [];
   for (let i = 0; i < count; i++) {
     controls.push({
       code: `DPDPA-8.4-ENC-0${i}`,
       section: '8(4)',
       weight: 10 + (i % 5) * 2,
       severity: 'high',
-      appliesWhen: {} as never,
+      appliesWhen: {},
+      title: 'Benchmark control',
+      summary: 'Benchmark summary',
+      obligation: 'Benchmark obligation',
+      legalReference: 'DPDPA Section 8(4)',
+      evidenceStrength: 'direct',
+      scored: true,
+      remediation: 'Benchmark remediation',
+      tags: [],
     });
   }
   return controls;
@@ -71,15 +79,17 @@ interface BenchmarkResult {
   max: number;
 }
 
-function runBenchmark(
+async function runBenchmark(
   name: string,
-  fn: () => void | Promise<void>,
+  fn: () => unknown | Promise<unknown>,
   iterations: number = 100,
-): BenchmarkResult {
+): Promise<BenchmarkResult> {
+  if (!Number.isInteger(iterations) || iterations < 1)
+    throw new Error('iterations must be positive');
   const durations: number[] = [];
   for (let i = 0; i < iterations; i++) {
     const start = performance.now();
-    void fn();
+    await fn();
     const end = performance.now();
     durations.push(end - start);
   }
@@ -89,16 +99,16 @@ function runBenchmark(
     name,
     duration: durations.reduce((a, b) => a + b, 0) / durations.length,
     iterations,
-    p95: durations[p95Index] ?? durations[durations.length - 1],
+    p95: durations[p95Index] ?? durations[durations.length - 1]!,
     mean: durations.reduce((a, b) => a + b, 0) / durations.length,
-    min: durations[0],
-    max: durations[durations.length - 1],
+    min: durations[0]!,
+    max: durations[durations.length - 1]!,
   };
 }
 
 describe('Performance benchmarks (P6-17)', () => {
   describe('Scoring engine performance', () => {
-    it('scores 100 findings in under 100ms', () => {
+    it('scores 100 findings in under 100ms', async () => {
       const findings = generateFindings(100);
       const controls = generateControls(20);
       const input: ScoreInput = {
@@ -107,14 +117,14 @@ describe('Performance benchmarks (P6-17)', () => {
         facts: { languages: ['python', 'hcl'] },
       };
 
-      const result = runBenchmark('score-100-findings', () => scoreScan(input), 200);
+      const result = await runBenchmark('score-100-findings', () => scoreScan(input), 200);
 
       expect(result.mean).toBeLessThan(10);
       expect(result.p95).toBeLessThan(100);
       expect(result.max).toBeLessThan(200);
     });
 
-    it('scores 500 findings in under 200ms', () => {
+    it('scores 500 findings in under 200ms', async () => {
       const findings = generateFindings(500);
       const controls = generateControls(20);
       const input: ScoreInput = {
@@ -123,13 +133,13 @@ describe('Performance benchmarks (P6-17)', () => {
         facts: { languages: ['python', 'hcl'] },
       };
 
-      const result = runBenchmark('score-500-findings', () => scoreScan(input), 100);
+      const result = await runBenchmark('score-500-findings', () => scoreScan(input), 100);
 
       expect(result.p95).toBeLessThan(200);
       expect(result.max).toBeLessThan(500);
     });
 
-    it('scoring is deterministic across runs', () => {
+    it('scoring is deterministic across runs', async () => {
       const findings = generateFindings(50);
       const controls = generateControls(10);
       const input: ScoreInput = {
@@ -148,8 +158,8 @@ describe('Performance benchmarks (P6-17)', () => {
   });
 
   describe('Fingerprint computation performance', () => {
-    it('computes 1000 fingerprints in under 10ms', () => {
-      const result = runBenchmark(
+    it('computes 1000 fingerprints in under 10ms', async () => {
+      const result = await runBenchmark(
         'compute-1000-fingerprints',
         () => {
           for (let i = 0; i < 10; i++) {
@@ -189,7 +199,7 @@ describe('Performance benchmarks (P6-17)', () => {
 
       const repo = new ScansRepository(mockPrisma);
 
-      const result = runBenchmark(
+      const result = await runBenchmark(
         'query-100-scans',
         async () => {
           await repo.findActiveForRef('org-1', 'repo-1', 'main', ['completed']);
@@ -203,7 +213,7 @@ describe('Performance benchmarks (P6-17)', () => {
   });
 
   describe('API response time simulation (p95 < 400ms)', () => {
-    it('simulated API request latency is under 400ms p95', () => {
+    it('simulated API request latency is under 400ms p95', async () => {
       // Simulate API request with real service processing time
       const findings = generateFindings(200);
       const controls = generateControls(20);
@@ -213,7 +223,7 @@ describe('Performance benchmarks (P6-17)', () => {
         facts: { languages: ['python'] },
       };
 
-      const result = runBenchmark(
+      const result = await runBenchmark(
         'api-scan-detail',
         async () => {
           // Score computation (real path)
@@ -240,7 +250,7 @@ describe('Performance benchmarks (P6-17)', () => {
   });
 
   describe('PDF view-model generation simulation (p95 < 10s)', () => {
-    it('view-model generation is under 10s p95', () => {
+    it('view-model generation is under 10s p95', async () => {
       const findings = generateFindings(500);
       const controls = generateControls(20);
       const input: ScoreInput = {
@@ -249,7 +259,7 @@ describe('Performance benchmarks (P6-17)', () => {
         facts: { languages: ['python', 'hcl'] },
       };
 
-      const result = runBenchmark(
+      const result = await runBenchmark(
         'pdf-view-model-500-findings',
         async () => {
           // Full scoring path
@@ -276,7 +286,7 @@ describe('Performance benchmarks (P6-17)', () => {
   });
 
   describe('Overall benchmark report', () => {
-    it('all benchmarks meet acceptance criteria', () => {
+    it('all benchmarks meet acceptance criteria', async () => {
       const benchmarks: BenchmarkResult[] = [];
 
       // 100 findings
@@ -287,7 +297,7 @@ describe('Performance benchmarks (P6-17)', () => {
         controls,
         facts: { languages: ['python'] },
       };
-      benchmarks.push(runBenchmark('score-100', () => scoreScan(input100), 200));
+      benchmarks.push(await runBenchmark('score-100', () => scoreScan(input100), 200));
 
       // 500 findings
       const findings500 = generateFindings(500);
@@ -296,11 +306,11 @@ describe('Performance benchmarks (P6-17)', () => {
         controls,
         facts: { languages: ['python'] },
       };
-      benchmarks.push(runBenchmark('score-500', () => scoreScan(input500), 100));
+      benchmarks.push(await runBenchmark('score-500', () => scoreScan(input500), 100));
 
       // Fingerprint batch
       benchmarks.push(
-        runBenchmark(
+        await runBenchmark(
           'fp-batch',
           () => {
             for (let i = 0; i < 10; i++) {

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ScansService } from '../../src/modules/scans/scans.service.js';
 import type { PrismaService } from '../../src/prisma/prisma.service.js';
 import type { ScansRepository } from '../../src/modules/scans/scans.repository.js';
@@ -204,10 +204,11 @@ function p95(values: number[]): number {
   if (values.length === 0) return 0;
   const sorted = [...values].sort((a, b) => a - b);
   const idx = Math.ceil(0.95 * sorted.length) - 1;
-  return sorted[idx];
+  return sorted[idx]!;
 }
 
 describe('P6-07 Load test suite', () => {
+  afterEach(() => vi.useRealTimers());
   it('handles concurrent and sustained scan load', async () => {
     vi.useFakeTimers();
 
@@ -224,12 +225,13 @@ describe('P6-07 Load test suite', () => {
     );
     const concurrentIds = await Promise.all(concurrentPromises);
 
-    vi.advanceTimersByTime(3_000);
-    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(3_000);
 
     for (const id of concurrentIds) {
       const scan = scansStore.get(id);
-      expect(scan?.status).toBe('completed');
+      expect(scan).toBeDefined();
+      if (!scan) throw new Error(`Missing scan ${id}`);
+      expect(scan.status).toBe('completed');
       const duration = scan.completedAt!.getTime() - startTimes.get(id)!;
       durations.push(duration);
     }
@@ -248,14 +250,14 @@ describe('P6-07 Load test suite', () => {
       }
     }, 6_000);
 
-    vi.advanceTimersByTime(61_000);
-    await Promise.resolve();
-    vi.advanceTimersByTime(3_000);
-    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(61_000);
+    await vi.advanceTimersByTimeAsync(3_000);
 
     for (const id of sustainedIds) {
       const scan = scansStore.get(id);
-      expect(scan?.status).toBe('completed');
+      expect(scan).toBeDefined();
+      if (!scan) throw new Error(`Missing scan ${id}`);
+      expect(scan.status).toBe('completed');
       const duration = scan.completedAt!.getTime() - startTimes.get(id)!;
       durations.push(duration);
     }

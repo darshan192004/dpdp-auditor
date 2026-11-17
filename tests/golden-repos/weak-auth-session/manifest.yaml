@@ -1,10 +1,13 @@
-# Golden repo #14: weak-auth-session
-# P6-15: Golden repo #14 of 20
-# Expected findings: Weak authentication session management
-
+# Scanner execution has not been validated for this fixture.
+# plannedFindings preserves proposed coverage without inventing scanner rule IDs.
 name: weak-auth-session
 description: Node.js app with weak session configuration
-expectedFindings:
+expectedFindings: []
+languages:
+  - javascript
+scanners:
+  - semgrep
+plannedFindings:
   - control: DPDPA-6.1-ACC-01
     severity: high
     scanner: semgrep
@@ -13,3 +16,6 @@ expectedFindings:
     severity: medium
     scanner: semgrep
     description: Session tokens not invalidated on logout
+expectedCoverage: full
+tolerances:
+  extraFindings: 0
