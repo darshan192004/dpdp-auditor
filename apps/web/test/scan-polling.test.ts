@@ -1,7 +1,7 @@
 import { flushPromises } from '@vue/test-utils';
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { defineComponent, h, ref } from 'vue';
+import { defineComponent, h, ref, shallowReactive } from 'vue';
 
 import { useScanPolling } from '../app/composables/useScanPolling';
 import type { ScanDetail } from '../shared/scan';
@@ -67,9 +67,9 @@ beforeEach(() => {
     configurable: true,
     get: () => visibility,
   });
-  fetchState.data.value = scanWith('scanning');
+  fetchState.data = shallowReactive({ ...fetchState.data, value: scanWith('scanning') });
   fetchState.status.value = 'success';
-  fetchState.error.value = null;
+  fetchState.error = shallowReactive({ ...fetchState.error, value: null });
   fetchState.refresh.mockReset();
   fetchState.refresh.mockResolvedValue(undefined);
   api = undefined;
@@ -134,6 +134,51 @@ describe('useScanPolling (docs/design.md §7.3)', () => {
     expect(api?.pollError.value).not.toBeNull();
   });
 
+  it('backs off when Nuxt refresh resolves with an error ref', async () => {
+    fetchState.refresh.mockImplementation(async () => {
+      fetchState.error.value = new Error('offline');
+    });
+    wrapper = await mountSuspended(Harness);
+    vi.advanceTimersByTime(2000);
+    await flushPromises();
+    expect(api?.failures.value).toBe(1);
+    vi.advanceTimersByTime(3999);
+    await flushPromises();
+    expect(fetchState.refresh).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(1);
+    await flushPromises();
+    expect(api?.failures.value).toBe(2);
+  });
+
+  it('does not call callbacks or restart polling when an in-flight refresh completes after unmount', async () => {
+    let finish: (() => void) | undefined;
+    fetchState.refresh.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const onTick = vi.fn();
+    // eslint-disable-next-line vue/one-component-per-file
+    const PendingHarness = defineComponent({
+      setup() {
+        api = useScanPolling(ref(SCAN_ID), { onTick });
+        return () => h('div');
+      },
+    });
+    wrapper = await mountSuspended(PendingHarness);
+    vi.advanceTimersByTime(2000);
+    await flushPromises();
+    wrapper.unmount();
+    wrapper = undefined;
+    finish?.();
+    await flushPromises();
+    vi.advanceTimersByTime(20_000);
+    await flushPromises();
+    expect(fetchState.refresh).toHaveBeenCalledTimes(1);
+    expect(onTick).not.toHaveBeenCalled();
+  });
+
   it('pauses while the tab is hidden and resumes when it is visible again', async () => {
     wrapper = await mountSuspended(Harness);
 
@@ -194,9 +239,32 @@ describe('useScanPolling (docs/design.md §7.3)', () => {
     expect(onTick).toHaveBeenCalledTimes(2);
   });
 
+  it('refreshes sibling data on the successful terminal poll and then stops', async () => {
+    const onTick = vi.fn();
+    fetchState.refresh.mockImplementation(async () => {
+      fetchState.data.value = scanWith('completed');
+    });
+    // eslint-disable-next-line vue/one-component-per-file
+    const TerminalHarness = defineComponent({
+      setup() {
+        api = useScanPolling(ref(SCAN_ID), { onTick });
+        return () => h('div');
+      },
+    });
+    wrapper = await mountSuspended(TerminalHarness);
+    vi.advanceTimersByTime(2000);
+    await flushPromises();
+    expect(onTick).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(20_000);
+    await flushPromises();
+    expect(fetchState.refresh).toHaveBeenCalledTimes(1);
+  });
+
   it('does not call onTick when a refresh fails', async () => {
     const onTick = vi.fn();
-    fetchState.refresh.mockRejectedValue(new Error('offline'));
+    fetchState.refresh.mockImplementation(async () => {
+      fetchState.error.value = new Error('offline');
+    });
 
     // eslint-disable-next-line vue/one-component-per-file
     const HarnessWithHook = defineComponent({

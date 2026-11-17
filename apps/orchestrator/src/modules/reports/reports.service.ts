@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
+import { logger } from '../../common/logger.js';
 import { ApiError } from '../../common/api-error.js';
 import { monthStart, PLAN_LIMITS } from '../../common/plan-limits.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -38,45 +39,14 @@ export class ReportsService {
       );
     }
 
-    // Check for existing ready report for same scan (idempotency)
-    const existing = await this.reports.findByScanId(input.orgId, input.scanId);
-    if (existing && existing.status === 'ready') {
-      return {
-        id: existing.id,
-        scanId: existing.scanId,
-        status: existing.status,
-        format: existing.format,
-        templateVersion: existing.templateVersion,
-        createdAt: existing.createdAt,
-        links: { self: `/api/v1/report/pdf/${existing.id}` },
-      };
-    }
-
-    // P5-29: plan limit enforcement
     const org = await this.organizations.findById(input.orgId);
     if (!org) throw new ApiError('NOT_FOUND', 'The organisation does not exist.');
-    const limits = PLAN_LIMITS[org.plan];
-    if (limits.reportsPerMonth !== null) {
-      const used = await this.reports.countCreatedSince(input.orgId, monthStart(new Date()));
-      if (used >= limits.reportsPerMonth) {
-        throw new ApiError('PLAN_LIMIT_EXCEEDED', 'Monthly report quota exceeded for this plan.');
-      }
-    }
-
-    // Create new report row
-    const report = await this.reports.create({
-      orgId: input.orgId,
-      scanId: input.scanId,
-      templateVersion: input.template,
-    });
-
-    // Enqueue renderer job (P5-17)
-    await this.queue.enqueue('report.render', 'render', {
-      reportId: report.id,
-      orgId: input.orgId,
-      scanId: input.scanId,
-      template: input.template,
-    });
+    const report = await this.reports.reserve(
+      input,
+      PLAN_LIMITS[org.plan].reportsPerMonth,
+      monthStart(new Date()),
+    );
+    if (report.status === 'queued') await this.enqueueReport(report);
 
     return {
       id: report.id,
@@ -87,6 +57,37 @@ export class ReportsService {
       createdAt: report.createdAt,
       links: { self: `/api/v1/report/pdf/${report.id}` },
     };
+  }
+
+  private async enqueueReport(report: {
+    id: string;
+    orgId: string;
+    scanId: string;
+    templateVersion: string;
+  }) {
+    // Keep the queued row on ambiguous Redis errors. The recovery sweep retries this
+    // same durable ID, so an accepted job cannot be duplicated or lose its quota.
+    await this.queue.enqueue(
+      'report.render',
+      'render',
+      {
+        reportId: report.id,
+        orgId: report.orgId,
+        scanId: report.scanId,
+        template: report.templateVersion,
+      },
+      { jobId: report.id },
+    );
+  }
+
+  async recoverQueued(): Promise<void> {
+    for (const report of await this.reports.pending()) {
+      try {
+        await this.enqueueReport(report);
+      } catch (err) {
+        logger.error({ err, reportId: report.id }, 'queued report recovery failed');
+      }
+    }
   }
 
   /** P5-20: Get report status (api.md §6.2). */
@@ -102,7 +103,10 @@ export class ReportsService {
       createdAt: report.createdAt,
     };
 
-    if (report.status === 'ready') {
+    if (
+      report.status === 'ready' &&
+      (!report.expiresAt || report.expiresAt.getTime() > Date.now())
+    ) {
       result.sizeBytes = Number(report.sizeBytes ?? 0);
       result.sha256 = report.sha256 ?? undefined;
       result.downloadUrl = report.storageKey
@@ -126,6 +130,9 @@ export class ReportsService {
     if (report.status !== 'ready') {
       throw new ApiError('REPORT_NOT_READY', 'The report is not ready for download.');
     }
+    if (report.expiresAt && report.expiresAt.getTime() <= Date.now()) {
+      throw new ApiError('REPORT_EXPIRED', 'The report has expired.');
+    }
     if (!report.storageKey) {
       throw new ApiError('NOT_FOUND', 'The report storage key is missing.');
     }
@@ -143,11 +150,33 @@ export class ReportsService {
     return this.storage.signedUrl(report.storageKey);
   }
 
-  /** P5-17: mark report rendering (worker picked the job up). */
-  async markRendering(orgId: string, reportId: string): Promise<void> {
+  /** Read a tenant-owned PDF only while both retention and download grant are valid. */
+  async content(
+    orgId: string,
+    reportId: string,
+    token: string | undefined,
+    expires: string | undefined,
+  ) {
     const report = await this.reports.findById(orgId, reportId);
     if (!report) throw new ApiError('NOT_FOUND', 'The report does not exist.');
-    await this.reports.markRendering(reportId);
+    if (
+      report.status === 'expired' ||
+      (report.expiresAt && report.expiresAt.getTime() <= Date.now())
+    ) {
+      throw new ApiError('REPORT_EXPIRED', 'The report has expired.');
+    }
+    if (report.status !== 'ready') {
+      throw new ApiError('REPORT_NOT_READY', 'The report is not ready for download.');
+    }
+    if (!report.storageKey) throw new ApiError('NOT_FOUND', 'The report storage key is missing.');
+    return this.storage.read(report.storageKey, token, expires);
+  }
+
+  /** P5-17: mark report rendering (worker picked the job up). */
+  async markRendering(orgId: string, reportId: string): Promise<boolean> {
+    const report = await this.reports.findById(orgId, reportId);
+    if (!report) throw new ApiError('NOT_FOUND', 'The report does not exist.');
+    return (await this.reports.markRendering(reportId)).count > 0;
   }
 
   /** P5-17: mark report failed (renderer exhausted retries). */

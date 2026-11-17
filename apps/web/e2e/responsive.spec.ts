@@ -99,7 +99,9 @@ test.describe('responsive layout (P5-15)', () => {
     const table = page.locator('table');
     await expect(table).toBeVisible();
     // The table itself may be wider than the viewport, but the page must not be.
-    const wrapper = page.locator('div.overflow-x-auto').first();
+    const wrapper = table.locator(
+      'xpath=ancestor::div[contains(concat(" ", normalize-space(@class), " "), " overflow-x-auto ")][1]',
+    );
     await expect(wrapper).toBeVisible();
   });
 });

@@ -9,6 +9,7 @@ function client() {
       findFirst: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
       count: vi.fn().mockResolvedValue(3),
     },
   };
@@ -65,15 +66,84 @@ describe.each([false, true])('ReportsRepository (transaction: %s)', (transaction
       data: { ...metadata, status: 'ready' },
     });
     await repo.markRendering('report', arg);
-    expect(selected.report.update).toHaveBeenLastCalledWith({
-      where: { id: 'report' },
+    expect(selected.report.updateMany).toHaveBeenLastCalledWith({
+      where: { id: 'report', status: { in: ['queued', 'rendering'] } },
       data: { status: 'rendering' },
     });
     await repo.markFailed('report', 'timeout', arg);
-    expect(selected.report.update).toHaveBeenLastCalledWith({
-      where: { id: 'report' },
+    expect(selected.report.updateMany).toHaveBeenLastCalledWith({
+      where: { id: 'report', status: { in: ['queued', 'rendering'] } },
       data: { status: 'failed', errorMessage: 'timeout' },
     });
     if (transaction) expect(base.report.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('atomic report reservation', () => {
+  const input = {
+    orgId: '11111111-1111-4111-8111-111111111111',
+    scanId: '88888888-8888-4888-8888-888888888888',
+    template: 'standard' as const,
+    idempotencyKey: 'test-key-1234',
+  };
+  function setup() {
+    const tx = {
+      $queryRaw: vi.fn(),
+      report: {
+        findUnique: vi.fn().mockResolvedValue(null),
+        findFirst: vi.fn().mockResolvedValue(null),
+        count: vi.fn().mockResolvedValue(2),
+        create: vi.fn().mockResolvedValue({ id: 'created' }),
+      },
+    };
+    const prisma = { $transaction: vi.fn(async (callback) => callback(tx)) };
+    return { tx, repo: new ReportsRepository(prisma as unknown as PrismaService) };
+  }
+  it('locks the organization before checking quota and inserting with a unique idempotency key', async () => {
+    const { tx, repo } = setup();
+    expect(await repo.reserve(input, 3, new Date(0))).toEqual({ id: 'created' });
+    expect(tx.$queryRaw).toHaveBeenCalledOnce();
+    expect(tx.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      tx.report.count.mock.invocationCallOrder[0]!,
+    );
+    expect(tx.report.create).toHaveBeenCalledWith({
+      data: {
+        orgId: input.orgId,
+        scanId: input.scanId,
+        templateVersion: 'standard',
+        idempotencyKey: input.idempotencyKey,
+      },
+    });
+  });
+  it('rejects a full quota without inserting', async () => {
+    const { tx, repo } = setup();
+    tx.report.count.mockResolvedValue(3);
+    await expect(repo.reserve(input, 3, new Date(0))).rejects.toMatchObject({
+      code: 'PLAN_LIMIT_EXCEEDED',
+    });
+    expect(tx.report.create).not.toHaveBeenCalled();
+  });
+  it('replays a queued reservation before quota checks and rejects key reuse for another payload', async () => {
+    const { tx, repo } = setup();
+    const queued = {
+      id: 'existing',
+      scanId: input.scanId,
+      templateVersion: 'standard',
+      status: 'queued',
+    };
+    tx.report.findUnique.mockResolvedValue(queued);
+    expect(await repo.reserve(input, 3, new Date(0))).toEqual(queued);
+    expect(tx.report.count).not.toHaveBeenCalled();
+    expect(tx.report.create).not.toHaveBeenCalled();
+    await expect(
+      repo.reserve({ ...input, template: 'executive' }, 3, new Date(0)),
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+  });
+  it('reuses an active matching report for requests without an idempotency key', async () => {
+    const { tx, repo } = setup();
+    tx.report.findFirst.mockResolvedValue({ id: 'existing' });
+    const { idempotencyKey: _key, ...withoutKey } = input;
+    expect(await repo.reserve(withoutKey, null, new Date(0))).toEqual({ id: 'existing' });
+    expect(tx.report.create).not.toHaveBeenCalled();
   });
 });

@@ -34,15 +34,20 @@ const shortId = computed(() => scanId.value.slice(0, 8));
  * response (design §7.3), then polls while the scan is active and refreshes the
  * timeline on the same tick, so progress and events never drift apart.
  */
-const { scan, status, error, refresh, pollError, retry } = await useScanPolling(scanId);
-
 const eventsRequest = await useFetch<{ data: ScanEvent[] }>(() => scanEventsPath(scanId.value));
+const { scan, status, error, refresh, pollError, retry } = useScanPolling(scanId, {
+  onTick: async () => {
+    await eventsRequest.refresh();
+  },
+});
 const events = computed<ScanEvent[]>(() => eventsRequest.data.value?.data ?? []);
 const eventsLoading = computed(() => eventsRequest.status.value === 'pending');
 const eventsError = computed(() => {
   if (!eventsRequest.error.value) return null;
-  return (eventsRequest.error.value as { data?: { error?: { message?: string } } }).data?.error
-    ?.message;
+  return (
+    (eventsRequest.error.value as { data?: { error?: { message?: string } } }).data?.error
+      ?.message ?? 'The scan timeline could not be loaded.'
+  );
 });
 
 const { org } = useAppContext();

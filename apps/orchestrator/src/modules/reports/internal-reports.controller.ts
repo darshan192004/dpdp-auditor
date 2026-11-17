@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Headers, HttpCode, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiError } from '../../common/api-error.js';
 import { InternalHmacGuard } from '../internal-auth/internal-hmac.guard.js';
 import { createReportSchema } from './report.schemas.js';
@@ -18,11 +28,16 @@ export class InternalReportsController {
   /** POST /internal/v1/reports — request a PDF for a completed scan (api.md §6.1). */
   @Post()
   @HttpCode(202)
-  async create(@Headers('x-org-id') orgHeader: string | undefined, @Body() body: unknown) {
+  async create(
+    @Headers('x-org-id') orgHeader: string | undefined,
+    @Body() body: unknown,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ) {
     const input = createReportSchema.parse({
       ...(typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {}),
       // Tenant scope comes from the trusted BFF header, never the caller's body.
       orgId: orgIdFrom(orgHeader),
+      idempotencyKey,
     });
     return { data: await this.reports.request(input) };
   }
@@ -44,6 +59,18 @@ export class InternalReportsController {
   ) {
     const orgId = orgIdFrom(orgHeader);
     return { data: await this.reports.downloadUrl(orgId, reportId) };
+  }
+
+  /** JSON transport preserves PDF bytes across the authenticated BFF proxy. */
+  @Get(':reportId/content')
+  async content(
+    @Headers('x-org-id') orgHeader: string | undefined,
+    @Param('reportId') reportId: string,
+    @Query('token') token: string | undefined,
+    @Query('expires') expires: string | undefined,
+  ) {
+    const buffer = await this.reports.content(orgIdFrom(orgHeader), reportId, token, expires);
+    return { data: { buffer: buffer.toString('base64') } };
   }
 
   /** GET /internal/v1/reports/:reportId/view-model — renderer data (api.md §10.6). */

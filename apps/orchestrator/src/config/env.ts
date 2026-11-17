@@ -18,6 +18,14 @@ export const envSchema = z.object({
   SCANNERS_NAMESPACE: z.string().min(1).default('scanners'),
   RUNNER_IMAGE: z.string().min(1).default('registry.example.com/dpdpa/scan-runner@sha256:<digest>'),
   ORCHESTRATOR_CALLBACK_URL: z.string().url().optional(),
+  // Local PDF storage shared by the report worker and API process.
+  REPORTS_STORAGE_DIR: z.string().min(1).optional(),
+  // Chromium runs separately from the distroless API image. Keep this endpoint private.
+  REPORTS_BROWSER_WS_ENDPOINT: z
+    .string()
+    .url()
+    .refine((value) => /^wss?:/.test(value))
+    .optional(),
   // Email configuration for report notifications (dev/test only)
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().optional(),

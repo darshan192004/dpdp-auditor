@@ -135,3 +135,19 @@
 - Add regression tests: render a PDF for a medium‑size scan (≈ 5 MB) and verify it succeeds under load.
 - Update the **renderer health check** (`architecture.md` §10) to surface template rendering errors more clearly.
 - Review the **retry policy** for `report.render` jobs; consider increasing back‑off if external dependencies (S3) are flaky.
+
+
+## Browser connection and queued-job recovery
+
+The orchestrator connects to a separately operated Chromium instance using
+`REPORTS_BROWSER_WS_ENDPOINT` (a private `ws://` or `wss://` DevTools browser
+WebSocket URL). The distroless API image does not launch a local browser. Restrict
+that endpoint to the orchestrator network and treat credentials in its URL as
+secrets. If it is absent or rendering fails, the job retries and eventually marks
+the report failed; an empty placeholder is never published as a ready PDF.
+
+Report creation persists a tenant-scoped idempotency key and reserves monthly
+quota under a database lock. If Redis accepts a job but the response is lost,
+retain the queued report row. A recovery sweep every 30 seconds re-enqueues its
+same report ID, which BullMQ deduplicates. Do not delete these rows to clear an
+ambiguous queue failure. Apply the report-idempotency migration before deploying.

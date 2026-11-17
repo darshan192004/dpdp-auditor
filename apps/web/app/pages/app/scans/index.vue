@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 
 import ScanSubmitForm from '~/components/scan/ScanSubmitForm.vue';
 import { useAppContext } from '~/composables/useAppContext';
 import { canManageScans, scanSubmitPath, type ScanQuota } from '~~/shared/scan';
 import type { SavedRepoView } from '~~/shared/repo';
+import type { OrgSummary } from '~~/shared/org';
 
 import PageHeader from '~/components/shell/PageHeader.vue';
 import EmptyState from '~/components/ui/EmptyState.vue';
@@ -25,10 +26,29 @@ const canSubmit = computed(() => canManageScans(org.value?.role ?? null));
 
 const reposRequest = await useFetch<{ data: { items: SavedRepoView[] } }>('/api/v1/repos');
 const repos = computed(() => reposRequest.data.value?.data.items ?? []);
-const quota = ref<ScanQuota | null>(null);
+const summaryRequest = await useFetch<{ data: OrgSummary }>('/api/v1/org/summary');
+const quota = computed<ScanQuota | null>(() => {
+  const summary = summaryRequest.data.value?.data;
+  return summary ? { used: summary.scansUsedThisMonth, limit: summary.scansPerMonth ?? 0 } : null;
+});
 
-const status = ref<'' | ScanStatus>('');
-const page = ref(1);
+const route = useRoute();
+const router = useRouter();
+const status = computed<'' | ScanStatus>(() => {
+  const value = route.query.status;
+  return typeof value === 'string' && SCAN_STATUSES.includes(value as ScanStatus)
+    ? (value as ScanStatus)
+    : '';
+});
+const page = computed(() => {
+  const raw = route.query.page;
+  const value = typeof raw === 'string' && /^[1-9]\d*$/.test(raw) ? Number(raw) : 1;
+  return Number.isSafeInteger(value) ? value : 1;
+});
+
+function selectStatus(value: '' | ScanStatus): void {
+  void router.push({ query: { ...route.query, status: value || undefined, page: undefined } });
+}
 
 /**
  * Reactive query string: useFetch re-requests automatically when a filter
@@ -71,7 +91,7 @@ function changePage(next: number): void {
   if (next < 1) return;
   const totalPages = pagination.value?.totalPages ?? 1;
   if (next > totalPages) return;
-  page.value = next;
+  void router.push({ query: { ...route.query, page: next === 1 ? undefined : String(next) } });
 }
 function messageFrom(cause: unknown): string {
   const message = (cause as { data?: { error?: { message?: unknown } } }).data?.error?.message;
@@ -85,11 +105,12 @@ async function submitScan(payload: {
   profile: 'standard' | 'secrets-only';
   idempotencyKey: string;
 }): Promise<void> {
+  const { idempotencyKey, ...body } = payload;
   try {
     const response = await $fetch<{ data: { id: string } }>(scanSubmitPath(), {
       method: 'POST',
-      body: payload,
-      headers: { 'idempotency-key': payload.idempotencyKey },
+      body,
+      headers: { 'idempotency-key': idempotencyKey },
     });
     await navigateTo(`/app/scans/${response.data.id}`);
   } catch (cause) {
@@ -102,7 +123,7 @@ async function submitScan(payload: {
   <div class="max-w-full min-w-0 space-y-5 overflow-x-auto">
     <PageHeader title="Scans" :breadcrumbs="[{ label: 'Scans' }]" />
 
-    <ScanSubmitForm v-if="canSubmit" :repos="repos" :quota="quota" @submit="submitScan" />
+    <ScanSubmitForm v-if="canSubmit" :repos="repos" :quota="quota" :submit-request="submitScan" />
 
     <ErrorState
       v-if="reposRequest.error.value"
@@ -123,26 +144,26 @@ async function submitScan(payload: {
         role="radiogroup"
         aria-label="Status filter"
       >
-        <button
+        <label
           v-for="option in [
             { value: '' as const, label: 'All' },
             ...SCAN_STATUSES.map((s) => ({ value: s, label: SCAN_STATUS_LABELS[s] })),
           ]"
           :key="option.value"
-          type="button"
-          role="radio"
-          :aria-checked="status === option.value"
-          :disabled="loading"
-          class="focus-visible:ring-brand-500 rounded-[var(--radius-pill)] px-2.5 py-1 text-xs font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
-          :class="
-            status === option.value
-              ? 'bg-brand-500 text-ink-50'
-              : 'bg-ink-100 text-ink-700 hover:bg-ink-200 hover:text-ink-900'
-          "
-          @click="status = option.value"
+          class="inline-flex cursor-pointer items-center gap-1.5 rounded-[var(--radius-pill)] px-2.5 py-1 text-xs font-medium"
+          :class="status === option.value ? 'bg-brand-500 text-ink-50' : 'bg-ink-100 text-ink-700'"
         >
+          <input
+            type="radio"
+            name="scan-status"
+            :value="option.value"
+            :checked="status === option.value"
+            :disabled="loading"
+            class="focus-visible:ring-brand-500 focus-visible:ring-2"
+            @change="selectStatus(option.value)"
+          />
           {{ option.label }}
-        </button>
+        </label>
       </div>
     </div>
 
@@ -176,7 +197,7 @@ async function submitScan(payload: {
           </span>
         </div>
         <div class="max-w-full min-w-0 overflow-x-auto">
-          <table class="w-full table-fixed text-left text-sm">
+          <table class="w-full text-left text-sm">
             <caption class="sr-only">
               Scan history with repository, status, score, grade, and completion time
             </caption>

@@ -1,4 +1,9 @@
-import { fixturesAnswer } from '../../../utils/org-request';
+import { defineEventHandler, getQuery } from 'h3';
+import { ScanInputError } from '~~/shared/scan';
+import { fixtureScanList } from '../../../utils/fixtures/scans';
+import { apiError } from '../../../utils/api-error';
+import { callOrchestrator } from '../../../utils/orchestrator';
+import { fixturesAnswer, requireIdentity } from '../../../utils/org-request';
 
 /**
  * GET /api/v1/scans - docs/api.md A3.4.
@@ -6,8 +11,16 @@ import { fixturesAnswer } from '../../../utils/org-request';
  */
 export default defineEventHandler((event) => {
   if (fixturesAnswer(event)) {
-    const status = getQuery(event).status;
-    return { data: fixtureScanList(status as string | string[] | undefined) };
+    try {
+      return { data: fixtureScanList(getQuery(event)) };
+    } catch (error) {
+      if (error instanceof ScanInputError) {
+        apiError(event, 422, 'VALIDATION_ERROR', error.message, [
+          { path: error.path, message: error.message },
+        ]);
+      }
+      throw error;
+    }
   }
 
   requireIdentity(event);

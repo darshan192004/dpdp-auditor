@@ -19,6 +19,8 @@ export function useScanPolling(
 ) {
   const failures = ref(0);
   const visible = ref(true);
+  let disposed = false;
+  let refreshing = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
 
   const { data, status, error, refresh } = useFetch<{ data: ScanDetail }>(
@@ -45,7 +47,7 @@ export function useScanPolling(
 
   function schedule(): void {
     clearTimer();
-    if (!import.meta.client) return;
+    if (!import.meta.client || disposed || refreshing) return;
     const delay = nextPollDelayMs({
       failures: failures.value,
       visible: visible.value,
@@ -55,19 +57,24 @@ export function useScanPolling(
   }
 
   async function tick(): Promise<void> {
-    timer = null;
-    if (isTerminal.value || !visible.value) return;
+    clearTimer();
+    if (disposed || refreshing || isTerminal.value || !visible.value) return;
+    refreshing = true;
 
     try {
       await refresh();
+      if (disposed) return;
+      if (error.value) throw error.value;
       failures.value = 0;
       if (options.onTick !== undefined) {
         await options.onTick();
       }
     } catch {
-      failures.value += 1;
+      if (!disposed) failures.value += 1;
+    } finally {
+      refreshing = false;
+      schedule();
     }
-    schedule();
   }
 
   async function retry(): Promise<void> {
@@ -92,6 +99,7 @@ export function useScanPolling(
   });
 
   onBeforeUnmount(() => {
+    disposed = true;
     clearTimer();
     document.removeEventListener('visibilitychange', onVisibilityChange);
   });

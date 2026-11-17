@@ -56,6 +56,7 @@ function report(overrides: Partial<Report> = {}): Report & {
     storageKey: null,
     sha256: null,
     sizeBytes: null,
+    idempotencyKey: null,
     requestedBy: null,
     errorMessage: null,
     expiresAt: null,
@@ -83,9 +84,11 @@ function make(found: ReturnType<typeof report> | null = report()) {
   const reports = {
     findById: vi.fn().mockResolvedValue(found),
     findByScanId: vi.fn().mockResolvedValue(null),
+    reserve: vi.fn().mockResolvedValue(report({ status: 'queued', templateVersion: 'standard' })),
+    pending: vi.fn().mockResolvedValue([]),
     create: vi.fn(),
     markComplete: vi.fn(),
-    markRendering: vi.fn(),
+    markRendering: vi.fn().mockResolvedValue({ count: 1 }),
     markFailed: vi.fn(),
     countCreatedSince: vi.fn().mockResolvedValue(0),
   };
@@ -161,38 +164,43 @@ describe('report lifecycle', () => {
     await expect(m.service.request(input)).rejects.toMatchObject({ code: 'SCAN_NOT_READY' });
     expect(m.queue.enqueue).not.toHaveBeenCalled();
   });
-  it('reuses a ready report without consuming quota or queueing', async () => {
+  it('reuses a ready report returned by the atomic reservation without queueing', async () => {
     const m = make();
     m.scans.findById.mockResolvedValue({ status: 'completed' });
-    m.reports.findByScanId.mockResolvedValue(report());
+    m.reports.reserve.mockResolvedValue(report());
     expect(await m.service.request(input)).toMatchObject({ id: REPORT_ID, status: 'ready' });
-    expect(m.organizations.findById).not.toHaveBeenCalled();
     expect(m.queue.enqueue).not.toHaveBeenCalled();
   });
-  it('enforces organization existence and monthly quota', async () => {
+  it('requires an organization and passes its plan limit to atomic reservation', async () => {
     const m = make();
     m.scans.findById.mockResolvedValue({ status: 'completed' });
     m.organizations.findById.mockResolvedValueOnce(null);
     await expect(m.service.request(input)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    expect(m.reports.reserve).not.toHaveBeenCalled();
     m.organizations.findById.mockResolvedValue({ plan: 'free' });
-    m.reports.countCreatedSince.mockResolvedValue(999);
-    await expect(m.service.request(input)).rejects.toMatchObject({ code: 'PLAN_LIMIT_EXCEEDED' });
-    expect(m.reports.create).not.toHaveBeenCalled();
+    await m.service.request(input);
+    expect(m.reports.reserve).toHaveBeenCalledWith(input, 3, expect.any(Date));
   });
-  it.each(['free', 'enterprise'])('queues a report within the %s plan allowance', async (plan) => {
+  it('keeps a recoverable reservation on an ambiguous enqueue error and reuses its job ID', async () => {
     const m = make();
+    const queued = report({ status: 'queued', templateVersion: 'standard' });
     m.scans.findById.mockResolvedValue({ status: 'completed' });
-    m.organizations.findById.mockResolvedValue({ plan });
-    m.reports.findByScanId.mockResolvedValue(report({ status: 'failed' }));
-    m.reports.create.mockResolvedValue(report({ status: 'queued' }));
-    expect(await m.service.request(input)).toMatchObject({ status: 'queued' });
-    expect(m.queue.enqueue).toHaveBeenCalledWith('report.render', 'render', {
-      reportId: REPORT_ID,
-      orgId: ORG_ID,
-      scanId: SCAN_ID,
-      template: 'standard',
-    });
-    expect(m.reports.countCreatedSince).toHaveBeenCalledTimes(plan === 'enterprise' ? 0 : 1);
+    m.queue.enqueue.mockRejectedValueOnce(new Error('Connection lost after write'));
+    await expect(m.service.request(input)).rejects.toThrow('Connection lost');
+    m.reports.pending.mockResolvedValue([queued]);
+    await m.service.recoverQueued();
+    expect(m.queue.enqueue).toHaveBeenLastCalledWith(
+      'report.render',
+      'render',
+      {
+        reportId: REPORT_ID,
+        orgId: ORG_ID,
+        scanId: SCAN_ID,
+        template: 'standard',
+      },
+      { jobId: REPORT_ID },
+    );
+    expect(m.reports.create).not.toHaveBeenCalled();
   });
   it.each(['status', 'downloadUrl', 'markRendering', 'complete'] as const)(
     'rejects missing reports for %s',
@@ -212,13 +220,18 @@ describe('report lifecycle', () => {
     });
     expect(m.storage.signedUrl).not.toHaveBeenCalled();
     m.reports.findById.mockResolvedValue(
-      report({ sizeBytes: 42n, sha256: 'hash', storageKey: 'key', expiresAt: new Date(0) }),
+      report({
+        sizeBytes: 42n,
+        sha256: 'hash',
+        storageKey: 'key',
+        expiresAt: new Date('2999-01-01'),
+      }),
     );
     expect(await m.service.status(ORG_ID, REPORT_ID)).toMatchObject({
       sizeBytes: 42,
       sha256: 'hash',
       downloadUrl: 'https://example.com/signed',
-      expiresAt: new Date(0),
+      expiresAt: new Date('2999-01-01'),
     });
     for (const errorMessage of [null, 'renderer crashed']) {
       m.reports.findById.mockResolvedValue(report({ status: 'failed', errorMessage }));
@@ -248,6 +261,15 @@ describe('report lifecycle', () => {
         action: 'report.downloaded',
       }),
     );
+  });
+  it('does not sign or audit reports past their retention deadline', async () => {
+    const m = make(report({ storageKey: 'key', expiresAt: new Date(0) }));
+    expect(await m.service.status(ORG_ID, REPORT_ID)).not.toHaveProperty('downloadUrl');
+    await expect(m.service.downloadUrl(ORG_ID, REPORT_ID)).rejects.toMatchObject({
+      code: 'REPORT_EXPIRED',
+    });
+    expect(m.storage.signedUrl).not.toHaveBeenCalled();
+    expect(m.audit.record).not.toHaveBeenCalled();
   });
   it('records rendering and failure transitions', async () => {
     const m = make();

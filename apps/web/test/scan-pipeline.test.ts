@@ -274,6 +274,14 @@ describe('validateScanSubmit (docs/design.md §5.5)', () => {
     expect(() => validateScanSubmit({})).toThrow(ScanInputError);
   });
 
+  it('rejects unknown fields including a body-level idempotency key', () => {
+    for (const field of ['reF', 'idempotencyKey']) {
+      expect(() => validateScanSubmit({ repositoryId: 'repo_1', [field]: 'value' })).toThrow(
+        `Unknown field: ${field}.`,
+      );
+    }
+  });
+
   it('reports the failing field', () => {
     const path = (body: unknown) => {
       try {
@@ -300,6 +308,10 @@ describe('validateScanCancel (docs/api.md §3.4)', () => {
 
   it('trims a reason', () => {
     expect(validateScanCancel({ reason: ' Superseded ' })).toEqual({ reason: 'Superseded' });
+  });
+
+  it('rejects unknown cancellation fields', () => {
+    expect(() => validateScanCancel({ resson: 'typo' })).toThrow('Unknown field: resson.');
   });
 
   it('rejects a non-string or oversized reason', () => {

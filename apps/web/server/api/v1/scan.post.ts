@@ -1,3 +1,5 @@
+import { defineEventHandler, getHeader, readBody, setHeader, setResponseStatus } from 'h3';
+import { callOrchestrator } from '../../utils/orchestrator';
 import { apiError } from '../../utils/api-error';
 import { fixturesAnswer } from '../../utils/org-request';
 import { requireRole } from '../../utils/session';
@@ -30,11 +32,25 @@ export default defineEventHandler(async (event) => {
 
   const idempotencyKey = getHeader(event, 'idempotency-key');
 
-  setResponseStatus(event, 202);
-  return callOrchestrator(event, {
+  if (idempotencyKey !== undefined && !/^[A-Za-z0-9_-]{16,64}$/.test(idempotencyKey)) {
+    apiError(
+      event,
+      422,
+      'VALIDATION_ERROR',
+      'Idempotency-Key must contain 16 to 64 letters, digits, underscores, or hyphens.',
+    );
+  }
+
+  const response = await callOrchestrator<{
+    data: { scanId: string; status: string; createdAt: string; replayed: boolean };
+  }>(event, {
     method: 'POST',
     path: '/internal/v1/scans',
-    body,
+    body: { ...body, ...(idempotencyKey ? { idempotencyKey } : {}) },
     ...(idempotencyKey ? { idempotencyKey } : {}),
   });
+  const { scanId, ...data } = response.data;
+  setResponseStatus(event, 202);
+  setHeader(event, 'Location', `/api/v1/scan/${encodeURIComponent(scanId)}`);
+  return { ...response, data: { ...data, id: scanId } };
 });

@@ -170,13 +170,13 @@ model User {
   deletedAt       DateTime? @map("deleted_at") @db.Timestamptz
 
   memberships           Membership[]
-  membershipsInvited    Membership[]     @relation("MembershipInvitedBy")
-  repositoriesConnected Repository[]     @relation("RepoConnectedBy")
-  apiKeysCreated        ApiKey[]         @relation("ApiKeyCreatedBy")
-  scansRequested        Scan[]           @relation("ScanRequestedBy")
-  remediationActor      RemediationLog[] @relation("RemediationActor")
-  reportsRequested      Report[]         @relation("ReportRequestedBy")
-  auditActs             AuditLog[]       @relation("AuditActor")
+  membershipsInvited    Membership[]       @relation("MembershipInvitedBy")
+  repositoriesConnected Repository[]       @relation("RepoConnectedBy")
+  apiKeysCreated        ApiKey[]           @relation("ApiKeyCreatedBy")
+  scansRequested        Scan[]             @relation("ScanRequestedBy")
+  remediationActor      RemediationLog[]   @relation("RemediationActor")
+  reportsRequested      Report[]           @relation("ReportRequestedBy")
+  auditActs             AuditLog[]         @relation("AuditActor")
   sessions              Session[]
   invitesSent           MembershipInvite[] @relation("MembershipInviteInvitedBy")
 
@@ -201,15 +201,15 @@ model Membership {
 }
 
 model MembershipInvite {
-  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orgId      String    @map("org_id") @db.Uuid
-  email      String    @db.Citext
+  id         String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId      String     @map("org_id") @db.Uuid
+  email      String     @db.Citext
   role       MemberRole @default(viewer)
-  tokenHash  String    @unique @map("token_hash") @db.Text
-  invitedBy  String?   @map("invited_by") @db.Uuid
-  expiresAt  DateTime  @map("expires_at") @db.Timestamptz
-  acceptedAt DateTime? @map("accepted_at") @db.Timestamptz
-  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  tokenHash  String     @unique @map("token_hash") @db.Text
+  invitedBy  String?    @map("invited_by") @db.Uuid
+  expiresAt  DateTime   @map("expires_at") @db.Timestamptz
+  acceptedAt DateTime?  @map("accepted_at") @db.Timestamptz
+  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz
 
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   inviter      User?        @relation("MembershipInviteInvitedBy", fields: [invitedBy], references: [id], onDelete: SetNull)
@@ -432,6 +432,7 @@ model Report {
   storageKey      String?      @unique @map("storage_key") @db.Text
   sha256          String?      @db.Char(64)
   sizeBytes       BigInt?      @map("size_bytes")
+  idempotencyKey  String?      @map("idempotency_key") @db.Text
   requestedBy     String?      @map("requested_by") @db.Uuid
   errorMessage    String?      @map("error_message") @db.Text
   expiresAt       DateTime?    @map("expires_at") @db.Timestamptz
@@ -442,6 +443,7 @@ model Report {
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   requester    User?        @relation("ReportRequestedBy", fields: [requestedBy], references: [id], onDelete: SetNull)
 
+  @@unique([orgId, idempotencyKey])
   @@map("reports")
 }
 

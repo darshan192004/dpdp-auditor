@@ -1,6 +1,7 @@
-import { getQuery } from 'h3';
+import { requireRole } from '../../../utils/session';
+import { defineEventHandler, getQuery, setHeader } from 'h3';
 import { callOrchestrator } from '../../../utils/orchestrator';
-import { fixturesAnswer, requireIdentity } from '../../../utils/org-request';
+import { fixturesAnswer } from '../../../utils/org-request';
 import { fixtureAuditLogNdjson } from '../../../utils/fixtures/audit';
 
 /**
@@ -14,7 +15,7 @@ export default defineEventHandler((event) => {
     return fixtureAuditLogNdjson(getQuery(event));
   }
 
-  requireIdentity(event);
+  requireRole(event, ['owner', 'admin']);
   const query = getQuery(event);
   const params = new URLSearchParams();
   for (const key of ['action', 'actorUserId', 'from', 'to', 'format'] as const) {

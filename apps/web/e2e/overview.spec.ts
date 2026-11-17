@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { test, expect } from '@playwright/test';
 
 /**
@@ -81,22 +82,9 @@ test.describe('Overview Dashboard', () => {
   });
 
   test('has no serious or critical accessibility violations', async ({ page }) => {
-    // Inject axe-core
-    await page.addScriptTag({
-      url: 'https://cdnjs.cloudflare.com/ajax/libs/axe-core/4.10.0/axe.min.js',
-    });
-
-    // Run axe
-    const accessibilityScanResults = await page.evaluate(async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const results = await (window as any).axe.run(document, {
-        runOnly: {
-          type: 'tag',
-          values: ['wcag2a', 'wcag2aa', 'wcag21aa'],
-        },
-      });
-      return results;
-    });
+    const accessibilityScanResults = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+      .analyze();
 
     const seriousViolations = accessibilityScanResults.violations.filter(
       (v: { impact: string }) => v.impact === 'serious' || v.impact === 'critical',
