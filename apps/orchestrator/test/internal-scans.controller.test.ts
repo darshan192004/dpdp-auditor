@@ -9,6 +9,10 @@ const SCAN_ID = '88888888-8888-4888-8888-888888888888';
 function make() {
   const scans = {
     create: vi.fn().mockResolvedValue({ scanId: SCAN_ID, status: 'queued', replayed: false }),
+    list: vi.fn().mockResolvedValue({
+      items: [{ id: SCAN_ID }],
+      pagination: { page: 1, pageSize: 20, totalItems: 1, totalPages: 1 },
+    }),
     detail: vi.fn().mockResolvedValue({ id: SCAN_ID }),
     events: vi.fn().mockResolvedValue([]),
     cancel: vi.fn().mockResolvedValue({ id: SCAN_ID, status: 'cancelled' }),
@@ -104,15 +108,106 @@ describe('InternalScansController', () => {
 
 describe('plan limits', () => {
   it('matches the published plan table', () => {
-    expect(PLAN_LIMITS.free).toEqual({ repositories: 2, scansPerMonth: 5 });
-    expect(PLAN_LIMITS.starter).toEqual({ repositories: 10, scansPerMonth: 50 });
-    expect(PLAN_LIMITS.growth).toEqual({ repositories: 50, scansPerMonth: 300 });
-    expect(PLAN_LIMITS.enterprise).toEqual({ repositories: null, scansPerMonth: null });
+    expect(PLAN_LIMITS.free).toEqual({ repositories: 2, scansPerMonth: 5, reportsPerMonth: 3 });
+    expect(PLAN_LIMITS.starter).toEqual({
+      repositories: 10,
+      scansPerMonth: 50,
+      reportsPerMonth: 20,
+    });
+    expect(PLAN_LIMITS.growth).toEqual({
+      repositories: 50,
+      scansPerMonth: 300,
+      reportsPerMonth: 100,
+    });
+    expect(PLAN_LIMITS.enterprise).toEqual({
+      repositories: null,
+      scansPerMonth: null,
+      reportsPerMonth: null,
+    });
   });
 
   it('resets quotas at the start of the UTC month', () => {
     expect(monthStart(new Date('2026-11-12T23:59:59.999Z'))).toEqual(
       new Date('2026-11-01T00:00:00.000Z'),
     );
+  });
+});
+
+describe('list', () => {
+  it('rejects a missing X-Org-Id', async () => {
+    const { controller } = make();
+    await expect(controller.list(undefined)).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  it('delegates the query through ScansService.list', async () => {
+    const { controller, scans } = make();
+    scans.list = vi.fn().mockResolvedValue({
+      items: [{ id: SCAN_ID }],
+      pagination: { page: 1, pageSize: 20, totalItems: 1, totalPages: 1 },
+    });
+
+    await expect(
+      controller.list(
+        ORG_ID,
+        'repo_1',
+        ['completed'],
+        '2026-11-01',
+        '2026-11-30',
+        '2',
+        '10',
+        'score',
+      ),
+    ).resolves.toEqual({
+      data: {
+        items: [{ id: SCAN_ID }],
+        pagination: { page: 1, pageSize: 20, totalItems: 1, totalPages: 1 },
+      },
+    });
+
+    expect(scans.list).toHaveBeenCalledWith({
+      orgId: ORG_ID,
+      repositoryId: 'repo_1',
+      status: ['completed'],
+      from: new Date('2026-11-01'),
+      to: new Date('2026-11-30'),
+      page: 2,
+      pageSize: 10,
+      sort: 'score',
+    });
+  });
+
+  it('defaults page, pageSize, and sort when omitted', async () => {
+    const { controller, scans } = make();
+    scans.list = vi.fn().mockResolvedValue({
+      items: [],
+      pagination: { page: 1, pageSize: 20, totalItems: 0, totalPages: 0 },
+    });
+
+    await controller.list(ORG_ID);
+
+    expect(scans.list).toHaveBeenCalledWith({
+      orgId: ORG_ID,
+      page: 1,
+      pageSize: 20,
+      sort: '-createdAt',
+    });
+  });
+
+  it('accepts a repeated status query as an array', async () => {
+    const { controller, scans } = make();
+    scans.list = vi.fn().mockResolvedValue({
+      items: [],
+      pagination: { page: 1, pageSize: 20, totalItems: 0, totalPages: 0 },
+    });
+
+    await controller.list(ORG_ID, undefined, ['queued', 'scanning']);
+
+    expect(scans.list).toHaveBeenCalledWith({
+      orgId: ORG_ID,
+      status: ['queued', 'scanning'],
+      page: 1,
+      pageSize: 20,
+      sort: '-createdAt',
+    });
   });
 });

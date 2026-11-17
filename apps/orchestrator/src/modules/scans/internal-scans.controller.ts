@@ -1,7 +1,22 @@
-import { Body, Controller, Get, Headers, HttpCode, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiError } from '../../common/api-error.js';
 import { InternalHmacGuard } from '../internal-auth/internal-hmac.guard.js';
-import type { CompleteScanInput, CreateScanInput, FindingsBatchInput } from './scan.schemas.js';
+import type {
+  CompleteScanInput,
+  CreateScanInput,
+  FindingsBatchInput,
+  ListScansInput,
+} from './scan.schemas.js';
 import { ScansService } from './scans.service.js';
 
 function orgIdFrom(header: string | undefined): string {
@@ -10,13 +25,47 @@ function orgIdFrom(header: string | undefined): string {
 }
 
 /**
- * Internal scan API consumed by Nitro (docs/api.md §10). Every route is HMAC
+ * Internal scan API consumed by Nitro (docs/api.md A10). Every route is HMAC
  * guarded and tenant-scoped by `X-Org-Id`.
  */
 @Controller('internal/v1/scans')
 @UseGuards(InternalHmacGuard)
 export class InternalScansController {
   constructor(private readonly scans: ScansService) {}
+
+  /**
+   * GET /internal/v1/scans
+   * List scans for the org, with filters and pagination (api.md A3.4).
+   */
+  @Get()
+  async list(
+    @Headers('x-org-id') orgHeader: string | undefined,
+    @Query('repositoryId') repositoryId?: string,
+    @Query('status') status?: string | string[],
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('sort') sort?: string,
+  ) {
+    const input: ListScansInput = {
+      orgId: orgIdFrom(orgHeader),
+      ...(repositoryId ? { repositoryId } : {}),
+      ...(status
+        ? {
+            status: (Array.isArray(status) ? status : [status]).map(
+              (s) => s,
+            ) as ListScansInput['status'],
+          }
+        : {}),
+      ...(from ? { from: new Date(from) } : {}),
+      ...(to ? { to: new Date(to) } : {}),
+      page: page ? parseInt(page, 10) : 1,
+      pageSize: pageSize ? parseInt(pageSize, 10) : 20,
+      sort: (sort as 'createdAt' | '-createdAt' | 'score' | '-score') ?? '-createdAt',
+    };
+    return { data: await this.scans.list(input) };
+  }
 
   @Post()
   @HttpCode(202)

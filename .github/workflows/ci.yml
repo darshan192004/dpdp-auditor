@@ -190,6 +190,11 @@ jobs:
         # fails on a clean checkout because `packages/contracts/dist` is absent.
         run: pnpm --filter "@dpdpa/web..." build
 
+      - name: Bundle budget check (P5-16)
+        # Fails the build when gzipped client JS/CSS exceeds the budgets in
+        # apps/web/scripts/check-bundle-size.mjs.
+        run: pnpm --filter @dpdpa/web exec node scripts/check-bundle-size.mjs
+
       - name: Run e2e tests
         run: pnpm --filter @dpdpa/web exec playwright test
 

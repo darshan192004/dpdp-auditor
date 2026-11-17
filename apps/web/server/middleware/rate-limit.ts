@@ -20,6 +20,8 @@ import {
  * policy is skipped (the route's own auth guard will reject).
  */
 export default defineEventHandler(async (event) => {
+  // Bypass rate limiting in fixture mode (NUXT_FIXTURES=1) where Redis is unavailable.
+  if (process.env.NUXT_FIXTURES === '1') return;
   const path = event.path;
   if (!path.startsWith('/api/')) return;
 

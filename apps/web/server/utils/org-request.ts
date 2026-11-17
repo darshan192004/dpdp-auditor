@@ -2,6 +2,14 @@ import type { H3Event } from 'h3';
 import { OrgInputError } from '~~/shared/org';
 import { apiError } from './api-error';
 import { fixturesEnabled } from './fixtures/guard';
+import { requireIdentity } from './session';
+
+/**
+ * Re-export `requireIdentity` so BFF routes can import it alongside
+ * `fixturesAnswer` from a single path (Nuxt also auto-imports it, but
+ * explicit imports satisfy TypeScript's type checker).
+ */
+export { requireIdentity };
 
 /**
  * Fixtures answer only when explicitly enabled *and* no orchestrator is

@@ -30,6 +30,18 @@ export interface OrgDetail {
   role: MemberRole;
 }
 
+/** `GET /api/v1/org/summary` (P5-01): usage vs plan quota for the dashboard. */
+export interface OrgSummary {
+  id: string;
+  name: string;
+  slug: string;
+  plan: string;
+  scansPerMonth: number | null;
+  scansUsedThisMonth: number;
+  reportsPerMonth: number | null;
+  reportsUsedThisMonth: number;
+}
+
 /** `GET /api/v1/org/members` (api.md §7.3). */
 export interface OrgMember {
   userId: string;
@@ -72,6 +84,26 @@ export class OrgInputError extends Error {
   ) {
     super(message);
     this.name = 'OrgInputError';
+  }
+}
+
+/** Display label for a plan slug - one spelling across sidebar, cards, settings. */
+export function planLabel(plan: string | null | undefined): string {
+  switch (plan) {
+    case 'free':
+      return 'Free';
+    case 'starter':
+      return 'Starter';
+    case 'growth':
+      return 'Growth';
+    case 'enterprise':
+      return 'Enterprise';
+    case null:
+    case undefined:
+    case '':
+      return '—';
+    default:
+      return plan.charAt(0).toUpperCase() + plan.slice(1);
   }
 }
 

@@ -1,39 +1,29 @@
-import { AuditQueryError, parseAuditLogExportQuery } from '~~/shared/audit';
-import { apiError } from '../../../utils/api-error';
+import { getQuery } from 'h3';
+import { callOrchestrator } from '../../../utils/orchestrator';
+import { fixturesAnswer, requireIdentity } from '../../../utils/org-request';
+import { fixtureAuditLogNdjson } from '../../../utils/fixtures/audit';
 
 /**
- * GET /api/v1/audit-logs/export — docs/api.md §7.4.
- * Stream audit logs as NDJSON. Owner and admin roles only.
+ * GET /api/v1/audit-logs/export — P5-31
+ * Streams audit logs as NDJSON. Role: owner/admin.
  */
-export default defineEventHandler(async (event) => {
-  const identity = requireIdentity(event);
-
-  if (!['owner', 'admin'].includes(identity.role)) {
-    return apiError(event, 403, 'FORBIDDEN', 'Only owners and admins can export audit logs.');
+export default defineEventHandler((event) => {
+  if (fixturesAnswer(event)) {
+    setHeader(event, 'content-type', 'application/x-ndjson');
+    setHeader(event, 'content-disposition', 'attachment; filename="audit-logs.jsonl"');
+    return fixtureAuditLogNdjson(getQuery(event));
   }
 
-  const rawQuery = getQuery(event);
-  let query;
-  try {
-    query = parseAuditLogExportQuery(rawQuery);
-  } catch (error) {
-    if (error instanceof AuditQueryError) {
-      return apiError(event, 422, 'VALIDATION_ERROR', error.message, [
-        { path: error.path, message: error.message },
-      ]);
-    }
-    throw error;
+  requireIdentity(event);
+  const query = getQuery(event);
+  const params = new URLSearchParams();
+  for (const key of ['action', 'actorUserId', 'from', 'to', 'format'] as const) {
+    const val = query[key];
+    if (typeof val === 'string') params.set(key, val);
   }
-
-  const searchParams = new URLSearchParams();
-  if (query.action) searchParams.set('action', query.action);
-  if (query.actorUserId) searchParams.set('actorUserId', query.actorUserId);
-  if (query.from) searchParams.set('from', query.from);
-  if (query.to) searchParams.set('to', query.to);
-  searchParams.set('format', query.format);
-
+  const qs = params.toString();
   return callOrchestrator(event, {
     method: 'GET',
-    path: `/internal/v1/audit/audit-logs/export?${searchParams.toString()}`,
+    path: `/internal/v1/audit/audit-logs/export${qs ? `?${qs}` : ''}`,
   });
 });

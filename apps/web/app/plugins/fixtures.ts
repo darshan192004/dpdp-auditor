@@ -21,7 +21,7 @@ export default defineNuxtPlugin(() => {
     id: FIXTURE_ORG_ID,
     name: 'Acme Payments',
     slug: 'acme-payments',
-    plan: 'pro',
+    plan: 'starter',
     role: 'auditor',
     retentionDays: 365,
   };

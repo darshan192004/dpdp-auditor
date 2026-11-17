@@ -1,11 +1,17 @@
 import { AuditQueryError, parseAuditLogQuery } from '~~/shared/audit';
 import { apiError } from '../../../utils/api-error';
+import { fixturesAnswer } from '../../../utils/org-request';
+import { fixtureAuditLogList } from '../../../utils/fixtures/audit';
 
 /**
  * GET /api/v1/audit-logs — docs/api.md §7.4.
  * Owner and admin roles only.
  */
 export default defineEventHandler(async (event) => {
+  if (fixturesAnswer(event)) {
+    return fixtureAuditLogList(getQuery(event));
+  }
+
   const identity = requireIdentity(event);
 
   if (!['owner', 'admin'].includes(identity.role)) {

@@ -9,13 +9,14 @@ import type { OrgPlan } from '@prisma/client';
 export interface PlanLimits {
   repositories: number | null;
   scansPerMonth: number | null;
+  reportsPerMonth: number | null;
 }
 
 export const PLAN_LIMITS: Record<OrgPlan, PlanLimits> = {
-  free: { repositories: 2, scansPerMonth: 5 },
-  starter: { repositories: 10, scansPerMonth: 50 },
-  growth: { repositories: 50, scansPerMonth: 300 },
-  enterprise: { repositories: null, scansPerMonth: null },
+  free: { repositories: 2, scansPerMonth: 5, reportsPerMonth: 3 },
+  starter: { repositories: 10, scansPerMonth: 50, reportsPerMonth: 20 },
+  growth: { repositories: 50, scansPerMonth: 300, reportsPerMonth: 100 },
+  enterprise: { repositories: null, scansPerMonth: null, reportsPerMonth: null },
 };
 
 /** First instant of the UTC month containing `now`; quotas reset monthly. */

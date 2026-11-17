@@ -80,13 +80,44 @@ function report(overrides: Partial<Report> = {}): Report & {
 }
 
 function make(found: ReturnType<typeof report> | null = report()) {
-  const reports = { findById: vi.fn().mockResolvedValue(found) };
+  const reports = {
+    findById: vi.fn().mockResolvedValue(found),
+    findByScanId: vi.fn().mockResolvedValue(null),
+    create: vi.fn(),
+    markComplete: vi.fn(),
+    markRendering: vi.fn(),
+    markFailed: vi.fn(),
+    countCreatedSince: vi.fn().mockResolvedValue(0),
+  };
   const findings = { topForScan: vi.fn().mockResolvedValue([]) };
+  const scans = { findById: vi.fn(), recordUsage: vi.fn().mockResolvedValue(true) };
+  const audit = { record: vi.fn() };
+  const queue = { enqueue: vi.fn() };
+  const storage = {
+    upload: vi.fn().mockReturnValue({
+      storageKey: 'reports/rpt.pdf',
+      sha256: 'abc',
+      sizeBytes: 100,
+      expiresAt: new Date(),
+      downloadUrl: 'https://example.com/signed',
+    }),
+    signedUrl: vi.fn().mockReturnValue('https://example.com/signed'),
+  };
+  const organizations = {
+    findById: vi.fn().mockResolvedValue({ id: ORG_ID, plan: 'enterprise', slug: 'acme' }),
+  };
+  const email = { sendReportReady: vi.fn().mockResolvedValue(undefined) };
   const service = new ReportsService(
     reports as unknown as ReportsRepository,
     findings as unknown as FindingsRepository,
+    scans as unknown as ConstructorParameters<typeof ReportsService>[2],
+    audit as unknown as ConstructorParameters<typeof ReportsService>[3],
+    queue as unknown as ConstructorParameters<typeof ReportsService>[4],
+    storage as unknown as ConstructorParameters<typeof ReportsService>[5],
+    organizations as unknown as ConstructorParameters<typeof ReportsService>[6],
+    email as unknown as ConstructorParameters<typeof ReportsService>[7],
   );
-  return { service, reports, findings };
+  return { service, reports, findings, scans, audit, queue, storage, organizations, email };
 }
 
 describe('ReportsService (P4-20)', () => {
@@ -118,5 +149,141 @@ describe('ReportsService (P4-20)', () => {
       code: 'REPORT_EXPIRED',
     });
     expect(findings.topForScan).not.toHaveBeenCalled();
+  });
+});
+
+describe('report lifecycle', () => {
+  const input = { orgId: ORG_ID, scanId: SCAN_ID, template: 'standard' as const };
+  it('rejects absent and unfinished scans without queueing', async () => {
+    const m = make();
+    await expect(m.service.request(input)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    m.scans.findById.mockResolvedValue({ status: 'running' });
+    await expect(m.service.request(input)).rejects.toMatchObject({ code: 'SCAN_NOT_READY' });
+    expect(m.queue.enqueue).not.toHaveBeenCalled();
+  });
+  it('reuses a ready report without consuming quota or queueing', async () => {
+    const m = make();
+    m.scans.findById.mockResolvedValue({ status: 'completed' });
+    m.reports.findByScanId.mockResolvedValue(report());
+    expect(await m.service.request(input)).toMatchObject({ id: REPORT_ID, status: 'ready' });
+    expect(m.organizations.findById).not.toHaveBeenCalled();
+    expect(m.queue.enqueue).not.toHaveBeenCalled();
+  });
+  it('enforces organization existence and monthly quota', async () => {
+    const m = make();
+    m.scans.findById.mockResolvedValue({ status: 'completed' });
+    m.organizations.findById.mockResolvedValueOnce(null);
+    await expect(m.service.request(input)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    m.organizations.findById.mockResolvedValue({ plan: 'free' });
+    m.reports.countCreatedSince.mockResolvedValue(999);
+    await expect(m.service.request(input)).rejects.toMatchObject({ code: 'PLAN_LIMIT_EXCEEDED' });
+    expect(m.reports.create).not.toHaveBeenCalled();
+  });
+  it.each(['free', 'enterprise'])('queues a report within the %s plan allowance', async (plan) => {
+    const m = make();
+    m.scans.findById.mockResolvedValue({ status: 'completed' });
+    m.organizations.findById.mockResolvedValue({ plan });
+    m.reports.findByScanId.mockResolvedValue(report({ status: 'failed' }));
+    m.reports.create.mockResolvedValue(report({ status: 'queued' }));
+    expect(await m.service.request(input)).toMatchObject({ status: 'queued' });
+    expect(m.queue.enqueue).toHaveBeenCalledWith('report.render', 'render', {
+      reportId: REPORT_ID,
+      orgId: ORG_ID,
+      scanId: SCAN_ID,
+      template: 'standard',
+    });
+    expect(m.reports.countCreatedSince).toHaveBeenCalledTimes(plan === 'enterprise' ? 0 : 1);
+  });
+  it.each(['status', 'downloadUrl', 'markRendering', 'complete'] as const)(
+    'rejects missing reports for %s',
+    async (method) => {
+      const m = make(null);
+      await expect(m.service[method](ORG_ID, REPORT_ID, {})).rejects.toMatchObject({
+        code: 'NOT_FOUND',
+      });
+      expect(m.storage.upload).not.toHaveBeenCalled();
+    },
+  );
+  it('returns status metadata and fallbacks without signing absent storage', async () => {
+    const m = make();
+    expect(await m.service.status(ORG_ID, REPORT_ID)).toMatchObject({
+      sizeBytes: 0,
+      downloadUrl: undefined,
+    });
+    expect(m.storage.signedUrl).not.toHaveBeenCalled();
+    m.reports.findById.mockResolvedValue(
+      report({ sizeBytes: 42n, sha256: 'hash', storageKey: 'key', expiresAt: new Date(0) }),
+    );
+    expect(await m.service.status(ORG_ID, REPORT_ID)).toMatchObject({
+      sizeBytes: 42,
+      sha256: 'hash',
+      downloadUrl: 'https://example.com/signed',
+      expiresAt: new Date(0),
+    });
+    for (const errorMessage of [null, 'renderer crashed']) {
+      m.reports.findById.mockResolvedValue(report({ status: 'failed', errorMessage }));
+      expect(await m.service.status(ORG_ID, REPORT_ID)).toMatchObject({
+        error: errorMessage ?? 'Rendering failed.',
+      });
+    }
+    m.reports.findById.mockResolvedValue(report({ status: 'queued' }));
+    expect(await m.service.status(ORG_ID, REPORT_ID)).not.toHaveProperty('downloadUrl');
+  });
+  it('only audits downloads for ready reports with storage', async () => {
+    const m = make(report({ status: 'queued' }));
+    await expect(m.service.downloadUrl(ORG_ID, REPORT_ID)).rejects.toMatchObject({
+      code: 'REPORT_NOT_READY',
+    });
+    m.reports.findById.mockResolvedValue(report());
+    await expect(m.service.downloadUrl(ORG_ID, REPORT_ID)).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
+    expect(m.audit.record).not.toHaveBeenCalled();
+    m.reports.findById.mockResolvedValue(report({ storageKey: 'key' }));
+    expect(await m.service.downloadUrl(ORG_ID, REPORT_ID)).toBe('https://example.com/signed');
+    expect(m.audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: ORG_ID,
+        resourceId: REPORT_ID,
+        action: 'report.downloaded',
+      }),
+    );
+  });
+  it('records rendering and failure transitions', async () => {
+    const m = make();
+    await m.service.markRendering(ORG_ID, REPORT_ID);
+    expect(m.reports.markRendering).toHaveBeenCalledWith(REPORT_ID);
+    await m.service.markFailed(REPORT_ID, 'failed');
+    expect(m.reports.markFailed).toHaveBeenCalledWith(REPORT_ID, 'failed');
+  });
+  it.each([true, false])(
+    'stores completed PDFs and records usage (organization present: %s)',
+    async (exists) => {
+      const m = make();
+      if (!exists) m.organizations.findById.mockResolvedValue(null);
+      const pdf = Buffer.from('%PDF-test');
+      expect(
+        await m.service.complete(ORG_ID, REPORT_ID, { buffer: pdf.toString('base64') }),
+      ).toMatchObject({ status: 'ready' });
+      expect(m.storage.upload).toHaveBeenCalledWith(REPORT_ID, pdf);
+      expect(m.reports.markComplete).toHaveBeenCalledWith(
+        REPORT_ID,
+        expect.objectContaining({ sizeBytes: 100n }),
+      );
+      expect(m.scans.recordUsage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orgId: ORG_ID,
+          scanId: SCAN_ID,
+          eventType: 'report_rendered',
+          quantity: 1,
+        }),
+      );
+      expect(m.email.sendReportReady).toHaveBeenCalledTimes(exists ? 1 : 0);
+    },
+  );
+  it('rejects malformed renderer callbacks before storage writes', async () => {
+    const m = make();
+    await expect(m.service.complete(ORG_ID, REPORT_ID, {})).rejects.toThrow();
+    expect(m.storage.upload).not.toHaveBeenCalled();
   });
 });

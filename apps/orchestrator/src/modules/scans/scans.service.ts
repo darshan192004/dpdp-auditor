@@ -13,6 +13,7 @@ import { PrismaService } from '../../prisma/prisma.service.js';
 import { QueueService } from '../../queue/queue.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { OrganizationsRepository } from '../identity/organizations.repository.js';
+import { EmailService } from '../reports/email.service.js';
 // Value imports: `emitDecoratorMetadata` needs runtime refs for Nest DI.
 import { RepoResolverService } from '../repos/repo-resolver.service.js';
 import { RepositoriesRepository } from '../repos/repositories.repository.js';
@@ -72,6 +73,7 @@ export class ScansService {
     private readonly queue: QueueService,
     private readonly audit: AuditService,
     private readonly scoring: ScanScoringService,
+    private readonly email: EmailService,
   ) {}
 
   async create(raw: CreateScanInput): Promise<CreateScanResult> {
@@ -363,6 +365,12 @@ export class ScansService {
       return scored;
     });
 
+    // P5-26: scan completed notification (stub)
+    await this.email.sendScanCompleted({
+      to: `org-${orgId}@example.local`,
+      scanId: scan.id,
+    });
+
     return {
       scanId: scan.id,
       status: 'completed',
@@ -533,6 +541,13 @@ export class ScansService {
         tx,
       );
       await this.scans.appendEvent(scan.id, orgId, 'failed', { code, message, secretName }, tx);
+    });
+
+    // P5-26: scan failed notification (stub)
+    await this.email.sendScanFailed({
+      to: `org-${orgId}@example.local`,
+      scanId: scan.id,
+      reason: message,
     });
   }
 }

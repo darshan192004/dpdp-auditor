@@ -115,8 +115,11 @@ export default defineNuxtConfig({
       maxAge: '600',
     },
 
-    // §8.1 route-level rate limits need the shared Redis store (P1-08/P1-18),
-    // so the §8 rateLimiter block is intentionally deferred with them.
+    // §8.1 route-level rate limits are implemented in server/middleware/rate-limit.ts
+    // (Redis-backed, fail-open for non-auth routes). The framework's built-in
+    // rateLimiter is disabled: it defaults to a local Redis URL and fails closed,
+    // which 429s every fixture request in CI where no Redis is reachable.
+    rateLimiter: false,
     hidePoweredBy: true,
     removeLoggers: true,
   },

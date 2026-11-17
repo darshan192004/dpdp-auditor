@@ -19,15 +19,18 @@ function fakePrisma(opts?: {
   sessionDeletes?: number;
   rawResults?: number[];
   keyClears?: number;
+  reportExpired?: number;
 }) {
   const sessionRaw = vi.fn().mockResolvedValue(opts?.sessionDeletes ?? 0);
   const txRaw = vi.fn();
   for (const result of opts?.rawResults ?? []) txRaw.mockResolvedValueOnce(result);
   const updateMany = vi.fn().mockResolvedValue({ count: opts?.keyClears ?? 0 });
+  const reportUpdateMany = vi.fn().mockResolvedValue({ count: opts?.reportExpired ?? 0 });
   const transaction = vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
     fn({
       $executeRaw: txRaw,
       scan: { updateMany },
+      report: { updateMany: reportUpdateMany },
     }),
   );
   const prisma = {
@@ -35,7 +38,14 @@ function fakePrisma(opts?: {
     $transaction: transaction,
     organization: { findMany: vi.fn().mockResolvedValue(opts?.orgs ?? []) },
   };
-  return { prisma: prisma as unknown as PrismaService, sessionRaw, txRaw, updateMany, transaction };
+  return {
+    prisma: prisma as unknown as PrismaService,
+    sessionRaw,
+    txRaw,
+    updateMany,
+    reportUpdateMany,
+    transaction,
+  };
 }
 
 describe('RetentionService', () => {
@@ -102,6 +112,7 @@ describe('RetentionService', () => {
       deletedScans: 2,
       purgedSessions: 0,
       clearedIdempotencyKeys: 4,
+      expiredReports: 0,
     });
   });
 
@@ -131,6 +142,7 @@ describe('RetentionService', () => {
       deletedScans: 6,
       purgedSessions: 0,
       clearedIdempotencyKeys: 20,
+      expiredReports: 0,
     });
   });
 
@@ -143,6 +155,7 @@ describe('RetentionService', () => {
       deletedScans: 0,
       purgedSessions: 0,
       clearedIdempotencyKeys: 0,
+      expiredReports: 0,
     });
     expect(fake.transaction).not.toHaveBeenCalled();
   });
