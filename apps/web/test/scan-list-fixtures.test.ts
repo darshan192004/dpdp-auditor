@@ -46,6 +46,20 @@ describe('scan list fixture contract', () => {
       fixtureScanList({ sort: 'createdAt', pageSize: '2' }, source).items.map((scan) => scan.score),
     ).toEqual([0, 1]);
   });
+  it('matches repository UUIDs regardless of case in queries or fixture data', () => {
+    const lower = source[0]!.repository.id.toLowerCase();
+    const expected = fixtureScanList({ repositoryId: lower }, source);
+    expect(expected.pagination.totalItems).toBe(25);
+    expect(fixtureScanList({ repositoryId: lower.toUpperCase() }, source)).toEqual(expected);
+    const uppercaseSource = source.map((scan) => ({
+      ...scan,
+      repository: { ...scan.repository, id: scan.repository.id.toUpperCase() },
+    }));
+    expect(fixtureScanList({ repositoryId: lower }, uppercaseSource).pagination.totalItems).toBe(
+      25,
+    );
+  });
+
   it.each([
     { page: '0' },
     { pageSize: '101' },

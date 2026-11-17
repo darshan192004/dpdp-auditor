@@ -81,7 +81,9 @@ function report(overrides: Partial<Report> = {}): Report & {
 }
 
 function make(found: ReturnType<typeof report> | null = report()) {
+  const tx = { transaction: true };
   const reports = {
+    transaction: vi.fn(async (work) => work(tx)),
     findById: vi.fn().mockResolvedValue(found),
     findByScanId: vi.fn().mockResolvedValue(null),
     reserve: vi.fn().mockResolvedValue(report({ status: 'queued', templateVersion: 'standard' })),
@@ -95,7 +97,8 @@ function make(found: ReturnType<typeof report> | null = report()) {
   const findings = { topForScan: vi.fn().mockResolvedValue([]) };
   const scans = { findById: vi.fn(), recordUsage: vi.fn().mockResolvedValue(true) };
   const audit = { record: vi.fn() };
-  const queue = { enqueue: vi.fn() };
+  const getJob = vi.fn().mockResolvedValue(undefined);
+  const queue = { enqueue: vi.fn(), queue: vi.fn().mockReturnValue({ getJob }) };
   const storage = {
     upload: vi.fn().mockReturnValue({
       storageKey: 'reports/rpt.pdf',
@@ -120,7 +123,19 @@ function make(found: ReturnType<typeof report> | null = report()) {
     organizations as unknown as ConstructorParameters<typeof ReportsService>[6],
     email as unknown as ConstructorParameters<typeof ReportsService>[7],
   );
-  return { service, reports, findings, scans, audit, queue, storage, organizations, email };
+  return {
+    service,
+    reports,
+    findings,
+    scans,
+    audit,
+    queue,
+    getJob,
+    tx,
+    storage,
+    organizations,
+    email,
+  };
 }
 
 describe('ReportsService (P4-20)', () => {
@@ -291,6 +306,7 @@ describe('report lifecycle', () => {
       expect(m.reports.markComplete).toHaveBeenCalledWith(
         REPORT_ID,
         expect.objectContaining({ sizeBytes: 100n }),
+        m.tx,
       );
       expect(m.scans.recordUsage).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -299,8 +315,46 @@ describe('report lifecycle', () => {
           eventType: 'report_rendered',
           quantity: 1,
         }),
+        m.tx,
       );
       expect(m.email.sendReportReady).toHaveBeenCalledTimes(exists ? 1 : 0);
+    },
+  );
+  it('propagates metering failure out of the shared completion transaction without sending email', async () => {
+    const m = make();
+    m.scans.recordUsage.mockRejectedValueOnce(new Error('metering unavailable'));
+    await expect(
+      m.service.complete(ORG_ID, REPORT_ID, {
+        buffer: Buffer.from('%PDF-test').toString('base64'),
+      }),
+    ).rejects.toThrow('metering unavailable');
+    expect(m.reports.transaction).toHaveBeenCalledOnce();
+    expect(m.reports.markComplete).toHaveBeenCalledWith(REPORT_ID, expect.any(Object), m.tx);
+    expect(m.scans.recordUsage).toHaveBeenCalledWith(expect.any(Object), m.tx);
+    expect(m.email.sendReportReady).not.toHaveBeenCalled();
+  });
+  it('retries a retained failed render job rather than adding the same ID', async () => {
+    const m = make();
+    const retry = vi.fn();
+    m.getJob.mockResolvedValue({ getState: async () => 'failed', retry });
+    m.reports.pending.mockResolvedValue([report({ status: 'queued' })]);
+    await m.service.recoverQueued();
+    expect(retry).toHaveBeenCalledWith('failed', {
+      resetAttemptsMade: true,
+      resetAttemptsStarted: true,
+    });
+    expect(m.queue.enqueue).not.toHaveBeenCalled();
+  });
+  it.each(['active', 'waiting', 'delayed', 'completed'])(
+    'preserves ordinary deduplication for an existing %s job',
+    async (state) => {
+      const m = make();
+      const retry = vi.fn();
+      m.getJob.mockResolvedValue({ getState: async () => state, retry });
+      m.reports.pending.mockResolvedValue([report({ status: 'queued' })]);
+      await m.service.recoverQueued();
+      expect(retry).not.toHaveBeenCalled();
+      expect(m.queue.enqueue).toHaveBeenCalledOnce();
     },
   );
   it('rejects malformed renderer callbacks before storage writes', async () => {

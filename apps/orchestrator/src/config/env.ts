@@ -24,7 +24,17 @@ export const envSchema = z.object({
   REPORTS_BROWSER_WS_ENDPOINT: z
     .string()
     .url()
-    .refine((value) => /^wss?:/.test(value))
+    .refine((value) => {
+      try {
+        const url = new URL(value);
+        return (
+          url.protocol === 'wss:' ||
+          (url.protocol === 'ws:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname))
+        );
+      } catch {
+        return false;
+      }
+    }, 'Use WSS for remote browsers or WS only for a loopback sidecar')
     .optional(),
   // Email configuration for report notifications (dev/test only)
   SMTP_HOST: z.string().optional(),

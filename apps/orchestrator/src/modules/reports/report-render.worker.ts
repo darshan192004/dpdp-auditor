@@ -17,7 +17,10 @@ export async function renderPdf(
   if (!browserWSEndpoint)
     throw new Error('REPORTS_BROWSER_WS_ENDPOINT is required for PDF rendering.');
   const { default: puppeteer } = await import('puppeteer-core');
-  const browser = await puppeteer.connect({ browserWSEndpoint });
+  const browser = await puppeteer.connect({
+    browserWSEndpoint,
+    wsOptions: { handshakeTimeout: 15_000 },
+  });
   try {
     const page = await browser.newPage();
     try {

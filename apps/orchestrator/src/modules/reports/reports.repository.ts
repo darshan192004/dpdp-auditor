@@ -8,6 +8,10 @@ import { PrismaService } from '../../prisma/prisma.service.js';
 export class ReportsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  transaction<T>(work: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    return this.prisma.$transaction(work);
+  }
+
   /** The view model needs the scan, its repository, and the organisation branding. */
   findById(orgId: string, reportId: string, tx?: Prisma.TransactionClient) {
     const client = tx ?? this.prisma;

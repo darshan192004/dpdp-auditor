@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 
 import ScanSubmitForm from '~/components/scan/ScanSubmitForm.vue';
 import { useAppContext } from '~/composables/useAppContext';
@@ -68,6 +68,22 @@ const items = computed(() => scansRequest.data.value?.data.items ?? []);
 const pagination = computed(() => scansRequest.data.value?.data.pagination);
 const loading = computed(() => scansRequest.status.value === 'pending');
 const loadingPage = computed(() => loading.value && items.value.length === 0);
+
+// Bookmarked pages can become empty after scans expire or a filter changes.
+// Reconcile only successful metadata so a failed request cannot change the URL.
+watch(
+  [page, pagination, loading],
+  ([currentPage, metadata, isLoading]) => {
+    if (isLoading || scansRequest.error.value || metadata === undefined) return;
+    const lastPage = Math.max(1, metadata.totalPages);
+    if (currentPage > lastPage) {
+      void router.replace({
+        query: { ...route.query, page: lastPage === 1 ? undefined : String(lastPage) },
+      });
+    }
+  },
+  { immediate: true },
+);
 
 const loadError = computed(() => {
   const failure = scansRequest.error.value as {

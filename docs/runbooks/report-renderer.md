@@ -49,7 +49,7 @@
 4. **Validate the HTML view model**
    ```bash
    # Request the view model for a known reportId
-   curl -s http://orchestrator.internal/internal/v1/reports/<reportId>/view-model | python3 -m json.tool
+   curl -s https://orchestrator.internal/internal/v1/reports/<reportId>/view-model | python3 -m json.tool
    ```
    - Ensure the JSON is well‑formed and contains required fields (`scanId`, `orgId`, `findings`).
 
@@ -78,7 +78,7 @@
 1. **Allow back‑off to complete.** No manual action required; the job will retry automatically up to three times.
 2. **If the job is stuck in `failed` state**, manually re‑queue:
    ```bash
-   curl -X POST http://orchestrator.internal/internal/admin/queue/retry \
+   curl -X POST https://orchestrator.internal/internal/admin/queue/retry \
      -H "X-Internal-Key: <key>" \
      -H "X-Signature: <hmac>" \
      -d '{"reportId": "<reportId>", "reason": "manual_retry"}'
@@ -140,10 +140,15 @@
 ## Browser connection and queued-job recovery
 
 The orchestrator connects to a separately operated Chromium instance using
-`REPORTS_BROWSER_WS_ENDPOINT` (a private `ws://` or `wss://` DevTools browser
+`REPORTS_BROWSER_WS_ENDPOINT` (a private `wss://` DevTools browser
 WebSocket URL). The distroless API image does not launch a local browser. Restrict
-that endpoint to the orchestrator network and treat credentials in its URL as
-secrets. If it is absent or rendering fails, the job retries and eventually marks
+that endpoint to the orchestrator network and expose it through a bridge that
+explicitly authenticates and authorizes each connecting worker. Chromium DevTools
+has no built-in client authentication; network placement or adding credentials to
+a URL does not provide authorization. Treat any bridge credentials in the URL as
+secrets. Alternatively, use a loopback-only browser sidecar (`ws://localhost`,
+`ws://127.0.0.1`, or `ws://[::1]`) isolated within the same pod/network namespace.
+Cleartext WebSocket connections to remote hosts are rejected. If it is absent or rendering fails, the job retries and eventually marks
 the report failed; an empty placeholder is never published as a ready PDF.
 
 Report creation persists a tenant-scoped idempotency key and reserves monthly

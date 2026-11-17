@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
+import { createServer, type Server } from 'node:http';
+import { $fetch as nodeFetch } from 'ofetch/node';
 import { buildInternalRequest, callOrchestrator, signHmac } from '../server/utils/orchestrator';
 
 const SECRET = 'a'.repeat(32);
 const INTERNAL_KEY = 'b'.repeat(32);
-const CONFIG = { url: 'http://orchestrator.test', hmacKey: SECRET, internalKey: INTERNAL_KEY };
+const CONFIG = { url: 'https://orchestrator.test', hmacKey: SECRET, internalKey: INTERNAL_KEY };
 const EVENT = {
   context: { requestId: 'req_test_1234', orgId: 'org_test', userId: 'usr_test' },
 } as never;
@@ -71,11 +73,12 @@ describe('callOrchestrator', () => {
     expect(result.data.scanId).toBe('scn_1');
     const [url, init] = fetch.mock.calls[0] as [
       string,
-      { headers: Record<string, string>; signal: AbortSignal },
+      { headers: Record<string, string>; signal: AbortSignal; redirect: string },
     ];
-    expect(url).toBe('http://orchestrator.test/internal/v1/scans/scn_1');
+    expect(url).toBe('https://orchestrator.test/internal/v1/scans/scn_1');
     expect(init.headers['x-internal-signature']).toMatch(/^[0-9a-f]{64}$/);
     expect(init.signal).toBeInstanceOf(AbortSignal);
+    expect(init.redirect).toBe('error');
   });
 
   it('maps an upstream failure to 503 UPSTREAM_UNAVAILABLE without leaking the URL', async () => {
@@ -196,5 +199,98 @@ describe('callOrchestrator', () => {
       ),
     ).rejects.toMatchObject({ statusCode: 500, data: { error: { code: 'INTERNAL_ERROR' } } });
     expect(fetch).not.toHaveBeenCalled();
+  });
+});
+
+async function listen(server: Server): Promise<string> {
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  if (!address || typeof address === 'string') throw new Error('Expected a TCP listener');
+  return `http://127.0.0.1:${address.port}`;
+}
+async function close(server: Server): Promise<void> {
+  server.closeAllConnections();
+  await new Promise<void>((resolve, reject) =>
+    server.close((error) => (error ? reject(error) : resolve())),
+  );
+}
+
+describe('orchestrator credential transport', () => {
+  it.each([
+    'http://localhost:3001',
+    'http://127.0.0.1:3001',
+    'http://127.0.0.2:3001',
+    'http://[::1]:3001',
+    'https://orchestrator.internal',
+  ])('permits the configured secure or loopback destination %s', async (url) => {
+    const fetch = vi.fn().mockResolvedValue({ data: 'ok' });
+    await expect(
+      callOrchestrator(
+        EVENT,
+        { method: 'GET', path: '/internal/v1/health' },
+        {
+          fetch,
+          config: { ...CONFIG, url },
+        },
+      ),
+    ).resolves.toEqual({ data: 'ok' });
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+  it.each([
+    'http://orchestrator.internal',
+    'http://192.168.1.5',
+    'http://localhost.evil.test',
+    'http://127.evil.test',
+    'ftp://localhost',
+    'not a URL',
+  ])('rejects unsafe or invalid destination %s before sending credentials', async (url) => {
+    const fetch = vi.fn();
+    await expect(
+      callOrchestrator(
+        EVENT,
+        { method: 'GET', path: '/internal/v1/health' },
+        {
+          fetch,
+          config: { ...CONFIG, url },
+        },
+      ),
+    ).rejects.toMatchObject({ statusCode: 500, data: { error: { code: 'INTERNAL_ERROR' } } });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+  it('refuses a real cross-origin redirect without delivering credentials to its target', async () => {
+    const destinationRequests = vi.fn();
+    const destination = createServer((request, response) => {
+      destinationRequests(request.headers);
+      response.end('{}');
+    });
+    const destinationUrl = await listen(destination);
+    const sourceRequests = vi.fn();
+    const source = createServer((request, response) => {
+      sourceRequests(request.headers);
+      response.writeHead(302, { location: `${destinationUrl}/capture` });
+      response.end();
+    });
+    try {
+      const sourceUrl = await listen(source);
+      await expect(
+        callOrchestrator(
+          EVENT,
+          { method: 'GET', path: '/redirect' },
+          {
+            config: { ...CONFIG, url: sourceUrl },
+            fetch: nodeFetch,
+          },
+        ),
+      ).rejects.toMatchObject({
+        statusCode: 503,
+        data: { error: { code: 'UPSTREAM_UNAVAILABLE' } },
+      });
+      expect(sourceRequests).toHaveBeenCalled();
+      expect(sourceRequests.mock.calls[0]?.[0]).toMatchObject({ 'x-internal-key': INTERNAL_KEY });
+      expect(destinationRequests).not.toHaveBeenCalled();
+    } finally {
+      await close(source);
+      await close(destination);
+    }
   });
 });

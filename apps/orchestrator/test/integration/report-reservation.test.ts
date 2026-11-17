@@ -1,4 +1,7 @@
-import { afterAll, beforeAll, expect, it } from 'vitest';
+import { randomUUID } from 'node:crypto';
+import { afterAll, beforeAll, expect, it, vi } from 'vitest';
+import { ReportsService } from '../../src/modules/reports/reports.service.js';
+import { ScansRepository } from '../../src/modules/scans/scans.repository.js';
 import { ReportsRepository } from '../../src/modules/reports/reports.repository.js';
 import type { PrismaService } from '../../src/prisma/prisma.service.js';
 import { describeDb, makeClient } from './helpers/db.js';
@@ -59,5 +62,51 @@ describeDb('concurrent report quota reservations', () => {
     ]);
     expect(first.id).toBe(retry.id);
     expect(await prisma.report.count({ where: { orgId } })).toBe(1);
+  });
+  it('rolls back readiness when metering fails and records usage on a successful retry', async () => {
+    await prisma.report.deleteMany({ where: { orgId } });
+    const report = await prisma.report.create({
+      data: { orgId, scanId, templateVersion: 'standard', status: 'rendering' },
+    });
+    const scans = new ScansRepository(prisma as unknown as PrismaService);
+    const recordUsage = scans.recordUsage.bind(scans);
+    // A rejected usage FK simulates a real DB metering error after the report update.
+    vi.spyOn(scans, 'recordUsage').mockImplementationOnce((record, tx) =>
+      recordUsage({ ...record, scanId: randomUUID() }, tx),
+    );
+    const service = new ReportsService(
+      reports,
+      {} as ConstructorParameters<typeof ReportsService>[1],
+      scans,
+      {} as ConstructorParameters<typeof ReportsService>[3],
+      {} as ConstructorParameters<typeof ReportsService>[4],
+      {
+        upload: () => ({
+          storageKey: `reports/${report.id}.pdf`,
+          sha256: 'a'.repeat(64),
+          sizeBytes: 9,
+          expiresAt: new Date(Date.now() + 60_000),
+          downloadUrl: '/test-download',
+        }),
+      } as unknown as ConstructorParameters<typeof ReportsService>[5],
+      { findById: async () => null } as unknown as ConstructorParameters<typeof ReportsService>[6],
+      {} as ConstructorParameters<typeof ReportsService>[7],
+    );
+    const body = { buffer: Buffer.from('%PDF-test').toString('base64') };
+    await expect(service.complete(orgId, report.id, body)).rejects.toThrow();
+    expect(await prisma.report.findUnique({ where: { id: report.id } })).toMatchObject({
+      status: 'rendering',
+      storageKey: null,
+    });
+    expect(await prisma.usageEvent.count({ where: { orgId, eventType: 'report_rendered' } })).toBe(
+      0,
+    );
+    await service.complete(orgId, report.id, body);
+    expect(await prisma.report.findUnique({ where: { id: report.id } })).toMatchObject({
+      status: 'ready',
+    });
+    expect(await prisma.usageEvent.count({ where: { orgId, eventType: 'report_rendered' } })).toBe(
+      1,
+    );
   });
 });

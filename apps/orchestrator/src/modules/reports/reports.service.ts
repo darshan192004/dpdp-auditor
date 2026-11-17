@@ -65,6 +65,13 @@ export class ReportsService {
     scanId: string;
     templateVersion: string;
   }) {
+    const existingJob = await this.queue.queue('report.render').getJob(report.id);
+    if (existingJob && (await existingJob.getState()) === 'failed') {
+      // Failed jobs are retained for a day. Reusing their ID with add() is a
+      // no-op, so explicitly retry while preserving the report's durable ID.
+      await existingJob.retry('failed', { resetAttemptsMade: true, resetAttemptsStarted: true });
+      return;
+    }
     // Keep the queued row on ambiguous Redis errors. The recovery sweep retries this
     // same durable ID, so an accepted job cannot be duplicated or lose its quota.
     await this.queue.enqueue(
@@ -195,26 +202,34 @@ export class ReportsService {
     // P5-19: Upload to storage
     const upload = this.storage.upload(reportId, pdfBuffer);
 
-    // Update report row
-    await this.reports.markComplete(reportId, {
-      storageKey: upload.storageKey,
-      sha256: upload.sha256,
-      sizeBytes: BigInt(upload.sizeBytes),
-      expiresAt: upload.expiresAt,
-    });
-
-    // P5-28: Usage event for report_rendered
+    // Readiness and metering commit together. Otherwise a failed usage write
+    // could leave a ready report that the renderer skips on every retry.
     const eventId = createHash('sha256')
       .update(`report_rendered:${reportId}`, 'utf8')
       .digest('hex')
       .slice(0, 32);
-    await this.scans.recordUsage({
-      orgId,
-      scanId: report.scanId,
-      eventType: 'report_rendered',
-      eventId,
-      quantity: 1,
-      metadata: { reportId, storageKey: upload.storageKey, sizeBytes: upload.sizeBytes },
+    await this.reports.transaction(async (tx) => {
+      await this.reports.markComplete(
+        reportId,
+        {
+          storageKey: upload.storageKey,
+          sha256: upload.sha256,
+          sizeBytes: BigInt(upload.sizeBytes),
+          expiresAt: upload.expiresAt,
+        },
+        tx,
+      );
+      await this.scans.recordUsage(
+        {
+          orgId,
+          scanId: report.scanId,
+          eventType: 'report_rendered',
+          eventId,
+          quantity: 1,
+          metadata: { reportId, storageKey: upload.storageKey, sizeBytes: upload.sizeBytes },
+        },
+        tx,
+      );
     });
 
     // P5-26: transactional email notification (stub)

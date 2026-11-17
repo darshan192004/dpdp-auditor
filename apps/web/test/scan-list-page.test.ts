@@ -57,6 +57,39 @@ describe('scan list route state', () => {
     );
     wrapper.unmount();
   });
+  it('recovers an out-of-range bookmark to the last populated page', async () => {
+    const wrapper = await mountSuspended(ScanListPage, { route: '/?page=3&source=bookmark' });
+    await flushPromises();
+    await vi.waitFor(() =>
+      expect(wrapper.vm.$router.currentRoute.value.query).toEqual({
+        page: '2',
+        source: 'bookmark',
+      }),
+    );
+    expect(wrapper.findAll('tbody tr')).toHaveLength(5);
+    expect(wrapper.text()).toContain('Page 2 of 2');
+    expect(wrapper.text()).not.toContain('No scans yet');
+    const previous = wrapper.findAll('button').find((button) => button.text() === 'Previous');
+    expect(previous?.attributes('disabled')).toBeUndefined();
+    await previous?.trigger('click');
+    await flushPromises();
+    await vi.waitFor(() => expect(wrapper.findAll('tbody tr')).toHaveLength(20));
+    wrapper.unmount();
+  });
+
+  it('recovers to page one when a filter has only one page or no matches', async () => {
+    for (const status of ['failed', 'cancelled']) {
+      const wrapper = await mountSuspended(ScanListPage, { route: `/?status=${status}&page=999` });
+      await flushPromises();
+      await vi.waitFor(() =>
+        expect(wrapper.vm.$router.currentRoute.value.query).toEqual({ status }),
+      );
+      expect(wrapper.findAll('tbody tr')).toHaveLength(status === 'failed' ? 5 : 0);
+      expect(wrapper.text().includes('No scans yet')).toBe(status === 'cancelled');
+      wrapper.unmount();
+    }
+  });
+
   it('restores a valid status and falls back safely for invalid route values', async () => {
     const filtered = await mountSuspended(ScanListPage, { route: '/?status=failed' });
     expect(filtered.findAll('tbody tr')).toHaveLength(5);

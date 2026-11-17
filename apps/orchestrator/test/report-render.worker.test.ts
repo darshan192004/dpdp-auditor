@@ -73,6 +73,7 @@ describe('report rendering', () => {
     );
     expect(fakes.connect).toHaveBeenCalledWith({
       browserWSEndpoint: env.REPORTS_BROWSER_WS_ENDPOINT,
+      wsOptions: { handshakeTimeout: 15_000 },
     });
     expect(fakes.page.close).toHaveBeenCalledOnce();
     expect(fakes.browser.disconnect).toHaveBeenCalledOnce();

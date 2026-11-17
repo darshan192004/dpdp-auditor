@@ -304,7 +304,8 @@ export function fixtureScanList(
   const matched = source.filter(
     (scan) =>
       (statuses.length === 0 || statuses.includes(scan.status)) &&
-      (repositoryId === undefined || scan.repository.id === repositoryId) &&
+      (repositoryId === undefined ||
+        scan.repository.id.toLowerCase() === repositoryId.toLowerCase()) &&
       (from === undefined || Date.parse(scan.timestamps.queuedAt) >= from) &&
       (to === undefined || Date.parse(scan.timestamps.queuedAt) <= to),
   );
