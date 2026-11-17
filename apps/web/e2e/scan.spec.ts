@@ -14,8 +14,12 @@ test('scorecard: score, trend, sections, and links into findings', async ({ page
   await expect(
     page.getByRole('heading', { name: 'acme/payments-service', level: 1 }),
   ).toBeVisible();
-  await expect(page.getByText('82.6')).toBeVisible();
-  await expect(page.getByText('Grade B')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Scan progress' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Timeline' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Export PDF' })).toBeVisible();
+  const scorecard = page.getByRole('region', { name: 'DPDPA score', exact: true });
+  await expect(scorecard.getByText('82.6', { exact: true })).toBeVisible();
+  await expect(scorecard.getByText('Grade B', { exact: true })).toBeVisible();
   await expect(page.getByText('4.2 vs last')).toBeVisible();
 
   const rows = page.locator('tbody tr');
@@ -37,13 +41,14 @@ test('scorecard: score, trend, sections, and links into findings', async ({ page
 test('partial coverage withholds the grade and explains why', async ({ page }) => {
   await page.goto(PARTIAL_SCAN_PATH);
 
-  await expect(page.getByText('74.1')).toBeVisible();
-  await expect(page.getByText('Grade withheld', { exact: true })).toBeVisible();
-  await expect(page.getByRole('status')).toContainText('Gitleaks timed out');
-  await expect(page.getByRole('status')).toContainText(
+  const scorecard = page.getByRole('region', { name: 'DPDPA score', exact: true });
+  await expect(scorecard.getByText('74.1', { exact: true })).toBeVisible();
+  await expect(scorecard.getByText('Grade withheld', { exact: true })).toBeVisible();
+  await expect(scorecard.getByRole('status')).toContainText('Gitleaks timed out');
+  await expect(scorecard.getByRole('status')).toContainText(
     'Grade withheld until every scanner completes.',
   );
-  await expect(page.getByText('Grade B')).toHaveCount(0);
+  await expect(scorecard.getByText('Grade B', { exact: true })).toHaveCount(0);
 });
 
 test('scorecard has no serious or critical a11y violations', async ({ page }) => {

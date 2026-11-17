@@ -155,7 +155,7 @@ describe('fixture scans', () => {
     first.counts.critical = 99;
 
     expect(getFixtureScan(FIXTURE_SCAN_ID).counts.critical).not.toBe(99);
-    expect(FIXTURE_SCANS).toHaveLength(2);
+    expect(FIXTURE_SCANS).toHaveLength(3);
   });
 
   it('rejects an unknown scan', () => {

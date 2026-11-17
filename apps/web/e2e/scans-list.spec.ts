@@ -12,6 +12,7 @@ test.describe('Scan list', () => {
   test('renders the scan list page', async ({ page }) => {
     await expect(page.getByRole('heading', { level: 1, name: 'Scans' })).toBeVisible();
     await expect(page.getByRole('heading', { level: 2, name: 'Recent scans' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'Start a scan' })).toBeVisible();
   });
 
   test('renders the status filter', async ({ page }) => {
@@ -30,8 +31,8 @@ test.describe('Scan list', () => {
     await expect(page.getByRole('columnheader', { name: 'Completed' })).toBeVisible();
   });
 
-  test('shows the two fixture scans', async ({ page }) => {
-    await expect(page.getByText('acme/payments-service')).toHaveCount(2);
+  test('shows completed and running fixture scans', async ({ page }) => {
+    await expect(page.getByRole('table').getByText('acme/payments-service')).toHaveCount(3);
     await expect(page.getByText('82.6')).toBeVisible();
     await expect(page.getByText('74.1')).toBeVisible();
     // The grade renders as a pill (span), not a link.
@@ -44,11 +45,11 @@ test.describe('Scan list', () => {
   test('filters by status and re-fetches', async ({ page }) => {
     await page.getByRole('radio', { name: 'Completed' }).click();
     // Both fixture scans are completed, so both remain visible.
-    await expect(page.getByText('acme/payments-service')).toHaveCount(2);
+    await expect(page.getByRole('table').getByText('acme/payments-service')).toHaveCount(2);
 
     // Filter to a status with no fixture scans; the list empties.
     await page.getByRole('radio', { name: 'Failed' }).click();
-    await expect(page.getByText('acme/payments-service')).toHaveCount(0);
+    await expect(page.getByRole('table')).toHaveCount(0);
     // Scope to main: the sidebar usage widget shows the same text.
     await expect(page.locator('main, #main').first().getByText('No scans yet')).toBeVisible();
   });

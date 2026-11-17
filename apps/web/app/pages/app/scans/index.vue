@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 
+import ScanSubmitForm from '~/components/scan/ScanSubmitForm.vue';
+import { useAppContext } from '~/composables/useAppContext';
+import { canManageScans, scanSubmitPath, type ScanQuota } from '~~/shared/scan';
+import type { SavedRepoView } from '~~/shared/repo';
+
 import PageHeader from '~/components/shell/PageHeader.vue';
 import EmptyState from '~/components/ui/EmptyState.vue';
 import ErrorState from '~/components/ui/ErrorState.vue';
@@ -14,6 +19,13 @@ import {
 } from '~~/shared/scan';
 
 definePageMeta({ layout: 'app' });
+
+const { org } = useAppContext();
+const canSubmit = computed(() => canManageScans(org.value?.role ?? null));
+
+const reposRequest = await useFetch<{ data: { items: SavedRepoView[] } }>('/api/v1/repos');
+const repos = computed(() => reposRequest.data.value?.data.items ?? []);
+const quota = ref<ScanQuota | null>(null);
 
 const status = ref<'' | ScanStatus>('');
 const page = ref(1);
@@ -61,11 +73,42 @@ function changePage(next: number): void {
   if (next > totalPages) return;
   page.value = next;
 }
+function messageFrom(cause: unknown): string {
+  const message = (cause as { data?: { error?: { message?: unknown } } }).data?.error?.message;
+  return typeof message === 'string' ? message : 'Something went wrong. Try again.';
+}
+
+async function submitScan(payload: {
+  repositoryId?: string;
+  githubUrl?: string;
+  ref?: string;
+  profile: 'standard' | 'secrets-only';
+  idempotencyKey: string;
+}): Promise<void> {
+  try {
+    const response = await $fetch<{ data: { id: string } }>(scanSubmitPath(), {
+      method: 'POST',
+      body: payload,
+      headers: { 'idempotency-key': payload.idempotencyKey },
+    });
+    await navigateTo(`/app/scans/${response.data.id}`);
+  } catch (cause) {
+    throw new Error(messageFrom(cause), { cause });
+  }
+}
 </script>
 
 <template>
   <div class="max-w-full min-w-0 space-y-5 overflow-x-auto">
     <PageHeader title="Scans" :breadcrumbs="[{ label: 'Scans' }]" />
+
+    <ScanSubmitForm v-if="canSubmit" :repos="repos" :quota="quota" @submit="submitScan" />
+
+    <ErrorState
+      v-if="reposRequest.error.value"
+      message="Repositories could not be loaded."
+      @retry="reposRequest.refresh"
+    />
 
     <div
       class="bg-surface flex min-w-0 flex-wrap items-center gap-x-5 gap-y-3 rounded-[var(--radius-card)] px-4 py-3 shadow-[var(--shadow-card)]"
