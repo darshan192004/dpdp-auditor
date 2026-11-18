@@ -49,7 +49,7 @@ tests/             # Golden repo fixtures, E2E tests
 ### Running Locally
 
 ```bash
-# Start local services (Postgres, Redis, MinIO, Mailpit)
+# Start local services (Postgres, Redis, Mailpit)
 docker compose up -d
 
 # Run the orchestrator

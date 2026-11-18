@@ -154,7 +154,7 @@ Total: ~19–20 elapsed weeks with parallel tracks. Critical path: 2 → 3 → 4
 | P1-05 | Helm charts for `web`, `orchestrator`, `renderer` with probes, HPA, PDB | L | Platform | P1-03 | _Deferred — infrastructure not provisioned_ |
 | P1-06 | Argo CD bootstrap: staging and production apps; sync policies | M | Platform | P1-05 | _Deferred — infrastructure not provisioned_ |
 | P1-07 | Secrets: External Secrets Operator or CSI driver wired to the secrets manager | M | Security | P1-01 | _Deferred — infrastructure not provisioned_ |
-| P1-08 | Local dev: Docker Compose for Postgres, Redis, MinIO, Mailpit + `docker` runner driver for scan-runner (one container per scan, no local cluster); kind cluster optional for Job-spec parity | M | Platform | P1-02 | ✅ Done |
+| P1-08 | Local dev: Docker Compose for Postgres, Redis, Mailpit + `docker` runner driver for scan-runner (one container per scan, no local cluster); kind cluster optional for Job-spec parity | M | Platform | P1-02 | ✅ Done |
 | P1-09 | Backup and restore: automated snapshots, PITR, quarterly restore drill scheduled | M | Platform | P1-02 | _Deferred — infrastructure not provisioned_ |
 | P1-10 | Baseline dashboards and alerts for cluster health | M | Platform | P1-05 | ✅ Done |
 

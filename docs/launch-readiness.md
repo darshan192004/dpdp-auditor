@@ -86,7 +86,7 @@ This checklist tracks readiness for launching DPDPA GitHub Code Auditor as an op
 
 ### Local Development
 
-- [x] Docker Compose for local services (Postgres, Redis, MinIO, Mailpit)
+- [x] Docker Compose for local services (Postgres, Redis, Mailpit)
 - [x] `.nvmrc` for Node version management
 - [x] pnpm workspaces and Turborepo for monorepo management
 - [ ] Scan-runner local execution guide (documented in `docker-compose.yml`)

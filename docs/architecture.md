@@ -459,14 +459,14 @@ Kubernetes is **production infrastructure only** (§11 topology); a developer la
 - The orchestrator dispatches scans through a **runner driver** selected by configuration (`RUNNER_DRIVER=kubernetes|docker`):
   - `kubernetes` (production): creates a Job per scan exactly as §6 specifies.
   - `docker` (local development): runs the **same** scan-runner image with one `docker run` per scan — same environment variables, per-scan HMAC callback contract, `emptyDir`-equivalent workspace volume, resource limits, and remove-on-exit cleanup. Isolation stays structural: one container, one repository, one lifetime.
-- Local services (Postgres, Redis, MinIO, Mailpit, mock GitHub) come up with `docker compose up -d` (memory.md §17).
+- Local services (Postgres, Redis, Mailpit, mock GitHub) come up with `docker compose up -d` (memory.md §17).
 - CI may spin up a **kind cluster** optionally to verify Job-spec parity before merge, but it is not part of the day-to-day dev loop.
 
 ### Environments
 
 | Environment | Purpose | Data | Access |
 |---|---|---|---|
-| Local | Development | Docker Compose: Postgres, Redis, MinIO, mock GitHub; scan-runner via the local `docker` runner driver — **no Kubernetes required** (whole stack fits a laptop with ~6 GB usable RAM, one or two concurrent scans) | Developer |
+| Local | Development | Docker Compose: Postgres, Redis, Mailpit, mock GitHub; scan-runner via the local `docker` runner driver — **no Kubernetes required** (whole stack fits a laptop with ~6 GB usable RAM, one or two concurrent scans) | Developer |
 | Preview | Per-PR UI/API review | Ephemeral namespace, seeded fixtures | Team |
 | Staging | Pre-production verification | Anonymised fixtures and golden repos | Team + design partners |
 | Production | Customers | Real tenant data, India region | Break-glass only |
