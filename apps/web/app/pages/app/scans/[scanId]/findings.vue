@@ -3,6 +3,7 @@ import { computed, nextTick, ref } from 'vue';
 
 import FindingDrawer from '~/components/findings/FindingDrawer.vue';
 import FindingsFilterBar from '~/components/findings/FindingsFilterBar.vue';
+import NewFindings from '~/components/new/NewFindings.vue';
 import FindingsTable from '~/components/findings/FindingsTable.vue';
 import PageHeader from '~/components/shell/PageHeader.vue';
 import ErrorState from '~/components/ui/ErrorState.vue';
@@ -18,6 +19,8 @@ import {
 import { serialiseFindingsQuery } from '~~/shared/findings-query';
 
 definePageMeta({ layout: 'app' });
+
+const newUi = useRuntimeConfig().public.newUi;
 
 const STATUS_LABELS: Record<FindingStatus, string> = {
   open: 'open',
@@ -134,7 +137,8 @@ function clearFilters(): void {
 </script>
 
 <template>
-  <div class="space-y-4">
+  <NewFindings v-if="newUi" :findings="findings" />
+  <div v-else class="space-y-4">
     <PageHeader
       title="Findings"
       :breadcrumbs="[
