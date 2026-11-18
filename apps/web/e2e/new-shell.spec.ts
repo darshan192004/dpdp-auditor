@@ -26,6 +26,13 @@ test.describe('Signal Console shell', () => {
     });
   });
 
+  test('coverage explains the score', async ({ page }) => {
+    await page.goto(`/app/scans/${SCAN_ID}/coverage`);
+    await expect(page.locator('main h1')).toHaveText('Score and coverage');
+    await expect(page.locator('main')).toContainText('Section scores');
+    await page.screenshot({ path: '../../.playwright-mcp/rebuild-coverage.png', fullPage: true });
+  });
+
   test('motion collapses under prefers-reduced-motion', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/app');

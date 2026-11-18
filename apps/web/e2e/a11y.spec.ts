@@ -12,6 +12,7 @@ const PUBLIC_PATHS = [
   '/app/repos',
   '/app/scans',
   '/app/scans/0f000000-0000-4000-8000-000000000010/findings',
+  '/app/scans/0f000000-0000-4000-8000-000000000010/coverage',
   '/app/scans/0f000000-0000-4000-8000-000000000010/remediation',
   '/app/remediation',
   '/app/rules',
