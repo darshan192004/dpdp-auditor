@@ -314,6 +314,45 @@ describe('ScanScoringService (P4-06, P4-10, P4-11)', () => {
     expect(harness.tx.ruleMapping.upsert).toHaveBeenCalledTimes(pack.mappings.length);
   });
 
+  it('materialises the weight-0 advisory control without clamping it', async () => {
+    const harness = make();
+    harness.setPack(pack);
+
+    await harness.service.mapAndScore(
+      scan(),
+      FACTS,
+      { checkov: 'completed' },
+      harness.tx as unknown as Prisma.TransactionClient,
+    );
+
+    // DPDPA-12-ACCESS-01 is scored:false and carries weight 0. The signed pack
+    // (rule-pack.schemas.ts) allows weight >= 0, so dpdpa_rules must too —
+    // the migration relaxing the DB check is part of this contract.
+    const advisory = pack.controls.find((control) => control.code === 'DPDPA-12-ACCESS-01');
+    expect(advisory).toMatchObject({ scored: false, weight: 0 });
+    const upsert = harness.tx.dpdpaRule.upsert as ReturnType<typeof vi.fn>;
+    const call = upsert.mock.calls.find(
+      (args: unknown[]) =>
+        (args[0] as { create: { code: string } }).create.code === 'DPDPA-12-ACCESS-01',
+    );
+    expect(String(call?.[0].create.weight)).toBe('0');
+  });
+
+  it('recovers from a transient rule-materialisation failure instead of caching the rejection', async () => {
+    const harness = make();
+    harness.setPack(pack);
+    const tx = harness.tx as unknown as Prisma.TransactionClient;
+    const upsert = harness.tx.dpdpaRule.upsert as ReturnType<typeof vi.fn>;
+    upsert.mockRejectedValueOnce(new Error('transient db error'));
+
+    await expect(
+      harness.service.mapAndScore(scan(), FACTS, { checkov: 'completed' }, tx),
+    ).rejects.toThrow('transient db error');
+    await expect(
+      harness.service.mapAndScore(scan(), FACTS, { checkov: 'completed' }, tx),
+    ).resolves.toBeDefined();
+  });
+
   it('drops a fully suppressed finding and counts it (P4-19)', async () => {
     const harness = make(null, [
       row({

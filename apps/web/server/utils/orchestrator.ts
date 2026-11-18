@@ -114,6 +114,43 @@ function upstreamFailure(error: unknown): UpstreamFailure | null {
   };
 }
 
+/**
+ * Binary variant of callOrchestrator for locally stored artifacts (e.g. PDFs).
+ * Uses the same signed internal request and error envelope, but returns the
+ * raw bytes instead of parsing a JSON body.
+ */
+export async function callOrchestratorBinary(
+  event: { context: { requestId?: string; orgId?: string; userId?: string } },
+  options: OrchestratorCallOptions,
+  deps: Partial<OrchestratorDeps> = {},
+): Promise<ArrayBuffer> {
+  const config = deps.config ?? orchestratorConfig();
+  assertConfig(event, config);
+  const fetch = deps.fetch ?? $fetch;
+  const now = deps.now ?? Date.now;
+  const request = buildInternalRequest(event, options, config, now);
+  try {
+    const response = await fetch.raw(`${config.url}${options.path}`, {
+      method: options.method,
+      headers: request.headers,
+      signal: AbortSignal.timeout(15_000),
+      responseType: 'arrayBuffer',
+    });
+    return response._data as ArrayBuffer;
+  } catch (error) {
+    const failure = upstreamFailure(error);
+    if (failure) {
+      apiError(event, failure.status, failure.code, failure.message, failure.details);
+    }
+    apiError(
+      event,
+      503,
+      'UPSTREAM_UNAVAILABLE',
+      'The audit service is unavailable. Try again shortly.',
+    );
+  }
+}
+
 export async function callOrchestrator<T>(
   event: { context: { requestId?: string; orgId?: string; userId?: string } },
   options: OrchestratorCallOptions,

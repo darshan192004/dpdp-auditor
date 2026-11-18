@@ -139,6 +139,26 @@ describe('createScanExecuteWorker', () => {
     });
   });
 
+  it('does not enqueue a Kubernetes watcher when the Docker driver is selected', async () => {
+    const queues = fakeQueues();
+    const scans = fakeScansRepository();
+    createScanExecuteWorker({ ...ENV, RUNNER_DRIVER: 'docker' }, fakeExecutor(), queues, scans);
+    const worker = lastWorker();
+
+    await worker.processor({
+      data: {
+        scanId: 's1',
+        orgId: 'o1',
+        repoUrl: 'https://github.com/org/repo',
+        ref: 'main',
+        profile: 'standard',
+      },
+    } as never);
+
+    expect(queues.enqueue).not.toHaveBeenCalled();
+    expect(scans.setJobInfo).toHaveBeenCalledWith('s1', 'scan-s1', 'scan-s1');
+  });
+
   it('dead-letters only after the final failed attempt', () => {
     const queues = fakeQueues();
     createScanExecuteWorker(ENV, fakeExecutor(), queues, fakeScansRepository());

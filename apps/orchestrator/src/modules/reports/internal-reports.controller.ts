@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Headers, HttpCode, Param, Post, UseGuards } from '@nestjs/common';
+import { Readable } from 'node:stream';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  Param,
+  Post,
+  StreamableFile,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiError } from '../../common/api-error.js';
 import { InternalHmacGuard } from '../internal-auth/internal-hmac.guard.js';
 import { createReportSchema } from './report.schemas.js';
@@ -44,6 +55,19 @@ export class InternalReportsController {
   ) {
     const orgId = orgIdFrom(orgHeader);
     return { data: await this.reports.downloadUrl(orgId, reportId) };
+  }
+
+  /** GET /internal/v1/reports/:reportId/file — local-disk PDF bytes (self-hosted mode). */
+  @Get(':reportId/file')
+  async file(
+    @Headers('x-org-id') orgHeader: string | undefined,
+    @Param('reportId') reportId: string,
+  ) {
+    const { content, filename } = await this.reports.downloadFile(orgIdFrom(orgHeader), reportId);
+    return new StreamableFile(Readable.from(content), {
+      type: 'application/pdf',
+      disposition: `attachment; filename="${filename}"`,
+    });
   }
 
   /** GET /internal/v1/reports/:reportId/view-model — renderer data (api.md §10.6). */

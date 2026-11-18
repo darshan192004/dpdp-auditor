@@ -114,6 +114,10 @@ export class ScanExecuteWatcherRunner implements OnApplicationShutdown {
   async start(): Promise<void> {
     if (this.started) return;
     this.started = true;
+    // P3-16 is a Kubernetes-only fallback for lost runner callbacks. The local
+    // Docker driver has no Kubernetes Job to poll, so starting this worker
+    // would fail every watcher check and dead-letter the queue.
+    if (this.env.RUNNER_DRIVER !== 'kubernetes') return;
     this.worker = createScanExecuteWatcherWorker(this.env, this.watcher, this.scans, this.queues);
   }
 

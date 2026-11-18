@@ -61,15 +61,20 @@ export function createScanExecuteWorker(
       } catch (error) {
         logger.error({ err: error, scanId }, 'failed to persist scan job info');
       }
-      try {
-        await queues.enqueue(SCAN_EXECUTE_WATCHER_QUEUE, 'watch', {
-          scanId,
-          orgId,
-          jobName: name,
-          secretName: name,
-        });
-      } catch (error) {
-        logger.error({ err: error, scanId }, 'failed to enqueue watcher');
+      // The watcher reads Kubernetes Job status. The local Docker driver has
+      // no Kubernetes Job, so enqueueing one only produces a failing watcher
+      // (and a dead-lettered job); the runner's signed callback drives the scan.
+      if (env.RUNNER_DRIVER === 'kubernetes') {
+        try {
+          await queues.enqueue(SCAN_EXECUTE_WATCHER_QUEUE, 'watch', {
+            scanId,
+            orgId,
+            jobName: name,
+            secretName: name,
+          });
+        } catch (error) {
+          logger.error({ err: error, scanId }, 'failed to enqueue watcher');
+        }
       }
     },
     {

@@ -176,7 +176,7 @@ Enterprise custom scan limits are configured as `organizations.scan_concurrency`
 | PATCH | `/api/v1/findings/:findingId` | Auditor+ | Triage a finding | `server/api/v1/findings/[findingId].patch.ts` |
 | POST | `/api/v1/report/pdf` | Auditor+ | Request a PDF | `server/api/v1/report/pdf.post.ts` |
 | GET | `/api/v1/report/pdf/:reportId` | viewer+ | Report status and signed URL | `server/api/v1/report/pdf/[reportId].get.ts` |
-| GET | `/api/v1/report/pdf/:reportId/download` | viewer+ | Redirect to signed URL | `server/api/v1/report/pdf/[reportId]/download.get.ts` |
+| GET | `/api/v1/report/pdf/:reportId/download` | viewer+ | Store mode: 302 to signed URL; local mode: 200 with PDF bytes (§6.3) | `server/api/v1/report/pdf/[reportId]/download.get.ts` |
 | GET | `/api/v1/rules` | viewer+ | List DPDPA controls | `server/api/v1/rules/index.get.ts` |
 | GET | `/api/v1/rules/:code` | viewer+ | Control detail and mappings | `server/api/v1/rules/[code].get.ts` |
 | GET | `/api/v1/openapi.json` | None | OpenAPI 3.1 document (non-production; see §12) | `server/api/v1/openapi.json.get.ts` |
@@ -703,11 +703,15 @@ While rendering:
 
 A failed report returns `status: "failed"` with a generic `error` message and a retry link; internal renderer errors are not exposed.
 
-### 6.3 Download redirect
+### 6.3 Download
 
 `GET /api/v1/report/pdf/:reportId/download`
 
-Returns `302 Found` with `Location` set to a fresh signed URL valid for 15 minutes. The signed URL is never logged. If the report is not ready, returns `409 REPORT_NOT_READY`; if expired, `410 REPORT_EXPIRED`.
+**External/object-store mode** (`REPORTS_PUBLIC_URL` is configured): returns `302 Found` with `Location` set to a fresh signed URL valid for 15 minutes. The signed URL is never logged.
+
+**Self-hosted/local mode** (no `REPORTS_PUBLIC_URL`): there is no object store to redirect to. The endpoint returns `200 OK` with the real PDF bytes (`Content-Type: application/pdf`, `Content-Disposition: attachment; filename="dpdpa-report-<reportId>.pdf"`), streamed from the orchestrator's local report store through the authenticated web BFF. `signedUrl()` still returns a 15-minute signed path (`/api/v1/report/pdf/<reportId>/download?token=...&expires=...`) so status responses and links remain usable.
+
+If the report is not ready, returns `409 REPORT_NOT_READY`; if expired, `410 REPORT_EXPIRED`.
 
 ---
 

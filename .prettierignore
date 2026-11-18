@@ -3,6 +3,7 @@ pnpm-lock.yaml
 .superpowers/
 .playwright-mcp/
 coverage/
+dist/
 .turbo/
 .husky/_/
 \?/

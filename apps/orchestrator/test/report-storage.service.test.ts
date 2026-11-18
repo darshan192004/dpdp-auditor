@@ -42,11 +42,25 @@ describe('ReportStorageService', () => {
       expect(url.searchParams.get('token')).toMatch(/^[\da-f-]{36}$/);
     }
   });
-  it('provides a development URL when no public URL is configured', () => {
+  it('points the local signed URL at the app download route instead of a placeholder host', () => {
     const service = new ReportStorageService({} as Env);
-    expect(new URL(service.signedUrl('reports/id.pdf')).hostname).toBe(
-      'storage.dpdpa-auditor.example',
-    );
+    const url = new URL(service.signedUrl('reports/id.pdf'), 'http://localhost:3000');
+    expect(url.origin).toBe('http://localhost:3000');
+    expect(url.pathname).toBe('/api/v1/report/pdf/id/download');
+    expect(url.searchParams.get('token')).toMatch(/^[\da-f-]{36}$/);
+    expect(url.searchParams.get('expires')).toBeTruthy();
+  });
+
+  it('reads back a stored PDF by storage key and returns null for invalid or missing keys', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'report-test-'));
+    dirs.push(dir);
+    const service = new ReportStorageService({ REPORTS_STORAGE_DIR: dir } as unknown as Env);
+    const pdf = Buffer.from('%PDF-1.4 local report');
+    service.upload('read-id', pdf);
+    expect(service.read('reports/read-id.pdf')).toEqual(pdf);
+    expect(service.read('reports/missing.pdf')).toBeNull();
+    expect(service.read('../../etc/passwd')).toBeNull();
+    expect(service.read('reports/read-id.txt')).toBeNull();
   });
   it('ignores invalid and absent cleanup keys', () => {
     const dir = mkdtempSync(join(tmpdir(), 'report-test-'));

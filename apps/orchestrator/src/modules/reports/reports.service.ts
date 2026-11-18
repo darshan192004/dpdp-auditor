@@ -121,6 +121,20 @@ export class ReportsService {
 
   /** P5-20 + P5-25: Get signed download URL and record audit event. */
   async downloadUrl(orgId: string, reportId: string) {
+    const report = await this.assertDownloadable(orgId, reportId);
+    return this.storage.signedUrl(report.storageKey!);
+  }
+
+  /** Local/self-hosted download: stream the stored PDF through the BFF. */
+  async downloadFile(orgId: string, reportId: string) {
+    const report = await this.assertDownloadable(orgId, reportId);
+    const content = this.storage.read(report.storageKey!);
+    if (!content) throw new ApiError('NOT_FOUND', 'The report file is missing.');
+    return { content, filename: `dpdpa-report-${reportId}.pdf` };
+  }
+
+  /** Shared tenant/status guard + download audit for both download modes. */
+  private async assertDownloadable(orgId: string, reportId: string) {
     const report = await this.reports.findById(orgId, reportId);
     if (!report) throw new ApiError('NOT_FOUND', 'The report does not exist.');
     if (report.status !== 'ready') {
@@ -140,7 +154,7 @@ export class ReportsService {
       metadata: { storageKey: report.storageKey },
     });
 
-    return this.storage.signedUrl(report.storageKey);
+    return report;
   }
 
   /** P5-17: mark report rendering (worker picked the job up). */

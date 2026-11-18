@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { Inject, Injectable } from '@nestjs/common';
 import { ENV, type Env } from '../../config/env.js';
@@ -59,22 +59,40 @@ export class ReportStorageService {
       return `${this.publicUrl}/${storageKey}?token=${token}&expires=${expiresAt.toISOString()}`;
     }
 
-    // Local dev: return internal path (no real signing in dev).
-    return `https://storage.dpdpa-auditor.example/${storageKey}?token=${token}&expires=${expiresAt.toISOString()}`;
+    // Local/self-hosted mode has no object store to redirect to. Point the
+    // signed URL at the app's own authenticated download route so the link
+    // returned by the status API is usable without managed infrastructure.
+    const id = storageKey.match(/^reports\/([^/]+)\.pdf$/)?.[1] ?? '';
+    return `/api/v1/report/pdf/${id}/download?token=${token}&expires=${expiresAt.toISOString()}`;
+  }
+
+  /** Read a stored PDF back by storage key. Rejects keys outside our layout. */
+  read(storageKey: string): Buffer | null {
+    const fullPath = this.resolve(storageKey);
+    if (!fullPath || !existsSync(fullPath)) return null;
+    try {
+      return readFileSync(fullPath);
+    } catch {
+      return null;
+    }
   }
 
   /** Delete the stored report file (cleanup after expiry). */
   delete(storageKey: string): void {
-    const match = storageKey.match(/^reports\/([^/]+)\.pdf$/);
-    const id = match?.[1];
-    if (!id) return;
-    const fullPath = join(this.storageDir, id, 'report.pdf');
+    const fullPath = this.resolve(storageKey);
+    if (!fullPath) return;
     try {
-      if (existsSync(fullPath)) {
-        writeFileSync(fullPath, ''); // no-op guard; real impl uses unlink
-      }
+      if (existsSync(fullPath)) unlinkSync(fullPath);
     } catch {
       // ignore — file may already be gone
     }
+  }
+
+  /** Only `reports/<id>.pdf` keys may resolve to a path on local disk. */
+  private resolve(storageKey: string): string | null {
+    // No slashes or dots in the id: blocks traversal while allowing UUIDs and
+    // the short ids used in tests/fixtures.
+    const id = storageKey.match(/^reports\/([A-Za-z0-9_-]+)\.pdf$/)?.[1];
+    return id ? join(this.storageDir, id, 'report.pdf') : null;
   }
 }

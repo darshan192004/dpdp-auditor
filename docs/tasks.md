@@ -580,6 +580,8 @@ Retired IDs stay reserved: P2-01, P2-02, P2-07, P2-08, P2-10, P2-11, and the old
 ### Acceptance tests
 
 1. A new user completes signup → repo → scan → PDF without support intervention.
+   - **Partially verified 2026-11-18 (local/dev session):** repo → real scan → findings → PDF → download completed end-to-end without support intervention. Scan `32e29296-d9a7-4b08-9d4d-44f6478f8e7e` scored 100/A with 12 findings; report `ade5a67e-d3fd-4e63-8605-04aacfca1feb` downloaded as 17,485 real PDF bytes with matching SHA-256. Evidence in `.playwright-mcp/`.
+   - **Still pending:** the real OAuth/signup leg. Local verification used the dev-only `/api/auth/dev-session` bootstrap; real signup is intentionally deferred until a hosted/infrastructure configuration exists.
 2. Killing the canary triggers automatic rollback within the burn-rate window (deferred — infrastructure not provisioned).
 3. Status page shows a degraded component during a simulated scan outage.
 

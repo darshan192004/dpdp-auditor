@@ -147,6 +147,23 @@ describe('IdentityService', () => {
       );
     });
 
+    it('returns a JSON-safe user view without a BigInt github id', async () => {
+      const { service, users } = makeService();
+      users.findByGithubId.mockResolvedValue(null);
+      users.findByEmail.mockResolvedValue(null);
+      users.create.mockResolvedValue(USER);
+
+      const result = await service.upsertGithubUser(PROFILE);
+
+      expect(result).toEqual({
+        id: USER.id,
+        email: USER.email,
+        name: USER.name,
+        avatarUrl: USER.avatarUrl,
+      });
+      expect(() => JSON.stringify(result)).not.toThrow();
+    });
+
     it('rejects a profile without an email', async () => {
       const { service } = makeService();
       await expect(

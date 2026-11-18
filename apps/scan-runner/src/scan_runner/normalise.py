@@ -13,6 +13,87 @@ def calculate_fingerprint(content: str, salt: str) -> str:
     return hashlib.sha256((salt + content).encode("utf-8")).hexdigest()
 
 
+# Each scanner emits a different JSON dialect (Semgrep nests under ``extra``,
+# Checkov uses ``check_id``/``repo_path``, Gitleaks uses PascalCase). These alias
+# tables translate the real raw shapes into one internal finding shape.
+_ALIASES: dict[str, dict[str, tuple[str, ...]]] = {
+    "semgrep": {
+        "rule_id": ("check_id", "rule_id", "RuleID"),
+        "file": ("path", "file", "File"),
+        "line": ("start.line", "line", "Start.Line"),
+        "description": ("extra.message", "message", "description"),
+        "severity": ("extra.severity", "severity", "Severity"),
+        "evidence": ("extra.lines", "evidence", "Match"),
+    },
+    "checkov": {
+        "rule_id": ("check_id", "checkId", "rule_id", "RuleID"),
+        "file": ("repo_path", "file_path", "file", "File"),
+        "line": ("file_line_range.0", "line_number", "line", "Start.Line"),
+        "description": ("message", "description", "check_name", "check_id"),
+        "severity": ("severity", "Severity"),
+        "evidence": ("code_block.0", "evidence", "Match"),
+    },
+    "gitleaks": {
+        "rule_id": ("RuleID", "rule_id", "check_id"),
+        "file": ("File", "file", "path"),
+        "line": ("StartLine", "line", "start.line"),
+        "description": ("Description", "message", "description"),
+        "severity": ("Severity", "severity"),
+        "evidence": ("Match", "evidence", "Secret"),
+    },
+}
+
+_SEVERITY_ALIASES: dict[str, str] = {
+    "error": "high",
+    "warning": "medium",
+    "warn": "medium",
+    "fail": "medium",
+    "informational": "info",
+}
+
+
+def _at_path(value: object, path: str) -> object:
+    """Read a possibly nested field (``start.line``) or list index (``range.0``)."""
+    current = value
+    for part in path.split("."):
+        if isinstance(current, dict):
+            current = current.get(part)
+        elif isinstance(current, (list, tuple)) and part.isdigit():
+            index = int(part)
+            current = current[index] if index < len(current) else None
+        else:
+            return None
+    return current
+
+
+def _first(raw: dict[str, Any], paths: tuple[str, ...]) -> object:
+    for path in paths:
+        value = _at_path(raw, path)
+        if value is not None and value != "" and value != [] and value != {}:
+            return value
+    return None
+
+
+def _non_negative_int(value: object) -> int:
+    if isinstance(value, bool):
+        return 0
+    if isinstance(value, (int, float)):
+        return max(0, int(value))
+    if isinstance(value, str):
+        try:
+            return max(0, int(value))
+        except ValueError:
+            return 0
+    return 0
+
+
+def _severity(value: object) -> str:
+    text = str(value or "").strip().lower().replace("_", "-")
+    if text in ("critical", "high", "medium", "low", "info"):
+        return text
+    return _SEVERITY_ALIASES.get(text, "medium")
+
+
 def normalize_findings(
     scanner: str,
     raw_list: list[dict[str, Any]],
@@ -22,47 +103,24 @@ def normalize_findings(
 ) -> list[dict[str, Any]]:
     """Normalise a list of raw findings from a single scanner.
 
-    Each returned dict contains:
-
-    * ``scanner`` – the source scanner identifier
-    * ``rule_id`` – the original rule identifier
-    * ``severity`` – one of ``low``, ``medium``, ``high``, ``critical``
-    * ``file`` – relative path to the offending file
-    * ``line`` – line number (0 when unknown)
-    * ``description`` – human-readable description
-    * ``evidence`` – raw snippet (redacted for secrets)
-    * ``fingerprint`` – SHA-256 of the normalised content
-    * ``metadata`` – scanner-specific extra fields
+    The internal shape is the one consumed by ``batches.to_api_finding``:
+    ``rule_id``, ``severity``, ``file``, ``line``, ``description``, ``evidence``
+    and a stable ``fingerprint``. Every field is guaranteed to be present and
+    ``description`` is never empty, so the signed batch callback always passes
+    the orchestrator's strict validation.
     """
+    fields = _ALIASES.get(scanner, _ALIASES["semgrep"])
     results: list[dict[str, Any]] = []
     for raw in raw_list:
-        # Extract common fields; fall back to safe defaults
-        rule_id = raw.get("rule_id") or raw.get("RuleID") or "unknown"
-        severity = raw.get("severity") or raw.get("Severity") or "medium"
-        filepath = raw.get("file") or raw.get("File") or ""
-        line = raw.get("line") or raw.get("Start", {}).get("Line", 0)
-        description = raw.get("message") or raw.get("description") or ""
-        evidence = raw.get("evidence") or raw.get("Match", "")
-        metadata = {
-            k: v
-            for k, v in raw.items()
-            if k
-            not in (
-                "rule_id",
-                "RuleID",
-                "severity",
-                "Severity",
-                "file",
-                "File",
-                "line",
-                "message",
-                "description",
-                "evidence",
-                "Match",
-            )
-        }
+        rule_id = str(_first(raw, fields["rule_id"]) or "unknown")
+        filepath = str(_first(raw, fields["file"]) or "")
+        line = _non_negative_int(_first(raw, fields["line"]))
+        severity = _severity(_first(raw, fields["severity"]))
+        description = str(_first(raw, fields["description"]) or "")
+        if not description:
+            description = f"{rule_id} finding at {filepath or 'unknown path'}"
+        evidence = _first(raw, fields["evidence"])
 
-        # Build fingerprintable content
         fp_content = json.dumps(
             {"scanner": scanner, "rule_id": rule_id, "file": filepath, "line": line},
             sort_keys=True,
@@ -79,7 +137,7 @@ def normalize_findings(
                 "description": description,
                 "evidence": evidence,
                 "fingerprint": fingerprint,
-                "metadata": metadata,
+                "metadata": {},
             }
         )
     return results

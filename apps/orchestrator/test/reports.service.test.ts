@@ -194,7 +194,7 @@ describe('report lifecycle', () => {
     });
     expect(m.reports.countCreatedSince).toHaveBeenCalledTimes(plan === 'enterprise' ? 0 : 1);
   });
-  it.each(['status', 'downloadUrl', 'markRendering', 'complete'] as const)(
+  it.each(['status', 'downloadUrl', 'downloadFile', 'markRendering', 'complete'] as const)(
     'rejects missing reports for %s',
     async (method) => {
       const m = make(null);
@@ -249,6 +249,33 @@ describe('report lifecycle', () => {
       }),
     );
   });
+  it('streams the stored PDF bytes for local downloads and audits them once', async () => {
+    const m = make(report({ storageKey: 'reports/rpt.pdf' }));
+    const pdf = Buffer.from('%PDF-1.4 local download');
+    m.storage.read = vi.fn().mockReturnValue(pdf);
+
+    expect(await m.service.downloadFile(ORG_ID, REPORT_ID)).toEqual({
+      content: pdf,
+      filename: `dpdpa-report-${REPORT_ID}.pdf`,
+    });
+    expect(m.storage.read).toHaveBeenCalledWith('reports/rpt.pdf');
+    expect(m.audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: ORG_ID,
+        resourceId: REPORT_ID,
+        action: 'report.downloaded',
+      }),
+    );
+  });
+
+  it('fails closed when a ready report has no readable file', async () => {
+    const m = make(report({ storageKey: 'reports/rpt.pdf' }));
+    m.storage.read = vi.fn().mockReturnValue(null);
+    await expect(m.service.downloadFile(ORG_ID, REPORT_ID)).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
+  });
+
   it('records rendering and failure transitions', async () => {
     const m = make();
     await m.service.markRendering(ORG_ID, REPORT_ID);
