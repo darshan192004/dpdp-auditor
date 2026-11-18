@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 
+import NewScansList from '~/components/new/NewScansList.vue';
 import ScanSubmitForm from '~/components/scan/ScanSubmitForm.vue';
 import { useAppContext } from '~/composables/useAppContext';
 import { canManageScans, scanSubmitPath, type ScanQuota } from '~~/shared/scan';
@@ -19,6 +20,8 @@ import {
 } from '~~/shared/scan';
 
 definePageMeta({ layout: 'app' });
+
+const newUi = useRuntimeConfig().public.newUi;
 
 const { org } = useAppContext();
 const canSubmit = computed(() => canManageScans(org.value?.role ?? null));
@@ -99,7 +102,19 @@ async function submitScan(payload: {
 </script>
 
 <template>
-  <div class="max-w-full min-w-0 space-y-5 overflow-x-auto">
+  <NewScansList
+    v-if="newUi"
+    :scans="
+      items.map((item) => ({
+        id: item.id,
+        repository: item.repositoryFullName,
+        status: item.status,
+        score: item.score,
+      }))
+    "
+    :loading="loadingPage"
+  />
+  <div v-else class="max-w-full min-w-0 space-y-5 overflow-x-auto">
     <PageHeader title="Scans" :breadcrumbs="[{ label: 'Scans' }]" />
 
     <ScanSubmitForm v-if="canSubmit" :repos="repos" :quota="quota" @submit="submitScan" />

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
+import NewOverview from '~/components/new/NewOverview.vue';
 import PageHeader from '~/components/shell/PageHeader.vue';
 import AppIcon from '~/components/ui/AppIcon.vue';
 import EmptyState from '~/components/ui/EmptyState.vue';
@@ -18,6 +19,8 @@ import {
 } from '~~/shared/rules';
 
 definePageMeta({ layout: 'app' });
+
+const newUi = useRuntimeConfig().public.newUi;
 
 const { org } = useAppContext();
 
@@ -121,7 +124,8 @@ const QUICK_LINKS = [
 </script>
 
 <template>
-  <div class="space-y-5">
+  <NewOverview v-if="newUi" :stats="KPIS.map((item) => ({ ...item, value: String(item.value) }))" />
+  <div v-else class="space-y-5">
     <PageHeader title="Overview" :breadcrumbs="[{ label: 'Overview' }]">
       <template #actions>
         <NuxtLink

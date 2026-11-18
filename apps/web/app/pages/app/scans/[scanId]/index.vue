@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 
+import NewScanDetail from '~/components/new/NewScanDetail.vue';
 import ScoreCard from '~/components/scan/ScoreCard.vue';
 import ScanProgress from '~/components/scan/ScanProgress.vue';
 import ScanTimeline from '~/components/scan/ScanTimeline.vue';
@@ -24,6 +25,8 @@ import {
 } from '~~/shared/scan';
 
 definePageMeta({ layout: 'app' });
+
+const newUi = useRuntimeConfig().public.newUi;
 
 const route = useRoute();
 const scanId = computed(() => String(route.params.scanId));
@@ -114,7 +117,24 @@ async function retryEvents(): Promise<void> {
 </script>
 
 <template>
-  <div class="space-y-5">
+  <NewScanDetail
+    v-if="newUi"
+    :loading="status === 'pending'"
+    :scan="
+      scan === null
+        ? null
+        : {
+            id: scan.id,
+            status: scan.status,
+            score: scan.score,
+            grade: scan.grade,
+            coverage: scan.status === 'completed' ? coverage.state : 'not scored',
+            repository: scan.repository.fullName,
+            note: coverage.note,
+          }
+    "
+  />
+  <div v-else class="space-y-5">
     <PageHeader
       :title="scan?.repository.fullName ?? 'Scan'"
       :breadcrumbs="[{ label: 'Scans', to: '/app/scans' }, { label: shortId }]"
