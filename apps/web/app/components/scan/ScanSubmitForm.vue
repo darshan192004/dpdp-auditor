@@ -52,9 +52,12 @@ const idempotencyKey = createIdempotencyKey();
 
 const exhausted = computed(() => quotaExhausted(props.quota));
 const disabled = computed(() => exhausted.value || !props.canSubmit);
-const quotaLabel = computed(() =>
-  props.quota === null ? null : `${props.quota.used} of ${props.quota.limit} scans used this month`,
-);
+const quotaLabel = computed(() => {
+  if (props.quota === null) return null;
+  return props.quota.limit > 0
+    ? `${props.quota.used} of ${props.quota.limit} scans used this month`
+    : `${props.quota.used} scans used this month`;
+});
 
 const selectedRepo = computed(
   () => props.repos.find((repo) => repo.id === form.repositoryId) ?? null,
@@ -97,10 +100,10 @@ function submit(): void {
         {{ quotaLabel }}
         <a
           v-if="exhausted"
-          href="/app/settings/billing"
+          href="/app/settings/org"
           class="text-brand-700 focus-visible:ring-brand-500 rounded-[var(--radius-control)] font-medium underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:outline-none"
         >
-          Upgrade plan
+          Review scan limits
         </a>
       </p>
     </div>

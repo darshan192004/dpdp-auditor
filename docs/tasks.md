@@ -420,7 +420,7 @@ Retired IDs stay reserved: P2-01, P2-02, P2-07, P2-08, P2-10, P2-11, and the old
 | P5-07 | Rules catalog and control detail | M | Frontend | P4-23 | ✅ Done |
 | P5-08 | Settings: org profile, retention, members and roles | M | Frontend | P2-06 | ✅ Done |
 | P5-09 | Settings: repositories (saved URLs), API keys | M | Frontend | P2-13 | ✅ Done |
-| P5-10 | Settings: billing and usage (read-only plan display at MVP) | M | Frontend | P2-05 | ✅ Done |
+| P5-10 | Settings: scan usage and limits (read-only at MVP) | M | Frontend | P2-05 | ✅ Done |
 | P5-11 | Audit log viewer with filters and JSON export | M | Frontend | P1-21 | ✅ Done |
 | P5-12 | Command palette (`⌘K`) for navigation and repo search | M | Frontend | P5-01 | ✅ Done |
 | P5-13 | All five states (loading, empty, error, partial, permission) for every data surface | L | Frontend | P5-01…P5-11 | ✅ Done |
@@ -532,7 +532,7 @@ Retired IDs stay reserved: P2-01, P2-02, P2-07, P2-08, P2-10, P2-11, and the old
 
 ## 10. Phase 7 — Launch and operate
 
-**Outcome:** Public launch, monitored operation, and a defined path to Growth.
+**Outcome:** Public launch, monitored operation, and a defined path to broader adoption.
 
 **Entry criteria:** Phase 6 exit gate passed; launch readiness review scheduled.
 
@@ -547,8 +547,8 @@ Retired IDs stay reserved: P2-01, P2-02, P2-07, P2-08, P2-10, P2-11, and the old
 | P7-03 | _Retired — Open-source project; no billing, no paid plans._ | — | — | — | _Retired_ |
 | P7-04 | _Retired — Open-source project; no trial or paid plan flows._ | — | — | — | _Retired_ |
 | P7-05 | Analytics: activation, scan success, export rate, triage rate, retention funnels | M | Product | P5-01 | ✅ Done |
-| P7-06 | Support: help centre, in-app contact, SLAs by plan | M | Support | P6-13 | ✅ Done |
-| P7-07 | Marketing site: positioning, pricing, security page, docs | L | Product | P6-13 | ✅ Done |
+| P7-06 | Support: help centre, in-app contact, community response guidance | M | Support | P6-13 | ✅ Done |
+| P7-07 | Project site: positioning, security page, and contributor docs | L | Product | P6-13 | ✅ Done |
 | P7-08 | Launch comms: changelog, blog, design-partner quotes | M | Product | P7-07 | ✅ Done |
 | P7-09 | Canary rollout: 10% for 15 minutes, then 50%, then 100%; automatic rollback on SLO burn | M | Platform | P7-02 | _Deferred — infrastructure not provisioned_ |
 | P7-10 | Launch-day war room and rollback decision log | S | Engineering | P7-09 | _Deferred — infrastructure not provisioned_ |
@@ -565,25 +565,23 @@ Retired IDs stay reserved: P2-01, P2-02, P2-07, P2-08, P2-10, P2-11, and the old
 | P7-16 | Backup restore drill | Quarterly | Platform |
 | P7-17 | Pen test | Annual | Security |
 | P7-18 | Incident tabletop | Semi-annual | Security |
-| P7-19 | Cost review: cost per scan, per org; margin | Monthly | Finance + Platform |
+| P7-19 | Resource review: compute used per scan and per organisation | Monthly | Platform |
 | P7-20 | Customer advisory board and roadmap input | Monthly | Product |
 
 ### Exit criteria (launch gate)
 
 - [x] All Phase 6 criteria still true on the release candidate.
-- [x] Support SLAs and escalation paths published.
+- [x] Support response guidance and escalation paths published.
 - [x] Status page reflects real component health.
 - [x] Legal has approved launch copy and the disclaimer appears on every report.
 - [ ] Canary rollout completed with no SLO breach (deferred — infrastructure not provisioned).
 - [ ] Rollback executed once in staging within 15 minutes (deferred — infrastructure not provisioned).
-- [ ] Billing produces correct invoices for Free, Starter, and Growth in a sandbox (retired — open-source project has no billing).
 
 ### Acceptance tests
 
 1. A new user completes signup → repo → scan → PDF without support intervention.
 2. Killing the canary triggers automatic rollback within the burn-rate window (deferred — infrastructure not provisioned).
 3. Status page shows a degraded component during a simulated scan outage.
-4. Invoice reconciliation matches `usage_events` for a test org (retired — open-source project has no billing).
 
 ---
 
@@ -702,7 +700,7 @@ Rules:
 | PDF parity diverges from dashboard | Medium | High | Single view model; parity test in Phase 5 | Backend |
 | Team underestimates frontend | High | Medium | Frontend starts shell in Phase 1; mocks before API integration | Frontend |
 | GitHub availability or abuse limits block clones | Medium | Medium | Queue + degraded-mode messaging (operations.md); anonymous clone has no API quota | Platform |
-| Cost per scan exceeds margin | Medium | Medium | Usage metering from Phase 3; alarms at 80% | Platform |
+| Resource use per scan exceeds budget | Medium | Medium | Usage metering from Phase 3; alarms at 80% | Platform |
 | Scope creep into cloud scanning | High | High | Non-goals in `PRD.md`; change control at phase gate | Product |
 
 ---

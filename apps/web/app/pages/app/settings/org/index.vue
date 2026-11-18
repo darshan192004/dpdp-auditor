@@ -60,7 +60,7 @@ const ROLE_LABELS: Record<MemberRole, string> = {
 };
 
 const ROLE_HELP: Record<MemberRole, string> = {
-  owner: 'Full control, including billing and other owners.',
+  owner: 'Full control, including member management and organisation deletion.',
   admin: 'Manage settings, members, and scans.',
   auditor: 'Run scans and triage findings.',
   viewer: 'Read-only access to results.',
@@ -726,8 +726,8 @@ async function removeMember(member: OrgMember): Promise<void> {
       </section>
 
       <p class="text-ink-500 text-xs">
-        Plan, data region, and seat changes are billing operations and are not editable here. The
-        last active owner cannot be removed or demoted.
+        Usage tier, data region, and seat settings are fixed for this organisation and are not
+        editable here. The last active owner cannot be removed or demoted.
       </p>
     </template>
   </div>

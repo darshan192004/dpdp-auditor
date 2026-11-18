@@ -313,7 +313,7 @@ function scopeList(scopes: string[]): string {
 
       <p class="text-ink-500 text-xs">
         Revoked keys stop working within 30 seconds. API keys inherit the organisation's rate limits
-        and plan quotas.
+        and scan limits.
       </p>
     </template>
 

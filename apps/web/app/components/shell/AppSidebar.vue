@@ -120,7 +120,7 @@ const pathsFor = (icon: string) => ICON_PATHS[icon] ?? [];
     <div class="border-ink-200 border-t p-4">
       <div class="bg-surface rounded-[var(--radius-control)] px-3 py-2.5">
         <div class="flex items-center justify-between gap-2">
-          <p class="text-ink-400 font-mono text-xs tracking-widest uppercase">Plan usage</p>
+          <p class="text-ink-400 font-mono text-xs tracking-widest uppercase">Scan usage</p>
           <span
             class="border-ink-200 text-ink-500 rounded-[var(--radius-pill)] border px-1.5 py-0.5 font-mono text-xs"
           >
@@ -134,7 +134,7 @@ const pathsFor = (icon: string) => ICON_PATHS[icon] ?? [];
         to="/app/settings/org"
         class="text-brand-700 hover:text-brand-600 focus-visible:ring-brand-500 mt-2.5 inline-block rounded-[var(--radius-control)] text-xs font-medium underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
       >
-        Review plan limits
+        Review scan limits
       </NuxtLink>
     </div>
   </aside>

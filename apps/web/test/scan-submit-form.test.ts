@@ -104,11 +104,12 @@ describe('ScanSubmitForm (docs/design.md §5.5)', () => {
     expect(payload).not.toHaveProperty('githubUrl');
   });
 
-  it('disables submit when the quota is exhausted and links to billing', async () => {
+  it('disables submit when the scan limit is reached and links to scan settings', async () => {
     const wrapper = await form({ quota: { used: 10, limit: 10 } });
 
     expect(wrapper.text()).toContain('10 of 10 scans used');
-    expect(wrapper.find('a[href="/app/settings/billing"]').exists()).toBe(true);
+    expect(wrapper.find('a[href="/app/settings/org"]').exists()).toBe(true);
+    expect(wrapper.find('a[href="/app/settings/billing"]').exists()).toBe(false);
 
     const button = wrapper.find('button[type="submit"]');
     expect(button.attributes('disabled')).toBeDefined();

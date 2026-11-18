@@ -213,12 +213,12 @@ const QUICK_LINKS = [
           </dl>
         </section>
 
-        <!-- Usage meter: plan + monthly quota -->
+        <!-- Usage meter: scan usage and limits for the current month -->
         <UsageMeter v-if="org" :summary="orgSummary" />
         <EmptyState
           v-else
           title="No organisation selected"
-          description="Select an organisation to view plan usage and quotas."
+          description="Select an organisation to view its scan usage and limits."
           icon="shield-alert"
         />
       </div>
