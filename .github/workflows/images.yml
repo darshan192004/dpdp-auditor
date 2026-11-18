@@ -46,6 +46,8 @@ jobs:
             dockerfile: docker/web.Dockerfile
           - name: orchestrator
             dockerfile: docker/orchestrator.Dockerfile
+          - name: scan-runner
+            dockerfile: docker/scan-runner.Dockerfile
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7
@@ -60,6 +62,10 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check scanner version parity
+        if: matrix.name == 'scan-runner'
+        run: python3 scripts/check_versions.py
 
       - name: Build ${{ matrix.name }} image
         id: build
@@ -77,11 +83,19 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
 
-      - name: Smoke test ${{ matrix.name }} image
+      - name: Smoke test Node image
+        if: matrix.name != 'scan-runner'
         run: >
           docker run --rm
           ghcr.io/${{ github.repository }}/${{ matrix.name }}:${{ github.sha }}
           -e "console.log('image ok')"
+
+      - name: Smoke test scan runner image
+        if: matrix.name == 'scan-runner'
+        run: >
+          docker run --rm
+          ghcr.io/${{ github.repository }}/${{ matrix.name }}:${{ github.sha }}
+          smoke-scan-runner
 
       - name: Scan ${{ matrix.name }} image (Trivy)
         uses: aquasecurity/trivy-action@v0.36.0

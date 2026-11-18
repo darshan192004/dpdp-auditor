@@ -1,20 +1,33 @@
 # Container images (tasks.md P1-34)
 
-`docker/web.Dockerfile` and `docker/orchestrator.Dockerfile` are built by
-`.github/workflows/images.yml` on every PR touching `apps/`, `packages/`,
+`docker/web.Dockerfile`, `docker/orchestrator.Dockerfile` and
+`docker/scan-runner.Dockerfile` are built by `.github/workflows/images.yml` on
+every PR touching `apps/`, `packages/`,
 `docker/`, or the workspace manifests.
 
 Pipeline per image:
 
-1. **Build** — multi-stage pnpm/turbo build on `node:22-bookworm-slim`.
-2. **Smoke test** — the built image starts Node.
-3. **Trivy** — fails on fixable CRITICAL vulnerabilities.
-4. **SBOM** — CycloneDX JSON attached as a workflow artifact.
-5. **Cosign** — on `main` only, the pushed GHCR digest is signed keyless
+1. **Version parity** — `scripts/check_versions.py` checks the scan runner's
+   Dockerfile ARGs, `versions.py` and the rule-pack catalogue before the build.
+2. **Build** — Node images use a multi-stage pnpm/turbo build; the scan runner
+   installs pinned Python scanners and a checksum-verified gitleaks binary.
+3. **Smoke test** — Node images evaluate a trivial expression; the scan runner
+   runs `smoke-scan-runner`, which checks all four pinned binaries and `git`.
+4. **Trivy** — fails on fixable CRITICAL vulnerabilities.
+5. **SBOM** — CycloneDX JSON attached as a workflow artifact.
+6. **Cosign** — on `main` only, the pushed GHCR digest is signed keyless
    (Sigstore OIDC); admission control verifies the signature (P6-10).
 
-Runtime bases are digest-pinned distroless Node 22 images running as
-`nonroot`, per `security.md` §11. Bump base digests with Renovate.
+Runtime bases are digest-pinned. Node images use distroless `nonroot`; the scan
+runner uses `python:3.12` with UID 10001 because it needs `git` for shallow
+clone. Bump base digests with Renovate.
+
+## Local scan runner build
+
+```sh
+docker build -f docker/scan-runner.Dockerfile -t dpdpa/scan-runner:local .
+docker run --rm dpdpa/scan-runner:local smoke-scan-runner
+```
 
 ## Renderer
 
