@@ -1,0 +1,21 @@
+# Scanner execution has not been validated for this fixture.
+# plannedFindings preserves proposed coverage without inventing scanner rule IDs.
+name: missing-audit-logging
+description: Python app without audit logging for data access
+expectedFindings: []
+languages:
+  - python
+scanners:
+  - semgrep
+plannedFindings:
+  - control: DPDPA-7.1-LOG-01
+    severity: high
+    scanner: semgrep
+    description: Data access events not logged
+  - control: DPDPA-7.1-LOG-02
+    severity: medium
+    scanner: semgrep
+    description: User authentication events not logged
+expectedCoverage: full
+tolerances:
+  extraFindings: 0

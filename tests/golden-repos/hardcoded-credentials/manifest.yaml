@@ -1,0 +1,21 @@
+# Scanner execution has not been validated for this fixture.
+# plannedFindings preserves proposed coverage without inventing scanner rule IDs.
+name: hardcoded-credentials
+description: Application with hardcoded database and API credentials
+expectedFindings: []
+languages:
+  - python
+scanners:
+  - gitleaks
+plannedFindings:
+  - control: DPDPA-8.4-SEC-03
+    severity: critical
+    scanner: gitleaks
+    description: Database password hardcoded in source code
+  - control: DPDPA-8.4-SEC-04
+    severity: critical
+    scanner: gitleaks
+    description: API key hardcoded in source code
+expectedCoverage: full
+tolerances:
+  extraFindings: 0

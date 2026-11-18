@@ -1,0 +1,21 @@
+# Scanner execution has not been validated for this fixture.
+# plannedFindings preserves proposed coverage without inventing scanner rule IDs.
+name: missing-csp-headers
+description: Web application without Content Security Policy
+expectedFindings: []
+languages:
+  - python
+scanners:
+  - semgrep
+plannedFindings:
+  - control: DPDPA-5.2-SEC-01
+    severity: medium
+    scanner: semgrep
+    description: Missing Content Security Policy header
+  - control: DPDPA-5.2-SEC-02
+    severity: medium
+    scanner: semgrep
+    description: Missing X-Content-Type-Options header
+expectedCoverage: full
+tolerances:
+  extraFindings: 0

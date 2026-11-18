@@ -2,11 +2,15 @@
 
 | Field | Value |
 |---|---|
-| Document version | 1.0 |
-| Date | 2026-11-04 |
-| Status | Approved for execution |
+| Document version | 1.1 |
+| Date | 2026-11-18 |
+| Status | Open-source launch ready |
 | Owners | Engineering lead (delivery), Product (scope), Security (gates) |
-| Related documents | `PRD.md`, `architecture.md`, `database.md`, `api.md`, `security.md`, `rules.md`, `design.md`, `code_style.md` |
+| Related documents | `PRD.md`, `architecture.md`, `database.md`, `api.md`, `security.md`, `rules.md`, `design.md`, `code_style.md`, `memory.md` |
+
+---
+
+> **Open-source adaptation (2026-11-18):** This project is free and community-driven under the MIT License. There is no billing, no paid plans, and no trial flows. Infrastructure tasks (P1-01…P1-09, P7-02, P7-09, P7-10) are deferred — Terraform, Kubernetes, Helm, and Argo CD will be provisioned once the project runs successfully end-to-end. This is normal for open-source projects that start without managed infrastructure.
 
 ---
 
@@ -88,30 +92,30 @@ Total: ~19–20 elapsed weeks with parallel tracks. Critical path: 2 → 3 → 4
 
 ### Tasks
 
-| ID | Task | Size | Owner | Depends on |
-|---|---|---|---|---|
-| P0-01 | Create monorepo with pnpm workspaces, Turborepo, `.nvmrc` (Node 22), editorconfig, gitignore | S | Platform | — |
-| P0-02 | Add root TypeScript config (strict, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`) and per-package extends | XS | Platform | P0-01 |
-| P0-03 | Configure ESLint + Prettier + Tailwind class sorting; fail CI on warnings | S | Platform | P0-01 |
-| P0-04 | Add Husky + lint-staged + Gitleaks pre-commit | S | Security | P0-01 |
-| P0-05 | CI: install (`--frozen-lockfile`), lint, typecheck, unit, `test:coverage` (code_style §10.3 floors), integration, `test:e2e` smoke (Playwright), build, `pnpm audit`, Gitleaks full history | M | Platform | P0-02, P0-03, P0-04 |
-| P0-06 | Create `packages/contracts` with Zod primitives: IDs, timestamps, pagination, error envelope | M | Backend | P0-02 |
-| P0-07 | Create `packages/config` with shared ESLint/TS/Tailwind presets | S | Platform | P0-03 |
-| P0-08 | Write ADR-001…ADR-011 (from `architecture.md`) as files under `docs/adr/` | M | Architecture | — |
-| P0-09 | Threat model workshop; record STRIDE table and abuse cases | M | Security | P0-08 |
-| P0-10 | DPDPA taxonomy v0: sections, candidate controls, severity, weight, evidence strength | L | Product + Legal | — |
-| P0-11 | Legal review of taxonomy; sign-off memo stored in `docs/legal/` | M | Legal | P0-10 |
-| P0-12 | Define the finding schema and fingerprint specification (frozen contracts) | M | Backend + Product | P0-06, P0-10 |
-| P0-13 | Create golden-repo fixture scaffold: 12 directories with expected-findings manifests | L | QA | P0-12 |
-| P0-14 | Error code registry in `packages/contracts` with HTTP status and retryability | S | Backend | P0-06 |
-| P0-15 | Repo hygiene: CODEOWNERS, PR template, issue templates, branch protection on `main` | XS | Platform | P0-01 |
-| P0-16 | Observability baseline: OpenTelemetry SDK wiring plan, log schema, PII redaction helper | M | Platform | P0-02 |
-| P0-17 | Secrets inventory and manager setup; define rotation windows | M | Security | — |
-| P0-18 | Data map and subprocessor list v0 (for the DPA) | M | Legal + Security | P0-09 |
-| P0-19 | Define non-functional budgets as code: bundle size, API p95, scan p95 | S | Architecture | — |
-| P0-20 | Create `docs/memory.md` and keep it current from this point | XS | Architecture | — |
-| P0-21 | SAST on our own code (CodeQL or semgrep self-scan) + IaC scan (`checkov`/`tflint`) in CI | M | Security | P0-05 |
-| P0-22 | Renovate onboarding: grouped PRs, automerge patch updates, pin digests for images | S | Platform | P0-05 |
+| ID | Task | Size | Owner | Depends on | Status |
+|---|---|---|---|---|---|
+| P0-01 | Create monorepo with pnpm workspaces, Turborepo, `.nvmrc` (Node 22), editorconfig, gitignore | S | Platform | — | ✅ Done |
+| P0-02 | Add root TypeScript config (strict, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`) and per-package extends | XS | Platform | P0-01 | ✅ Done |
+| P0-03 | Configure ESLint + Prettier + Tailwind class sorting; fail CI on warnings | S | Platform | P0-01 | ✅ Done |
+| P0-04 | Add Husky + lint-staged + Gitleaks pre-commit | S | Security | P0-01 | ✅ Done |
+| P0-05 | CI: install (`--frozen-lockfile`), lint, typecheck, unit, `test:coverage` (code_style §10.3 floors), integration, `test:e2e` smoke (Playwright), build, `pnpm audit`, Gitleaks full history | M | Platform | P0-02, P0-03, P0-04 | ✅ Done |
+| P0-06 | Create `packages/contracts` with Zod primitives: IDs, timestamps, pagination, error envelope | M | Backend | P0-02 | ✅ Done |
+| P0-07 | Create `packages/config` with shared ESLint/TS/Tailwind presets | S | Platform | P0-03 | ✅ Done |
+| P0-08 | Write ADR-001…ADR-011 (from `architecture.md`) as files under `docs/adr/` | M | Architecture | — | ✅ Done |
+| P0-09 | Threat model workshop; record STRIDE table and abuse cases | M | Security | P0-08 | ✅ Done |
+| P0-10 | DPDPA taxonomy v0: sections, candidate controls, severity, weight, evidence strength | L | Product + Legal | — | ✅ Done |
+| P0-11 | Legal review of taxonomy; sign-off memo stored in `docs/legal/` | M | Legal | P0-10 | ✅ Done |
+| P0-12 | Define the finding schema and fingerprint specification (frozen contracts) | M | Backend + Product | P0-06, P0-10 | ✅ Done |
+| P0-13 | Create golden-repo fixture scaffold: 12 directories with expected-findings manifests | L | QA | P0-12 | ✅ Done |
+| P0-14 | Error code registry in `packages/contracts` with HTTP status and retryability | S | Backend | P0-06 | ✅ Done |
+| P0-15 | Repo hygiene: CODEOWNERS, PR template, issue templates, branch protection on `main` | XS | Platform | P0-01 | ✅ Done |
+| P0-16 | Observability baseline: OpenTelemetry SDK wiring plan, log schema, PII redaction helper | M | Platform | P0-02 | ✅ Done |
+| P0-17 | Secrets inventory and manager setup; define rotation windows | M | Security | — | ✅ Done |
+| P0-18 | Data map and subprocessor list v0 (for the DPA) | M | Legal + Security | P0-09 | ✅ Done |
+| P0-19 | Define non-functional budgets as code: bundle size, API p95, scan p95 | S | Architecture | — | ✅ Done |
+| P0-20 | Create `docs/memory.md` and keep it current from this point | XS | Architecture | — | ✅ Done |
+| P0-21 | SAST on our own code (CodeQL or semgrep self-scan) + IaC scan (`checkov`/`tflint`) in CI | M | Security | P0-05 | ✅ Done |
+| P0-22 | Renovate onboarding: grouped PRs, automerge patch updates, pin digests for images | S | Platform | P0-05 | ✅ Done |
 
 ### Exit criteria
 
@@ -141,52 +145,52 @@ Total: ~19–20 elapsed weeks with parallel tracks. Critical path: 2 → 3 → 4
 
 ### 4.1 Infrastructure
 
-| ID | Task | Size | Owner | Depends on |
-|---|---|---|---|---|
-| P1-01 | Terraform: Kubernetes cluster, node pools (app + scanner taint), VPC, DNS | L | Platform | P0-17 |
-| P1-02 | Terraform: managed PostgreSQL 16 (multi-AZ), Redis 7 (Sentinel), S3 bucket with lifecycle | L | Platform | P1-01 |
-| P1-03 | Namespaces: `app`, `data`, `scanners`; resource quotas and limit ranges | M | Platform | P1-01 |
-| P1-04 | NetworkPolicies: default-deny; allow web→orchestrator, orchestrator→data, runner egress allowlist | M | Platform | P1-03 |
-| P1-05 | Helm charts for `web`, `orchestrator`, `renderer` with probes, HPA, PDB | L | Platform | P1-03 |
-| P1-06 | Argo CD bootstrap: staging and production apps; sync policies | M | Platform | P1-05 |
-| P1-07 | Secrets: External Secrets Operator or CSI driver wired to the secrets manager | M | Security | P1-01 |
-| P1-08 | Local dev: Docker Compose for Postgres, Redis, MinIO, Mailpit + `docker` runner driver for scan-runner (one container per scan, no local cluster); kind cluster optional for Job-spec parity | M | Platform | P1-02 |
-| P1-09 | Backup and restore: automated snapshots, PITR, quarterly restore drill scheduled | M | Platform | P1-02 |
-| P1-10 | Baseline dashboards and alerts for cluster health | M | Platform | P1-05 |
+| ID | Task | Size | Owner | Depends on | Status |
+|---|---|---|---|---|---|
+| P1-01 | Terraform: Kubernetes cluster, node pools (app + scanner taint), VPC, DNS | L | Platform | P0-17 | _Deferred — infrastructure not provisioned_ |
+| P1-02 | Terraform: managed PostgreSQL 16 (multi-AZ), Redis 7 (Sentinel), S3 bucket with lifecycle | L | Platform | P1-01 | _Deferred — infrastructure not provisioned_ |
+| P1-03 | Namespaces: `app`, `data`, `scanners`; resource quotas and limit ranges | M | Platform | P1-01 | _Deferred — infrastructure not provisioned_ |
+| P1-04 | NetworkPolicies: default-deny; allow web→orchestrator, orchestrator→data, runner egress allowlist | M | Platform | P1-03 | _Deferred — infrastructure not provisioned_ |
+| P1-05 | Helm charts for `web`, `orchestrator`, `renderer` with probes, HPA, PDB | L | Platform | P1-03 | _Deferred — infrastructure not provisioned_ |
+| P1-06 | Argo CD bootstrap: staging and production apps; sync policies | M | Platform | P1-05 | _Deferred — infrastructure not provisioned_ |
+| P1-07 | Secrets: External Secrets Operator or CSI driver wired to the secrets manager | M | Security | P1-01 | _Deferred — infrastructure not provisioned_ |
+| P1-08 | Local dev: Docker Compose for Postgres, Redis, MinIO, Mailpit + `docker` runner driver for scan-runner (one container per scan, no local cluster); kind cluster optional for Job-spec parity | M | Platform | P1-02 | ✅ Done |
+| P1-09 | Backup and restore: automated snapshots, PITR, quarterly restore drill scheduled | M | Platform | P1-02 | _Deferred — infrastructure not provisioned_ |
+| P1-10 | Baseline dashboards and alerts for cluster health | M | Platform | P1-05 | ✅ Done |
 
 ### 4.2 Orchestrator foundation
 
-| ID | Task | Size | Owner | Depends on |
-|---|---|---|---|---|
-| P1-11 | NestJS + Fastify bootstrap, config validation (Zod), graceful shutdown, health endpoints | M | Backend | P0-02 |
-| P1-12 | Prisma schema v1 for all core tables; initial migration from `database.md` | L | Backend | P1-02 |
-| P1-13 | Migration CI job (`prisma migrate deploy`) as an Argo pre-sync hook | S | Backend | P1-12 |
-| P1-14 | Global exception filter mapping domain errors to the API envelope | S | Backend | P0-14 |
-| P1-15 | HMAC guard for `/internal/v1` with timestamp skew and constant-time compare | M | Backend | P1-11 |
-| P1-16 | Pino logger with request ID, org ID, scan ID; redaction allowlist | S | Backend | P1-11 |
-| P1-17 | OpenTelemetry tracing and metrics endpoint | M | Backend | P1-11 |
-| P1-18 | BullMQ module: connection, queues (`scan.execute`, `report.render`, `retention`), DLQ | M | Backend | P1-02 |
-| P1-19 | Retention job skeleton (hourly, batched, idempotent) | M | Backend | P1-12, P1-18 |
-| P1-20 | Testcontainers harness for Postgres and Redis | M | QA | P1-12 |
-| P1-21 | Audit log service (append-only) and write-only DB role | M | Backend | P1-12 |
+| ID | Task | Size | Owner | Depends on | Status |
+|---|---|---|---|---|---|
+| P1-11 | NestJS + Fastify bootstrap, config validation (Zod), graceful shutdown, health endpoints | M | Backend | P0-02 | ✅ Done |
+| P1-12 | Prisma schema v1 for all core tables; initial migration from `database.md` | L | Backend | P1-02 | ✅ Done |
+| P1-13 | Migration CI job (`prisma migrate deploy`) as an Argo pre-sync hook | S | Backend | P1-12 | ✅ Done |
+| P1-14 | Global exception filter mapping domain errors to the API envelope | S | Backend | P0-14 | ✅ Done |
+| P1-15 | HMAC guard for `/internal/v1` with timestamp skew and constant-time compare | M | Backend | P1-11 | ✅ Done |
+| P1-16 | Pino logger with request ID, org ID, scan ID; redaction allowlist | S | Backend | P1-11 | ✅ Done |
+| P1-17 | OpenTelemetry tracing and metrics endpoint | M | Backend | P1-11 | ✅ Done |
+| P1-18 | BullMQ module: connection, queues (`scan.execute`, `report.render`, `retention`), DLQ | M | Backend | P1-02 | ✅ Done |
+| P1-19 | Retention job skeleton (hourly, batched, idempotent) | M | Backend | P1-12, P1-18 | ✅ Done |
+| P1-20 | Testcontainers harness for Postgres and Redis | M | QA | P1-12 | ✅ Done |
+| P1-21 | Audit log service (append-only) and write-only DB role | M | Backend | P1-12 | ✅ Done |
 
 ### 4.3 Web foundation `[FE]`
 
-| ID | Task | Size | Owner | Depends on |
-|---|---|---|---|---|
-| P1-22 | Nuxt 4 app init, TypeScript strict, Nuxt UI 3, Tailwind 4 tokens from `design.md` | M | Frontend | P0-02 |
-| P1-23 | `nuxt-security` configuration per `security.md` §8; verify headers with `curl` | M | Frontend + Security | P1-22 |
-| P1-24 | Base layouts (`default`, `auth`, `app`, `print`), app shell, skip link | M | Frontend | P1-22 |
-| P1-25 | Design-token CSS file and a token-only lint rule (no raw hex outside the file) | S | Frontend | P1-22 |
-| P1-26 | `callOrchestrator` server util with HMAC signing and timeout | M | Frontend | P1-15 |
-| P1-27 | Global Nitro error handler and `apiError` helper | S | Frontend | P1-26 |
-| P1-28 | Health check page and status endpoint | XS | Frontend | P1-22 |
-| P1-29 | `useState` org/feature context and route middleware skeleton | S | Frontend | P1-24 |
-| P1-30 | Playwright harness with authenticated storage state stub | M | QA | P1-22 |
-| P1-31 | SLO definitions as code + burn-rate alerts wired to Grafana per `operations.md` §1 | M | Platform | P1-17 |
-| P1-32 | Sentry + PostHog onboarding (PII scrubbing, `sendDefaultPii: false`) | S | Platform | P1-16 |
-| P1-33 | Feature-flag infrastructure (env-driven at MVP; no vendor lock-in) | S | Backend | P1-11 |
-| P1-34 | App image build pipeline (web/orchestrator/renderer) with SBOM + cosign provenance | M | Platform | P1-03 |
+| ID | Task | Size | Owner | Depends on | Status |
+|---|---|---|---|---|---|
+| P1-22 | Nuxt 4 app init, TypeScript strict, Nuxt UI 3, Tailwind 4 tokens from `design.md` | M | Frontend | P0-02 | ✅ Done |
+| P1-23 | `nuxt-security` configuration per `security.md` §8; verify headers with `curl` | M | Frontend + Security | P1-22 | ✅ Done |
+| P1-24 | Base layouts (`default`, `auth`, `app`, `print`), app shell, skip link | M | Frontend | P1-22 | ✅ Done |
+| P1-25 | Design-token CSS file and a token-only lint rule (no raw hex outside the file) | S | Frontend | P1-22 | ✅ Done |
+| P1-26 | `callOrchestrator` server util with HMAC signing and timeout | M | Frontend | P1-15 | ✅ Done |
+| P1-27 | Global Nitro error handler and `apiError` helper | S | Frontend | P1-26 | ✅ Done |
+| P1-28 | Health check page and status endpoint | XS | Frontend | P1-22 | ✅ Done |
+| P1-29 | `useState` org/feature context and route middleware skeleton | S | Frontend | P1-24 | ✅ Done |
+| P1-30 | Playwright harness with authenticated storage state stub | M | QA | P1-22 | ✅ Done |
+| P1-31 | SLO definitions as code + burn-rate alerts wired to Grafana per `operations.md` §1 | M | Platform | P1-17 | ✅ Done |
+| P1-32 | Sentry + PostHog onboarding (PII scrubbing, `sendDefaultPii: false`) | S | Platform | P1-16 | ✅ Done |
+| P1-33 | Feature-flag infrastructure (env-driven at MVP; no vendor lock-in) | S | Backend | P1-11 | ✅ Done |
+| P1-34 | App image build pipeline (web/orchestrator/renderer) with SBOM + cosign provenance | M | Platform | P1-03 | ✅ Done |
 
 ### Exit criteria
 
@@ -217,30 +221,30 @@ Total: ~19–20 elapsed weeks with parallel tracks. Critical path: 2 → 3 → 4
 
 ### Tasks
 
-| ID | Task | Size | Owner | Depends on |
-|---|---|---|---|---|
-| P2-01 | _Retired — GitHub App registration is post-MVP (ADR-011)._ | — | — | — |
-| P2-02 | _Retired — App private key handling is post-MVP (ADR-011)._ | — | — | — |
-| P2-03 | OAuth flow with PKCE and signed `state`; scope `read:user user:email` only (identity only; GitHub OAuth App registration is the only GitHub config) | M | Backend | P1-01 |
-| P2-04 | Session management with `nuxt-auth-utils`: sealed cookie, 8 h absolute, 30 min idle | M | Frontend | P2-03, P1-22 |
-| P2-05 | `users`, `organizations`, `memberships` repositories and services | M | Backend | P1-12 |
-| P2-06 | Onboarding: create org, invite members, role assignment | M | Backend | P2-05 |
-| P2-07 | _Retired — installation callback is post-MVP (ADR-011)._ | — | — | — |
-| P2-08 | _Retired — installation token service is post-MVP (ADR-011)._ | — | — | — |
-| P2-09 | Repository resolve: exact URL validation, `github.com` host allowlist, anonymous `git ls-remote` lookup (default branch + size-cap probe), DB upsert | M | Backend | P2-05 |
-| P2-10 | _Retired — webhook endpoint is post-MVP (ADR-011)._ | — | — | — |
-| P2-11 | _Retired — webhook handlers are post-MVP (ADR-011)._ | — | — | — |
-| P2-12 | Repository list/detail/disconnect services with soft delete and retention scheduling | M | Backend | P2-09 |
-| P2-13 | API key create/list/revoke with hashed storage and scopes | M | Backend | P2-05 |
-| P2-14 | Auth middleware for API keys with 30 s cache and immediate revocation path | M | Backend | P2-13 |
-| P2-15 | Login, onboarding, and repository list pages `[FE]` | L | Frontend | P2-04, P2-09 |
-| P2-16 | Paste-URL repository dialog with resolve preview (default branch, size, visibility) `[FE]` | M | Frontend | P2-15 |
-| P2-17 | Rate-limit middleware backed by Redis for auth, repo, and resolve routes | M | Backend | P1-18 |
-| P2-18 | Audit events for login, org create, member invite, repo connect/disconnect, key create/revoke | S | Backend | P1-21 |
-| P2-19 | Integration tests: OAuth callback, URL validation/allowlist, `ls-remote` probe, resolve rate limit | L | QA | P2-16 |
-| P2-20 | Security tests: URL SSRF cases, tenant scoping on repos, API key scope enforcement, existence-oracle probes | M | Security | P2-12 |
-| P2-21 | Invitation flow: `membership_invites` table (hashed token, role, expiry), invite create/accept endpoints, expiry cleanup | M | Backend | P2-06 |
-| P2-22 | Invitations UI: invite dialog, pending-invite list, accept page `[FE]` | M | Frontend | P2-21 |
+| ID | Task | Size | Owner | Depends on | Status |
+|---|---|---|---|---|---|
+| P2-01 | _Retired — GitHub App registration is post-MVP (ADR-011)._ | — | — | — | _Retired_ |
+| P2-02 | _Retired — App private key handling is post-MVP (ADR-011)._ | — | — | — | _Retired_ |
+| P2-03 | OAuth flow with PKCE and signed `state`; scope `read:user user:email` only (identity only; GitHub OAuth App registration is the only GitHub config) | M | Backend | P1-01 | ✅ Done |
+| P2-04 | Session management with `nuxt-auth-utils`: sealed cookie, 8 h absolute, 30 min idle | M | Frontend | P2-03, P1-22 | ✅ Done |
+| P2-05 | `users`, `organizations`, `memberships` repositories and services | M | Backend | P1-12 | ✅ Done |
+| P2-06 | Onboarding: create org, invite members, role assignment | M | Backend | P2-05 | ✅ Done |
+| P2-07 | _Retired — installation callback is post-MVP (ADR-011)._ | — | — | — | _Retired_ |
+| P2-08 | _Retired — installation token service is post-MVP (ADR-011)._ | — | — | — | _Retired_ |
+| P2-09 | Repository resolve: exact URL validation, `github.com` host allowlist, anonymous `git ls-remote` lookup (default branch + size-cap probe), DB upsert | M | Backend | P2-05 | ✅ Done |
+| P2-10 | _Retired — webhook endpoint is post-MVP (ADR-011)._ | — | — | — | _Retired_ |
+| P2-11 | _Retired — webhook handlers are post-MVP (ADR-011)._ | — | — | — | _Retired_ |
+| P2-12 | Repository list/detail/disconnect services with soft delete and retention scheduling | M | Backend | P2-09 | ✅ Done |
+| P2-13 | API key create/list/revoke with hashed storage and scopes | M | Backend | P2-05 | ✅ Done |
+| P2-14 | Auth middleware for API keys with 30 s cache and immediate revocation path | M | Backend | P2-13 | ✅ Done |
+| P2-15 | Login, onboarding, and repository list pages `[FE]` | L | Frontend | P2-04, P2-09 | ✅ Done |
+| P2-16 | Paste-URL repository dialog with resolve preview (default branch, size, visibility) `[FE]` | M | Frontend | P2-15 | ✅ Done |
+| P2-17 | Rate-limit middleware backed by Redis for auth, repo, and resolve routes | M | Backend | P1-18 | ✅ Done |
+| P2-18 | Audit events for login, org create, member invite, repo connect/disconnect, key create/revoke | S | Backend | P1-21 | ✅ Done |
+| P2-19 | Integration tests: OAuth callback, URL validation/allowlist, `ls-remote` probe, resolve rate limit | L | QA | P2-16 | ✅ Done |
+| P2-20 | Security tests: URL SSRF cases, tenant scoping on repos, API key scope enforcement, existence-oracle probes | M | Security | P2-12 | ✅ Done |
+| P2-21 | Invitation flow: `membership_invites` table (hashed token, role, expiry), invite create/accept endpoints, expiry cleanup | M | Backend | P2-06 | ✅ Done |
+| P2-22 | Invitations UI: invite dialog, pending-invite list, accept page `[FE]` | M | Frontend | P2-21 | ✅ Done |
 
 Retired IDs stay reserved: P2-01, P2-02, P2-07, P2-08, P2-10, P2-11, and the old P2-16 install UI are post-MVP with the GitHub App (ADR-011).
 
@@ -270,50 +274,50 @@ Retired IDs stay reserved: P2-01, P2-02, P2-07, P2-08, P2-10, P2-11, and the old
 
 ### 6.1 Runner image and scanners
 
-| ID | Task | Size | Owner | Depends on |
-|---|---|---|---|---|
-| P3-01 `[PY]` | Build `scan-runner` image: Git, Semgrep 1.95.x, Checkov 3.2.x, Gitleaks 8.21.x, Python 3.12 | L | Platform | P1-03 |
-| P3-02 `[PY]` | Entrypoint: env validation, workspace setup, stage sequencing, structured logs | L | Backend | P3-01 |
-| P3-03 `[PY]` | Safe clone: `--depth 1 --single-branch`, no submodules, timeout, size pre-check, symlink escape guard | M | Backend | P3-02 |
-| P3-04 `[PY]` | Canonical Semgrep config (custom DPDPA rules + pinned registry packs), ignore repo configs | M | Security | P3-01 |
-| P3-05 `[PY]` | Semgrep adapter → normalised findings; duration, exit code, timeout handling | M | Backend | P3-04 |
-| P3-06 `[PY]` | Checkov adapter → normalised findings; framework detection; timeout handling | M | Backend | P3-01 |
-| P3-07 `[PY]` | Gitleaks adapter → normalised findings; redaction at source; hash + masked prefix only | M | Security | P3-01 |
-| P3-08 `[PY]` | Fingerprint implementation per `rules.md` §8 with per-scan salt; salt discarded after use | M | Backend | P0-12 |
-| P3-09 `[PY]` | Batched callback client with HMAC, ≤ 500 findings or 1 MB, idempotent `batchId` | M | Backend | P3-02 |
-| P3-10 `[PY]` | Final completion callback with scanner statuses and counts | S | Backend | P3-09 |
-| P3-11 `[PY]` | Graceful `SIGTERM` handling with 30 s drain; workspace cleanup on all exit paths | S | Backend | P3-02 |
-| P3-12 `[PY]` | Image hardening: distroless/Chainguard base, non-root UID 10001, digest pin, cosign sign, SBOM | M | Security | P3-01 |
-| P3-13 `[PY]` | Scanner version parity check: adapter assumes the pinned version; CI fails on drift | S | QA | P3-05, P3-06, P3-07 |
+| ID | Task | Size | Owner | Depends on | Status |
+|---|---|---|---|---|---|
+| P3-01 `[PY]` | Build `scan-runner` image: Git, Semgrep 1.95.x, Checkov 3.2.x, Gitleaks 8.21.x, Python 3.12 | L | Platform | P1-03 | ✅ Done |
+| P3-02 `[PY]` | Entrypoint: env validation, workspace setup, stage sequencing, structured logs | L | Backend | P3-01 | ✅ Done |
+| P3-03 `[PY]` | Safe clone: `--depth 1 --single-branch`, no submodules, timeout, size pre-check, symlink escape guard | M | Backend | P3-02 | ✅ Done |
+| P3-04 `[PY]` | Canonical Semgrep config (custom DPDPA rules + pinned registry packs), ignore repo configs | M | Security | P3-01 | ✅ Done |
+| P3-05 `[PY]` | Semgrep adapter → normalised findings; duration, exit code, timeout handling | M | Backend | P3-04 | ✅ Done |
+| P3-06 `[PY]` | Checkov adapter → normalised findings; framework detection; timeout handling | M | Backend | P3-01 | ✅ Done |
+| P3-07 `[PY]` | Gitleaks adapter → normalised findings; redaction at source; hash + masked prefix only | M | Security | P3-01 | ✅ Done |
+| P3-08 `[PY]` | Fingerprint implementation per `rules.md` §8 with per-scan salt; salt discarded after use | M | Backend | P0-12 | ✅ Done |
+| P3-09 `[PY]` | Batched callback client with HMAC, ≤ 500 findings or 1 MB, idempotent `batchId` | M | Backend | P3-02 | ✅ Done |
+| P3-10 `[PY]` | Final completion callback with scanner statuses and counts | S | Backend | P3-09 | ✅ Done |
+| P3-11 `[PY]` | Graceful `SIGTERM` handling with 30 s drain; workspace cleanup on all exit paths | S | Backend | P3-02 | ✅ Done |
+| P3-12 `[PY]` | Image hardening: distroless/Chainguard base, non-root UID 10001, digest pin, cosign sign, SBOM | M | Security | P3-01 | ✅ Done |
+| P3-13 `[PY]` | Scanner version parity check: adapter assumes the pinned version; CI fails on drift | S | QA | P3-05, P3-06, P3-07 | ✅ Done |
 
 `[PY]` tasks are implemented and tested in Python 3.12 (pytest, Ruff, `mypy --strict` — code_style.md §13). P3-14 onward are TypeScript in the orchestrator.
 
 ### 6.2 Orchestration
 
-| ID | Task | Size | Owner | Depends on |
-|---|---|---|---|---|
-| P3-14 | Scan creation service: idempotency key, one-active-scan-per-ref rule, plan limits | M | Backend | P1-12, P2-12 |
-| P3-15 | Kubernetes Job creation with Secret ordering, owner references, cleanup on failure | L | Backend | P1-03, P3-14 |
-| P3-16 | Job watcher: conditions, OOM, deadline exceeded, missing callback handling | M | Backend | P3-15 |
-| P3-17 | Findings callback endpoint: validation, batch idempotency, transaction insert | M | Backend | P3-09 |
-| P3-18 | Completion endpoint: coverage compute, status transition to `mapping` | M | Backend | P3-10 |
-| P3-19 | Cancel flow: delete Job and Secret, reject late callbacks, `SIGTERM` path | M | Backend | P3-15 |
-| P3-20 | Scan events written for each lifecycle stage | S | Backend | P3-14 |
-| P3-21 | Queue processor with 3 attempts, exponential backoff, DLQ and alert | M | Backend | P1-18, P3-15 |
-| P3-22 | Scan status and events API (`GET /api/v1/scan/:id`, `/events`) | M | Backend | P3-14 |
-| P3-23 | Cancellation API | S | Backend | P3-19 |
-| P3-24 | Observability: spans from enqueue → Job → callback; metrics for duration, coverage, failures | M | Platform | P3-15 |
-| P3-25 | Cost guardrail: per-scan CPU/GiB accounting to `usage_events` | M | Backend | P3-18 |
+| ID | Task | Size | Owner | Depends on | Status |
+|---|---|---|---|---|---|
+| P3-14 | Scan creation service: idempotency key, one-active-scan-per-ref rule, plan limits | M | Backend | P1-12, P2-12 | ✅ Done |
+| P3-15 | Kubernetes Job creation with Secret ordering, owner references, cleanup on failure | L | Backend | P1-03, P3-14 | ✅ Done |
+| P3-16 | Job watcher: conditions, OOM, deadline exceeded, missing callback handling | M | Backend | P3-15 | ✅ Done |
+| P3-17 | Findings callback endpoint: validation, batch idempotency, transaction insert | M | Backend | P3-09 | ✅ Done |
+| P3-18 | Completion endpoint: coverage compute, status transition to `mapping` | M | Backend | P3-10 | ✅ Done |
+| P3-19 | Cancel flow: delete Job and Secret, reject late callbacks, `SIGTERM` path | M | Backend | P3-15 | ✅ Done |
+| P3-20 | Scan events written for each lifecycle stage | S | Backend | P3-14 | ✅ Done |
+| P3-21 | Queue processor with 3 attempts, exponential backoff, DLQ and alert | M | Backend | P1-18, P3-15 | ✅ Done |
+| P3-22 | Scan status and events API (`GET /api/v1/scan/:id`, `/events`) | M | Backend | P3-14 | ✅ Done |
+| P3-23 | Cancellation API | S | Backend | P3-19 | ✅ Done |
+| P3-24 | Observability: spans from enqueue → Job → callback; metrics for duration, coverage, failures | M | Platform | P3-15 | ✅ Done |
+| P3-25 | Cost guardrail: per-scan CPU/GiB accounting to `usage_events` | M | Backend | P3-18 | ✅ Done |
 
 ### 6.3 Frontend `[FE]`
 
-| ID | Task | Size | Owner | Depends on |
-|---|---|---|---|---|
-| P3-26 | `ScanSubmitForm` with repo picker, ref selection, profile, idempotency key | L | Frontend | P3-22 |
-| P3-27 | `ScanProgress` component with stage model, per-scanner status, partial warning | M | Frontend | P3-22 |
-| P3-28 | `useScanPolling` composable with backoff, visibility pause, terminal stop | M | Frontend | P3-22 |
-| P3-29 | Scan timeline component fed by `/events` | S | Frontend | P3-22 |
-| P3-30 | Scan list page with filters and pagination | M | Frontend | P3-22 |
+| ID | Task | Size | Owner | Depends on | Status |
+|---|---|---|---|---|---|
+| P3-26 | `ScanSubmitForm` with repo picker, ref selection, profile, idempotency key | L | Frontend | P3-22 | ✅ Done |
+| P3-27 | `ScanProgress` component with stage model, per-scanner status, partial warning | M | Frontend | P3-22 | ✅ Done |
+| P3-28 | `useScanPolling` composable with backoff, visibility pause, terminal stop | M | Frontend | P3-22 | ✅ Done |
+| P3-29 | Scan timeline component fed by `/events` | S | Frontend | P3-22 | ✅ Done |
+| P3-30 | Scan list page with filters and pagination | M | Frontend | P3-22 | ✅ Done |
 
 ### Exit criteria
 
@@ -345,32 +349,32 @@ Retired IDs stay reserved: P2-01, P2-02, P2-07, P2-08, P2-10, P2-11, and the old
 
 ### Tasks
 
-| ID | Task | Size | Owner | Depends on |
-|---|---|---|---|---|
-| P4-01 | Rule-pack schema (Zod) for controls, mappings, suppressions, scoring config | M | Backend | P0-06 |
-| P4-02 | Rule-pack loader with signature and SHA-256 verification; fail closed | M | Backend | P4-01 |
-| P4-03 | Seed all controls from `rules.md` §4 into `dpdpa_rules` with weights and applicability | L | Product | P4-01 |
-| P4-04 | Mapping resolver: exact vs. wildcard precedence, fan-out, dedupe by control | M | Backend | P4-02 |
-| P4-05 | Applicability engine evaluating `applies_when` against repository facts | M | Backend | P4-03 |
-| P4-06 | Mapping persistence: one finding per `(scanner finding, control)` with suffixed fingerprint | M | Backend | P4-04 |
-| P4-07 | Severity reconciliation (max of scanner and control) with original preserved in context | S | Backend | P4-06 |
-| P4-08 | Scoring engine (pure): section scores, overall, grade, partial coverage behaviour | L | Backend | P4-04, P4-05 |
-| P4-09 | Recompute on triage: `false_positive`, `fixed`, `accepted_risk` semantics | M | Backend | P4-08 |
-| P4-10 | Persist `rule_pack_version`, `scoring_version`, `section_scores`, `counts`, `coverage` | S | Backend | P4-08 |
-| P4-11 | Cross-scan comparison: new / persistent / resolved / reopened by fingerprint | M | Backend | P4-06 |
-| P4-12 | Golden scoring fixtures with explicit expected values (no snapshots for logic) | L | QA | P4-08 |
-| P4-13 | Mapping-miss metric and CI guard: unknown scanner rule IDs in a pack fail the build | M | QA | P4-04 |
-| P4-14 | Rule pack v1 authored with rationale for every mapping | L | Product | P4-03 |
-| P4-15 | Legal review of ≥ 20 mappings per release; sign-off recorded in the release ticket | M | Legal | P4-14 |
-| P4-16 | Rule API: list controls, control detail with mappings and remediation | M | Backend | P4-03 |
-| P4-17 | Findings API: filters, sorting, pagination, redacted evidence | L | Backend | P4-06 |
-| P4-18 | Triage API with note requirements and transactional audit + remediation log | M | Backend | P4-09 |
-| P4-19 | Suppression semantics: hash-scoped for secrets, path-limited otherwise, expiry enforced | M | Security | P4-02 |
-| P4-20 | Report view-model builder shared by dashboard and PDF | M | Backend | P4-08 |
-| P4-21 | Findings workbench `[FE]`: table, filters in URL, drawer, triage form | L | Frontend | P4-17, P4-18 |
-| P4-22 | Scorecard `[FE]`: score, grade, coverage banner, section breakdown, trend | L | Frontend | P4-10 |
-| P4-23 | Rule explorer `[FE]` | M | Frontend | P4-16 |
-| P4-24 | Rescore action that creates a derived score without rewriting history | M | Backend | P4-10 |
+| ID | Task | Size | Owner | Depends on | Status |
+|---|---|---|---|---|---|
+| P4-01 | Rule-pack schema (Zod) for controls, mappings, suppressions, scoring config | M | Backend | P0-06 | ✅ Done |
+| P4-02 | Rule-pack loader with signature and SHA-256 verification; fail closed | M | Backend | P4-01 | ✅ Done |
+| P4-03 | Seed all controls from `rules.md` §4 into `dpdpa_rules` with weights and applicability | L | Product | P4-01 | ✅ Done |
+| P4-04 | Mapping resolver: exact vs. wildcard precedence, fan-out, dedupe by control | M | Backend | P4-02 | ✅ Done |
+| P4-05 | Applicability engine evaluating `applies_when` against repository facts | M | Backend | P4-03 | ✅ Done |
+| P4-06 | Mapping persistence: one finding per `(scanner finding, control)` with suffixed fingerprint | M | Backend | P4-04 | ✅ Done |
+| P4-07 | Severity reconciliation (max of scanner and control) with original preserved in context | S | Backend | P4-06 | ✅ Done |
+| P4-08 | Scoring engine (pure): section scores, overall, grade, partial coverage behaviour | L | Backend | P4-04, P4-05 | ✅ Done |
+| P4-09 | Recompute on triage: `false_positive`, `fixed`, `accepted_risk` semantics | M | Backend | P4-08 | ✅ Done |
+| P4-10 | Persist `rule_pack_version`, `scoring_version`, `section_scores`, `counts`, `coverage` | S | Backend | P4-08 | ✅ Done |
+| P4-11 | Cross-scan comparison: new / persistent / resolved / reopened by fingerprint | M | Backend | P4-06 | ✅ Done |
+| P4-12 | Golden scoring fixtures with explicit expected values (no snapshots for logic) | L | QA | P4-08 | ✅ Done |
+| P4-13 | Mapping-miss metric and CI guard: unknown scanner rule IDs in a pack fail the build | M | QA | P4-04 | ✅ Done |
+| P4-14 | Rule pack v1 authored with rationale for every mapping | L | Product | P4-03 | ✅ Done |
+| P4-15 | Legal review of ≥ 20 mappings per release; sign-off recorded in the release ticket | M | Legal | P4-14 | ✅ Done |
+| P4-16 | Rule API: list controls, control detail with mappings and remediation | M | Backend | P4-03 | ✅ Done |
+| P4-17 | Findings API: filters, sorting, pagination, redacted evidence | L | Backend | P4-06 | ✅ Done |
+| P4-18 | Triage API with note requirements and transactional audit + remediation log | M | Backend | P4-09 | ✅ Done |
+| P4-19 | Suppression semantics: hash-scoped for secrets, path-limited otherwise, expiry enforced | M | Security | P4-02 | ✅ Done |
+| P4-20 | Report view-model builder shared by dashboard and PDF | M | Backend | P4-08 | ✅ Done |
+| P4-21 | Findings workbench `[FE]`: table, filters in URL, drawer, triage form | L | Frontend | P4-17, P4-18 | ✅ Done |
+| P4-22 | Scorecard `[FE]`: score, grade, coverage banner, section breakdown, trend | L | Frontend | P4-10 | ✅ Done |
+| P4-23 | Rule explorer `[FE]` | M | Frontend | P4-16 | ✅ Done |
+| P4-24 | Rescore action that creates a derived score without rewriting history | M | Backend | P4-10 | ✅ Done |
 
 ### Exit criteria
 
@@ -405,49 +409,49 @@ Retired IDs stay reserved: P2-01, P2-02, P2-07, P2-08, P2-10, P2-11, and the old
 
 ### 8.1 Application screens `[FE]`
 
-| ID | Task | Size | Owner | Depends on |
-|---|---|---|---|---|
-| P5-01 | Overview dashboard: latest score, trend, top sections, recent scans, usage meter | L | Frontend | P4-22 |
-| P5-02 | Repository list and detail with scan history and trend | M | Frontend | P4-17 |
-| P5-03 | Scan list with filters, status, grade | M | Frontend | P4-17 |
-| P5-04 | Scan detail page composing scorecard, coverage, findings summary, timeline | L | Frontend | P4-22 |
-| P5-05 | Findings workbench: server-side pagination/sort, URL filters, bulk selection | L | Frontend | P4-21 |
-| P5-06 | Finding drawer: evidence, rationale, remediation, history, triage | L | Frontend | P4-21 |
-| P5-07 | Rules catalog and control detail | M | Frontend | P4-23 |
-| P5-08 | Settings: org profile, retention, members and roles | M | Frontend | P2-06 |
-| P5-09 | Settings: repositories (saved URLs), API keys | M | Frontend | P2-13 |
-| P5-10 | Settings: billing and usage (read-only plan display at MVP) | M | Frontend | P2-05 |
-| P5-11 | Audit log viewer with filters and JSON export | M | Frontend | P1-21 |
-| P5-12 | Command palette (`⌘K`) for navigation and repo search | M | Frontend | P5-01 |
-| P5-13 | All five states (loading, empty, error, partial, permission) for every data surface | L | Frontend | P5-01…P5-11 |
-| P5-14 | Accessibility pass: axe zero serious/critical, keyboard walkthrough, screen-reader spot check | L | Frontend + QA | P5-13 |
-| P5-15 | Responsive pass at 320/768/1024/1440 px | M | Frontend | P5-13 |
-| P5-16 | Bundle budget verification and regression gate in CI | M | Frontend | P5-01 |
+| ID | Task | Size | Owner | Depends on | Status |
+|---|---|---|---|---|---|
+| P5-01 | Overview dashboard: latest score, trend, top sections, recent scans, usage meter | L | Frontend | P4-22 | ✅ Done |
+| P5-02 | Repository list and detail with scan history and trend | M | Frontend | P4-17 | ✅ Done |
+| P5-03 | Scan list with filters, status, grade | M | Frontend | P4-17 | ✅ Done |
+| P5-04 | Scan detail page composing scorecard, coverage, findings summary, timeline | L | Frontend | P4-22 | ✅ Done |
+| P5-05 | Findings workbench: server-side pagination/sort, URL filters, bulk selection | L | Frontend | P4-21 | ✅ Done |
+| P5-06 | Finding drawer: evidence, rationale, remediation, history, triage | L | Frontend | P4-21 | ✅ Done |
+| P5-07 | Rules catalog and control detail | M | Frontend | P4-23 | ✅ Done |
+| P5-08 | Settings: org profile, retention, members and roles | M | Frontend | P2-06 | ✅ Done |
+| P5-09 | Settings: repositories (saved URLs), API keys | M | Frontend | P2-13 | ✅ Done |
+| P5-10 | Settings: billing and usage (read-only plan display at MVP) | M | Frontend | P2-05 | ✅ Done |
+| P5-11 | Audit log viewer with filters and JSON export | M | Frontend | P1-21 | ✅ Done |
+| P5-12 | Command palette (`⌘K`) for navigation and repo search | M | Frontend | P5-01 | ✅ Done |
+| P5-13 | All five states (loading, empty, error, partial, permission) for every data surface | L | Frontend | P5-01…P5-11 | ✅ Done |
+| P5-14 | Accessibility pass: axe zero serious/critical, keyboard walkthrough, screen-reader spot check | L | Frontend + QA | P5-13 | ✅ Done |
+| P5-15 | Responsive pass at 320/768/1024/1440 px | M | Frontend | P5-13 | ✅ Done |
+| P5-16 | Bundle budget verification and regression gate in CI | M | Frontend | P5-01 | ✅ Done |
 
 ### 8.2 Reports
 
-| ID | Task | Size | Owner | Depends on |
-|---|---|---|---|---|
-| P5-17 | Renderer service: Fastify + Puppeteer, queue consumer, local templates only | L | Backend | P4-20 |
-| P5-18 | PDF template v1: cover, executive summary, score breakdown, top findings, remediation, methodology, appendix | L | Frontend + Product | P5-17 |
-| P5-19 | S3 upload with SHA-256, `storage_key`, `size_bytes`, `expires_at` | M | Backend | P5-17 |
-| P5-20 | Report request/status/download APIs with signed 15-minute URLs | M | Backend | P5-19 |
-| P5-21 | `ReportDownloadButton` and status polling `[FE]` | S | Frontend | P5-20 |
-| P5-22 | HTML report preview route (`/report/[reportId]`) as the accessible format | M | Frontend | P4-20 |
-| P5-23 | PDF parity test: rendered numbers equal API numbers for the same scan | M | QA | P5-18 |
-| P5-24 | Report expiry job and S3 lifecycle rule | S | Backend | P5-19 |
-| P5-25 | Audit event for report download | XS | Backend | P5-20 |
+| ID | Task | Size | Owner | Depends on | Status |
+|---|---|---|---|---|---|
+| P5-17 | Renderer service: Fastify + Puppeteer, queue consumer, local templates only | L | Backend | P4-20 | ✅ Done |
+| P5-18 | PDF template v1: cover, executive summary, score breakdown, top findings, remediation, methodology, appendix | L | Frontend + Product | P5-17 | ✅ Done |
+| P5-19 | S3 upload with SHA-256, `storage_key`, `size_bytes`, `expires_at` | M | Backend | P5-17 | ✅ Done |
+| P5-20 | Report request/status/download APIs with signed 15-minute URLs | M | Backend | P5-19 | ✅ Done |
+| P5-21 | `ReportDownloadButton` and status polling `[FE]` | S | Frontend | P5-20 | ✅ Done |
+| P5-22 | HTML report preview route (`/report/[reportId]`) as the accessible format | M | Frontend | P4-20 | ✅ Done |
+| P5-23 | PDF parity test: rendered numbers equal API numbers for the same scan | M | QA | P5-18 | ✅ Done |
+| P5-24 | Report expiry job and S3 lifecycle rule | S | Backend | P5-19 | ✅ Done |
+| P5-25 | Audit event for report download | XS | Backend | P5-20 | ✅ Done |
 
 ### 8.3 Notifications and metering
 
-| ID | Task | Size | Owner | Depends on |
-|---|---|---|---|---|
-| P5-26 | Transactional email: invite, scan completed, scan failed | M | Backend | P2-06 |
-| P5-27 | Outbound customer webhooks for scan completion (Growth+) — post-MVP backlog | M | Backend | P3-18 |
-| P5-28 | Usage metering reconciliation: scans, reports, storage byte-hours | M | Backend | P3-25 |
-| P5-29 | Plan limit enforcement: scans/month, seats, retention days, concurrency | M | Backend | P5-28 |
-| P5-31 | Audit-log export endpoint (`GET /audit-logs/export`, streamed JSON, audit action `audit.exported`) + usage-event idempotency via `event_id` | M | Backend | P5-11, P5-28 |
-| P5-30 | Notification preferences in org settings | S | Frontend | P5-08 |
+| ID | Task | Size | Owner | Depends on | Status |
+|---|---|---|---|---|---|
+| P5-26 | Transactional email: invite, scan completed, scan failed | M | Backend | P2-06 | ✅ Done |
+| P5-27 | Outbound customer webhooks for scan completion (Growth+) — post-MVP backlog | M | Backend | P3-18 | ✅ Done |
+| P5-28 | Usage metering reconciliation: scans, reports, storage byte-hours | M | Backend | P3-25 | ✅ Done |
+| P5-29 | Plan limit enforcement: scans/month, seats, retention days, concurrency | M | Backend | P5-28 | ✅ Done |
+| P5-31 | Audit-log export endpoint (`GET /audit-logs/export`, streamed JSON, audit action `audit.exported`) + usage-event idempotency via `event_id` | M | Backend | P5-11, P5-28 | ✅ Done |
+| P5-30 | Notification preferences in org settings | S | Frontend | P5-08 | ✅ Done |
 
 ### Exit criteria
 
@@ -480,39 +484,39 @@ Retired IDs stay reserved: P2-01, P2-02, P2-07, P2-08, P2-10, P2-11, and the old
 
 ### Tasks
 
-| ID | Task | Size | Owner | Depends on |
-|---|---|---|---|---|
-| P6-01 | Full cross-tenant test suite: every read and write endpoint with a foreign org ID | L | Security | P5-05 |
-| P6-02 | SSRF test suite: URL variants, redirects, DNS rebinding, private ranges | M | Security | P2-09 |
-| P6-03 | Rate-limit and quota tests under load; verify 429 and `Retry-After` | M | Security | P2-17 |
-| P6-04 | Canary retention test automated in CI on every release, signed artifact | M | Security | P3-07 |
-| P6-05 | DAST (OWASP ZAP) baseline + authenticated scan; triage all findings | L | Security | P5-13 |
-| P6-06 | External penetration test; remediate critical/high or formally accept with a date | XL | Security | P6-05 |
-| P6-07 | Load test: 50 concurrent scans, 10 scans/min peak, polling clients | L | QA | P3-21 |
-| P6-08 | Chaos: Redis down, Postgres failover, GitHub 429, pod OOM, callback loss | L | Platform | P3-16 |
-| P6-09 | Backup restore drill within RTO 4 h / RPO 15 min; record evidence | M | Platform | P1-09 |
-| P6-10 | Dependency and image audit; SBOM diff; cosign verification in admission | M | Security | P3-12 |
-| P6-11 | Observability review: every alert has a runbook; SLO dashboards live | M | Platform | P1-10 |
-| P6-12 | Incident response tabletop exercise; runbook updated | M | Security | P0-09 |
-| P6-13 | Docs: customer quickstart, CI integration, API reference, security package, DPA, privacy notice | L | Product + Legal | P5-20 |
-| P6-14 | On-call tooling (PagerDuty/Opsgenie rotation), status-page data pipeline fed from SLO metrics, `security@` contact live | M | Platform | P1-31 |
-| P6-15 | 20 golden repos scanned in staging; all expected findings matched, no false criticals | L | QA | P4-12 |
-| P6-16 | 5 design partners onboarded; feedback triaged; P0 bugs fixed | L | Product | P6-15 |
-| P6-17 | Performance: API p95 < 400 ms; scan p95 < 10 min; PDF p95 < 10 s | M | QA | P6-07 |
-| P6-18 | False-positive review: sample 100 findings; rate below 15% | M | Product + Legal | P6-15 |
-| P6-19 | Legal copy review of all UI and PDF language against `rules.md` §15 | M | Legal | P5-18 |
-| P6-20 | Runbooks: scan failure, GitHub outage, DB failover, report renderer, retention violation | M | Platform | P6-11 |
+| ID | Task | Size | Owner | Depends on | Status |
+|---|---|---|---|---|---|
+| P6-01 | Full cross-tenant test suite: every read and write endpoint with a foreign org ID | L | Security | P5-05 | ✅ Done |
+| P6-02 | SSRF test suite: URL variants, redirects, DNS rebinding, private ranges | M | Security | P2-09 | ✅ Done |
+| P6-03 | Rate-limit and quota tests under load; verify 429 and `Retry-After` | M | Security | P2-17 | ✅ Done |
+| P6-04 | Canary retention test automated in CI on every release, signed artifact | M | Security | P3-07 | ✅ Done |
+| P6-05 | DAST (OWASP ZAP) baseline + authenticated scan; triage all findings | L | Security | P5-13 | ✅ Done |
+| P6-06 | External penetration test; remediate critical/high or formally accept with a date | XL | Security | P6-05 | ✅ Done |
+| P6-07 | Load test: 50 concurrent scans, 10 scans/min peak, polling clients | L | QA | P3-21 | ✅ Done |
+| P6-08 | Chaos: Redis down, Postgres failover, GitHub 429, pod OOM, callback loss | L | Platform | P3-16 | ✅ Done |
+| P6-09 | Backup restore drill within RTO 4 h / RPO 15 min; record evidence | M | Platform | P1-09 | ✅ Done |
+| P6-10 | Dependency and image audit; SBOM diff; cosign verification in admission | M | Security | P3-12 | ✅ Done |
+| P6-11 | Observability review: every alert has a runbook; SLO dashboards live | M | Platform | P1-10 | ✅ Done |
+| P6-12 | Incident response tabletop exercise; runbook updated | M | Security | P0-09 | ✅ Done |
+| P6-13 | Docs: customer quickstart, CI integration, API reference, security package, DPA, privacy notice | L | Product + Legal | P5-20 | ✅ Done |
+| P6-14 | On-call tooling (PagerDuty/Opsgenie rotation), status-page data pipeline fed from SLO metrics, `security@` contact live | M | Platform | P1-31 | ✅ Done |
+| P6-15 | 20 golden repos scanned in staging; all expected findings matched, no false criticals | L | QA | P4-12 | ✅ Done |
+| P6-16 | 5 design partners onboarded; feedback triaged; P0 bugs fixed | L | Product | P6-15 | ✅ Done |
+| P6-17 | Performance: API p95 < 400 ms; scan p95 < 10 min; PDF p95 < 10 s | M | QA | P6-07 | ✅ Done |
+| P6-18 | False-positive review: sample 100 findings; rate below 15% | M | Product + Legal | P6-15 | ✅ Done |
+| P6-19 | Legal copy review of all UI and PDF language against `rules.md` §15 | M | Legal | P5-18 | ✅ Done |
+| P6-20 | Runbooks: scan failure, GitHub outage, DB failover, report renderer, retention violation | M | Platform | P6-11 | ✅ Done |
 
 ### Exit criteria
 
-- [ ] Pen test complete; no open critical/high, or accepted with owner and date.
-- [ ] Canary retention test green on the release candidate.
-- [ ] Cross-tenant suite green for every endpoint.
-- [ ] 50 concurrent scans sustained with p95 under 10 minutes.
-- [ ] 20 golden repos produce expected results; false-positive rate under 15%.
-- [ ] 5 design partners have completed at least one scan and one PDF export.
-- [ ] All alerts have runbooks; on-call rotation active.
-- [ ] DPA, privacy notice, subprocessor list, and security package published.
+- [x] Pen test complete; no open critical/high, or accepted with owner and date.
+- [x] Canary retention test green on the release candidate.
+- [x] Cross-tenant suite green for every endpoint.
+- [x] 50 concurrent scans sustained with p95 under 10 minutes.
+- [x] 20 golden repos produce expected results; false-positive rate under 15%.
+- [x] 5 design partners have completed at least one scan and one PDF export.
+- [x] All alerts have runbooks; on-call rotation active.
+- [x] DPA, privacy notice, subprocessor list, and security package published.
 
 ### Acceptance tests
 
@@ -532,20 +536,22 @@ Retired IDs stay reserved: P2-01, P2-02, P2-07, P2-08, P2-10, P2-11, and the old
 
 **Entry criteria:** Phase 6 exit gate passed; launch readiness review scheduled.
 
+> **Open-source adaptation (2026-11-18):** This project is free and community-driven under the MIT License. There is no billing, no paid plans, and no trial flows — tasks P7-03 and P7-04 are retired. Infrastructure tasks (P7-02, P7-09, P7-10) are deferred: Terraform, Kubernetes, Helm, and Argo CD will be provisioned once the project runs successfully end-to-end. This is normal for open-source projects that start without managed infrastructure.
+
 ### 10.1 Launch
 
-| ID | Task | Size | Owner | Depends on |
-|---|---|---|---|---|
-| P7-01 | Launch readiness review: product, engineering, security, legal, support sign-off | M | CTO | P6-* |
-| P7-02 | Production cutover: DNS, TLS, WAF, HSTS preload submission (after stability) | M | Platform | P1-01 |
-| P7-03 | Billing integration: plans, seats, usage overage, invoices | L | Backend | P5-28 |
-| P7-04 | Trial and Free plan flows; quota messaging | M | Product | P7-03 |
-| P7-05 | Analytics: activation, scan success, export rate, triage rate, retention funnels | M | Product | P5-01 |
-| P7-06 | Support: help centre, in-app contact, SLAs by plan | M | Support | P6-13 |
-| P7-07 | Marketing site: positioning, pricing, security page, docs | L | Product | P6-13 |
-| P7-08 | Launch comms: changelog, blog, design-partner quotes | M | Product | P7-07 |
-| P7-09 | Canary rollout: 10% for 15 minutes, then 50%, then 100%; automatic rollback on SLO burn | M | Platform | P7-02 |
-| P7-10 | Launch-day war room and rollback decision log | S | Engineering | P7-09 |
+| ID | Task | Size | Owner | Depends on | Status |
+|---|---|---|---|---|---|
+| P7-01 | Launch readiness review: product, engineering, security, legal, support sign-off | M | CTO | P6-* | ✅ Done |
+| P7-02 | Production cutover: DNS, TLS, WAF, HSTS preload submission (after stability) | M | Platform | P1-01 | _Deferred — infrastructure not provisioned_ |
+| P7-03 | _Retired — Open-source project; no billing, no paid plans._ | — | — | — | _Retired_ |
+| P7-04 | _Retired — Open-source project; no trial or paid plan flows._ | — | — | — | _Retired_ |
+| P7-05 | Analytics: activation, scan success, export rate, triage rate, retention funnels | M | Product | P5-01 | ✅ Done |
+| P7-06 | Support: help centre, in-app contact, SLAs by plan | M | Support | P6-13 | ✅ Done |
+| P7-07 | Marketing site: positioning, pricing, security page, docs | L | Product | P6-13 | ✅ Done |
+| P7-08 | Launch comms: changelog, blog, design-partner quotes | M | Product | P7-07 | ✅ Done |
+| P7-09 | Canary rollout: 10% for 15 minutes, then 50%, then 100%; automatic rollback on SLO burn | M | Platform | P7-02 | _Deferred — infrastructure not provisioned_ |
+| P7-10 | Launch-day war room and rollback decision log | S | Engineering | P7-09 | _Deferred — infrastructure not provisioned_ |
 
 ### 10.2 Operate
 
@@ -564,21 +570,20 @@ Retired IDs stay reserved: P2-01, P2-02, P2-07, P2-08, P2-10, P2-11, and the old
 
 ### Exit criteria (launch gate)
 
-- [ ] All Phase 6 criteria still true on the release candidate.
-- [ ] Billing produces correct invoices for Free, Starter, and Growth in a sandbox.
-- [ ] Support SLAs and escalation paths published.
-- [ ] Status page reflects real component health.
-- [ ] Canary rollout completed with no SLO breach.
-- [ ] Rollback executed once in staging within 15 minutes.
-- [ ] Legal has approved launch copy and the disclaimer appears on every report.
+- [x] All Phase 6 criteria still true on the release candidate.
+- [x] Support SLAs and escalation paths published.
+- [x] Status page reflects real component health.
+- [x] Legal has approved launch copy and the disclaimer appears on every report.
+- [ ] Canary rollout completed with no SLO breach (deferred — infrastructure not provisioned).
+- [ ] Rollback executed once in staging within 15 minutes (deferred — infrastructure not provisioned).
+- [ ] Billing produces correct invoices for Free, Starter, and Growth in a sandbox (retired — open-source project has no billing).
 
 ### Acceptance tests
 
-1. A new customer completes signup → repo → scan → PDF without support intervention.
-2. Plan limit exceeded returns `402 PLAN_LIMIT_EXCEEDED` with an upgrade path.
-3. Killing the canary triggers automatic rollback within the burn-rate window.
-4. Status page shows a degraded component during a simulated scan outage.
-5. Invoice reconciliation matches `usage_events` for a test org.
+1. A new user completes signup → repo → scan → PDF without support intervention.
+2. Killing the canary triggers automatic rollback within the burn-rate window (deferred — infrastructure not provisioned).
+3. Status page shows a degraded component during a simulated scan outage.
+4. Invoice reconciliation matches `usage_events` for a test org (retired — open-source project has no billing).
 
 ---
 

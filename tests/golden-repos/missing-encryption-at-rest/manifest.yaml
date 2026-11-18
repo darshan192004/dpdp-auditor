@@ -1,0 +1,19 @@
+# Scanner execution has not been validated for this fixture.
+# plannedFindings preserves proposed coverage without inventing scanner rule IDs.
+name: missing-encryption-at-rest
+description: Terraform S3 bucket without server-side encryption
+expectedFindings:
+  - scanner: checkov
+    ruleId: CKV_AWS_19
+    control: DPDPA-8.4-ENC-01
+    confidence: direct
+    severity: high
+    minCount: 1
+    maxCount: 1
+languages:
+  - hcl
+scanners:
+  - checkov
+expectedCoverage: full
+tolerances:
+  extraFindings: 0

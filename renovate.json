@@ -1,0 +1,69 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "schedule:weekly",
+    ":semanticCommits",
+    ":automergePatch",
+    ":pinDigests",
+    "docker:enable",
+    "github-actions:enable"
+  ],
+  "npm": {
+    "enabled": true
+  },
+  "docker": {
+    "enabled": true
+  },
+  "github-actions": {
+    "enabled": true
+  },
+  "packageRules": [
+    {
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["dependencies", "devDependencies"],
+      "groupName": "npm dependencies",
+      "groupSlug": "npm-deps",
+      "labels": ["dependencies"],
+      "addLabels": ["dependencies"]
+    },
+    {
+      "matchManagers": ["dockerfile"],
+      "groupName": "container base images",
+      "groupSlug": "container-images",
+      "labels": ["dependencies", "container"]
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions",
+      "groupSlug": "github-actions",
+      "labels": ["dependencies", "ci"]
+    },
+    {
+      "matchUpdateTypes": ["patch", "minor", "patch"],
+      "matchManagers": ["npm"],
+      "enabled": true,
+      "automerge": true
+    },
+    {
+      "matchUpdateTypes": ["major"],
+      "matchManagers": ["npm"],
+      "enabled": true,
+      "automerge": false
+    },
+    {
+      "matchUpdateTypes": ["major"],
+      "matchManagers": ["dockerfile"],
+      "enabled": true,
+      "automerge": false
+    }
+  ],
+  "ignoreDeps": ["node", "pnpm"],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["security"]
+  },
+  "osvVulnerabilityAlerts": {
+    "enabled": true
+  }
+}

@@ -1,0 +1,21 @@
+# Scanner execution has not been validated for this fixture.
+# plannedFindings preserves proposed coverage without inventing scanner rule IDs.
+name: insecure-cookies
+description: Web app with insecure cookie settings
+expectedFindings: []
+languages:
+  - javascript
+scanners:
+  - semgrep
+plannedFindings:
+  - control: DPDPA-8.4-SEC-01
+    severity: high
+    scanner: semgrep
+    description: Cookies without Secure flag
+  - control: DPDPA-8.4-SEC-02
+    severity: high
+    scanner: semgrep
+    description: Cookies without HttpOnly flag
+expectedCoverage: full
+tolerances:
+  extraFindings: 0

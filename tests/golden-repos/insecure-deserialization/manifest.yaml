@@ -1,0 +1,21 @@
+# Scanner execution has not been validated for this fixture.
+# plannedFindings preserves proposed coverage without inventing scanner rule IDs.
+name: insecure-deserialization
+description: Application with unsafe deserialization of user data
+expectedFindings: []
+languages:
+  - python
+scanners:
+  - semgrep
+plannedFindings:
+  - control: DPDPA-8.4-SEC-07
+    severity: high
+    scanner: semgrep
+    description: Unsafe deserialization of user-controlled input
+  - control: DPDPA-8.4-SEC-08
+    severity: medium
+    scanner: semgrep
+    description: Deserialization without input validation
+expectedCoverage: full
+tolerances:
+  extraFindings: 0

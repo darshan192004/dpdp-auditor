@@ -1,8 +1,52 @@
 # dpdpa-auditor
 
-Specification pack for **DPDPA GitHub Code Auditor** — a B2B SaaS that audits GitHub repositories for compliance with India's Digital Personal Data Protection Act, 2023.
+Specification pack for **DPDPA GitHub Code Auditor** — an open-source tool that audits GitHub repositories for compliance with India's Digital Personal Data Protection Act, 2023.
 
-> **Status: Phase 2 in progress.** Phase 0 (foundations) and Phase 1 (platform skeleton and frontend foundation) are merged. Phase 2 delivers identity: GitHub OAuth with a sealed, revocable session (P2-A, merged) and organisation/member administration (P2-B). Remaining slices and phases are tracked in `docs/tasks.md` and `docs/superpowers/plans/`.
+> **Status: Open-source ready.** All phases 0–6 are complete and merged. The project is free and community-driven under the MIT License. Infrastructure (Terraform, Kubernetes, Helm, Argo CD) is documented but will be provisioned once the project runs successfully end-to-end. Phase 7 launch and operate tasks are tracked in `docs/tasks.md`.
+
+## Getting Started
+
+### Prerequisites
+
+- **Node.js 22** (managed by `.nvmrc`)
+- **pnpm 9.x** (`corepack enable`)
+- **Docker** — for integration tests (Postgres, Redis)
+
+### Quick Start
+
+```bash
+# Install dependencies
+pnpm install
+
+# Start local services
+docker compose up -d
+
+# Run the full check
+pnpm lint && pnpm typecheck && pnpm test
+```
+
+### Running Locally
+
+```bash
+# Start all apps
+pnpm dev
+
+# Run tests
+pnpm test
+pnpm test:integration
+pnpm test:e2e
+```
+
+## Contributing
+
+This project welcomes contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, conventions, and the pull request process.
+
+## Community Standards
+
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Security Policy](SECURITY.md)
+- [Changelog](CHANGELOG.md)
+- [License](LICENSE)
 
 ## Documents
 

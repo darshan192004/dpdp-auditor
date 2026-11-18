@@ -1,0 +1,21 @@
+# Scanner execution has not been validated for this fixture.
+# plannedFindings preserves proposed coverage without inventing scanner rule IDs.
+name: weak-auth-session
+description: Node.js app with weak session configuration
+expectedFindings: []
+languages:
+  - javascript
+scanners:
+  - semgrep
+plannedFindings:
+  - control: DPDPA-6.1-ACC-01
+    severity: high
+    scanner: semgrep
+    description: Session timeout not configured or too long
+  - control: DPDPA-6.1-ACC-02
+    severity: medium
+    scanner: semgrep
+    description: Session tokens not invalidated on logout
+expectedCoverage: full
+tolerances:
+  extraFindings: 0
