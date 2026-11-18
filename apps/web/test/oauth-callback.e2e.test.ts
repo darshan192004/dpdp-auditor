@@ -43,4 +43,9 @@ describe('OAuth callback security (P2-H)', () => {
     expect(response.status).toBe(302);
     expect(response.headers.get('location')?.includes('/login')).toBe(true);
   });
+
+  it('does not expose the local dev-session bootstrap in production', async () => {
+    const response = await fetch('/api/auth/dev-session', { method: 'POST' });
+    expect(response.status).toBe(404);
+  });
 });
