@@ -56,7 +56,7 @@ Existing: dashboard, scans list, scan detail, findings, report/PDF, rules, audit
 
 New:
 - **Score/Coverage drill-down** — explains section weights, applicable controls, active findings, and coverage gaps.
-- **Remediation workspace** — triage queue with status/assignee, remediation guidance, and hashed evidence per finding.
+- **Remediation workspace** — triage queue with real status changes, remediation guidance, and hashed evidence per finding. The findings API has no assignee field, so no assignee affordance is shown; assignment persistence is out of scope.
 
 ## Motion and interaction
 
