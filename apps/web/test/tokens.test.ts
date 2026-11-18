@@ -103,3 +103,20 @@ describe('design tokens (docs/design.md §6)', () => {
     expect(withoutComments).not.toMatch(/purple|violet|gradient|glow/i);
   });
 });
+
+const MOTION_TOKENS: Record<string, string> = {
+  '--motion-fast': '120ms',
+  '--motion-base': '180ms',
+  '--motion-slow': '260ms',
+  '--ease-out': 'cubic-bezier(0.16, 1, 0.3, 1)',
+  '--color-overlay': 'rgb(0 0 0 / 0.6)',
+};
+
+describe('motion and overlay tokens', () => {
+  const css = readFileSync(CSS_PATH, 'utf8');
+  for (const [token, value] of Object.entries(MOTION_TOKENS)) {
+    it(`pins ${token} to ${value}`, () => {
+      expect(css).toContain(`${token}: ${value}`);
+    });
+  }
+});

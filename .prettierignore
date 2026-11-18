@@ -12,3 +12,6 @@ dist/
 .output/
 playwright-report/
 test-results/
+.agents/
+.tmp/
+**/.pytest_cache/

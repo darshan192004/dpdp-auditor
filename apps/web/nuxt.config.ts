@@ -54,6 +54,8 @@ export default defineNuxtConfig({
     },
     public: {
       appUrl: process.env.NUXT_PUBLIC_APP_URL ?? '',
+      // Strangler flag for the Signal Console rebuild (spec Decisions 4/6).
+      newUi: process.env.NUXT_PUBLIC_NEW_UI === '1',
       // P1-32: empty in dev/CI → telemetry plugins never load.
       sentryDsn: process.env.NUXT_PUBLIC_SENTRY_DSN ?? '',
       posthogKey: process.env.NUXT_PUBLIC_POSTHOG_KEY ?? '',

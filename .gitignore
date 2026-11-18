@@ -62,3 +62,4 @@ __pycache__/
 
 # Local tool caches
 .tmp/
+.agents/

@@ -7,17 +7,17 @@ callback.
 
 ## Configuration
 
-| Variable | Purpose |
-| --- | --- |
-| `SCAN_ID` | Scan UUID used in callback URLs |
-| `REPO_URL` | Repository URL to scan |
-| `REPO_REF` | Git ref to check out |
-| `WORKSPACE` | Temporary checkout directory |
-| `PROFILE` | Rule-pack profile (`standard` by default) |
-| `ORCHESTRATOR_URL` | Internal orchestrator base URL |
-| `ORG_ID` | Organisation ID sent in signed callbacks |
-| `INTERNAL_KEY` | Shared key for internal route authentication |
-| `CALLBACK_HMAC_KEY` | Secret used to sign callback bodies |
+| Variable            | Purpose                                      |
+| ------------------- | -------------------------------------------- |
+| `SCAN_ID`           | Scan UUID used in callback URLs              |
+| `REPO_URL`          | Repository URL to scan                       |
+| `REPO_REF`          | Git ref to check out                         |
+| `WORKSPACE`         | Temporary checkout directory                 |
+| `PROFILE`           | Rule-pack profile (`standard` by default)    |
+| `ORCHESTRATOR_URL`  | Internal orchestrator base URL               |
+| `ORG_ID`            | Organisation ID sent in signed callbacks     |
+| `INTERNAL_KEY`      | Shared key for internal route authentication |
+| `CALLBACK_HMAC_KEY` | Secret used to sign callback bodies          |
 
 Scanner versions are pinned in `src/scan_runner/versions.py`. The container
 image and CI parity check use the same pins.

@@ -97,6 +97,13 @@
   /* Shadows: depth comes from the surface step, not glow. */
   --shadow-card: 0 1px 2px 0 rgb(0 0 0 / 0.6);
   --shadow-popover: 0 16px 40px -12px rgb(0 0 0 / 0.85);
+
+  /* Motion vocabulary — motion-rich UI, collapsed by prefers-reduced-motion. */
+  --motion-fast: 120ms;
+  --motion-base: 180ms;
+  --motion-slow: 260ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --color-overlay: rgb(0 0 0 / 0.6);
 }
 
 @layer base {
