@@ -3,10 +3,13 @@ import type { Env } from '../src/config/env.js';
 
 const mockCreateContainer = vi.fn();
 const mockGetContainer = vi.fn();
+const mockDockerConstructor = vi.fn();
 
 vi.mock('dockerode', () => {
   class Docker {
-    constructor() {}
+    constructor(options: unknown) {
+      mockDockerConstructor(options);
+    }
     createContainer = mockCreateContainer.mockResolvedValue({
       id: 'c1',
       start: vi.fn().mockResolvedValue(undefined),
@@ -26,6 +29,7 @@ const ENV: Env = {
   PORT: 3001,
   ORCHESTRATOR_HMAC_KEY: 'a'.repeat(32),
   ORCHESTRATOR_INTERNAL_KEY: 'b'.repeat(32),
+  DOCKER_SOCKET_PATH: '//./pipe/docker_engine',
   DATABASE_URL: 'postgresql://test:test@127.0.0.1:5432/dpdpa_test',
   REDIS_URL: 'redis://127.0.0.1:6379',
   RUNNER_DRIVER: 'docker',
@@ -35,6 +39,14 @@ const ENV: Env = {
 
 afterEach(() => {
   vi.clearAllMocks();
+});
+
+it('uses the configured Docker socket or Windows named pipe', () => {
+  new DockerRunner(ENV);
+
+  expect(mockDockerConstructor).toHaveBeenCalledWith({
+    socketPath: '//./pipe/docker_engine',
+  });
 });
 
 describe('DockerRunner', () => {

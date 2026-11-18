@@ -39,6 +39,8 @@ const ENV: Env = {
   REDIS_URL: 'redis://127.0.0.1:6379',
   ORCHESTRATOR_HMAC_KEY: 'a'.repeat(32),
   ORCHESTRATOR_INTERNAL_KEY: 'b'.repeat(32),
+  ORCHESTRATOR_CALLBACK_URL: 'http://localhost:3001',
+  DOCKER_SOCKET_PATH: '/var/run/docker.sock',
   RUNNER_DRIVER: 'kubernetes',
   SCANNERS_NAMESPACE: 'scanners',
   RUNNER_IMAGE: 'registry.example.com/dpdpa/scan-runner@sha256:test',
@@ -112,15 +114,20 @@ describe('createScanExecuteWorker', () => {
       orgId: 'o1',
       repoUrl: 'https://github.com/org/repo',
       ref: 'main',
-      hmacKey: 'abc',
+      profile: 'standard',
     };
     const job = { data: payload };
     await expect(worker.processor(job as never)).resolves.toBeUndefined();
     expect(executor.run).toHaveBeenCalledWith('scan-s1', 's1', 'o1', {
       SCAN_ID: 's1',
+      ORG_ID: 'o1',
+      ORCHESTRATOR_URL: 'http://localhost:3001',
+      CALLBACK_HMAC_KEY: 'a'.repeat(32),
+      INTERNAL_KEY: 'b'.repeat(32),
       REPO_URL: 'https://github.com/org/repo',
-      REF: 'main',
-      HMAC_KEY: 'abc',
+      REPO_REF: 'main',
+      WORKSPACE: '/workspace',
+      PROFILE: 'standard',
     });
     // P3-16: persist Job/Secret correlation, then hand off to the watcher queue.
     expect(scans.setJobInfo).toHaveBeenCalledWith('s1', 'scan-s1', 'scan-s1');
@@ -195,7 +202,7 @@ describe('scan.execute.worker error handling', () => {
       orgId: 'o1',
       repoUrl: 'https://github.com/org/repo',
       ref: 'main',
-      hmacKey: 'abc',
+      profile: 'standard',
     };
     await expect(worker.processor({ data: payload } as never)).resolves.toBeUndefined();
     expect(queues.enqueue).toHaveBeenCalled();
@@ -215,7 +222,7 @@ describe('scan.execute.worker error handling', () => {
       orgId: 'o1',
       repoUrl: 'https://github.com/org/repo',
       ref: 'main',
-      hmacKey: 'abc',
+      profile: 'standard',
     };
     await expect(worker.processor({ data: payload } as never)).resolves.toBeUndefined();
     expect(scans.setJobInfo).toHaveBeenCalled();

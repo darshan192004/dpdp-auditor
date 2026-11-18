@@ -17,7 +17,7 @@ export interface ScanExecutePayload {
   orgId: string;
   repoUrl: string;
   ref: string;
-  hmacKey: string;
+  profile: 'standard' | 'secrets-only';
 }
 
 /**
@@ -34,14 +34,21 @@ export function createScanExecuteWorker(
   const worker = new Worker(
     SCAN_EXECUTE_QUEUE,
     async (job: Job<ScanExecutePayload>) => {
-      const { scanId, orgId, repoUrl, ref, hmacKey } = job.data;
+      const { scanId, orgId, repoUrl, ref, profile } = job.data;
       logger.info({ scanId, repoUrl, ref }, 'starting scan execution');
       const jobName = `scan-${scanId}`;
+      // The runner is an untrusted workload: it receives only the secrets it
+      // needs to sign callbacks, never database or queue credentials.
       const secretData = {
         SCAN_ID: scanId,
+        ORG_ID: orgId,
+        ORCHESTRATOR_URL: env.ORCHESTRATOR_CALLBACK_URL ?? 'http://orchestrator:3001',
+        CALLBACK_HMAC_KEY: env.ORCHESTRATOR_HMAC_KEY,
+        INTERNAL_KEY: env.ORCHESTRATOR_INTERNAL_KEY,
         REPO_URL: repoUrl,
-        REF: ref,
-        HMAC_KEY: hmacKey,
+        REPO_REF: ref,
+        WORKSPACE: '/workspace',
+        PROFILE: profile,
       };
       const name = await executor.run(jobName, scanId, orgId, secretData);
       logger.info({ scanId, jobName: name }, 'scan job created');

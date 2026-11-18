@@ -16,6 +16,8 @@ class Config:
     scan_id: str
     orchestrator_url: str
     hmac_key: SecretStr
+    internal_key: SecretStr
+    org_id: str
     repo_url: str
     repo_ref: str
     workspace: str
@@ -34,6 +36,8 @@ class Config:
         scan_id = _require("SCAN_ID")
         orchestrator_url = _require("ORCHESTRATOR_URL")
         hmac_key = SecretStr(_require("CALLBACK_HMAC_KEY"))
+        internal_key = SecretStr(_require("INTERNAL_KEY"))
+        org_id = _require("ORG_ID")
         repo_url = _require("REPO_URL")
         repo_ref = _require("REPO_REF")
         workspace = _require("WORKSPACE")
@@ -50,6 +54,8 @@ class Config:
             scan_id=scan_id,
             orchestrator_url=orchestrator_url,
             hmac_key=hmac_key,
+            internal_key=internal_key,
+            org_id=org_id,
             repo_url=repo_url,
             repo_ref=repo_ref,
             workspace=workspace,
@@ -80,9 +86,7 @@ def _int_env(name: str, default: int) -> int:
     try:
         return int(value)
     except ValueError as exc:
-        raise ValueError(
-            f"Environment variable {name} must be an integer, got {value!r}"
-        ) from exc
+        raise ValueError(f"Environment variable {name} must be an integer, got {value!r}") from exc
 
 
 ALL_SCANNERS: Final[tuple[str, ...]] = ("semgrep", "checkov", "gitleaks")

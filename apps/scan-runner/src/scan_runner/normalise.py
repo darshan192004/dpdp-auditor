@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from typing import Any
 
 
 def calculate_fingerprint(content: str, salt: str) -> str:
@@ -14,11 +15,11 @@ def calculate_fingerprint(content: str, salt: str) -> str:
 
 def normalize_findings(
     scanner: str,
-    raw_list: list[dict],
+    raw_list: list[dict[str, Any]],
     repo_path: Path,  # noqa: ARG001 - reserved for relative-path computation
     *,
     salt: str = "",
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Normalise a list of raw findings from a single scanner.
 
     Each returned dict contains:
@@ -33,7 +34,7 @@ def normalize_findings(
     * ``fingerprint`` – SHA-256 of the normalised content
     * ``metadata`` – scanner-specific extra fields
     """
-    results: list[dict] = []
+    results: list[dict[str, Any]] = []
     for raw in raw_list:
         # Extract common fields; fall back to safe defaults
         rule_id = raw.get("rule_id") or raw.get("RuleID") or "unknown"

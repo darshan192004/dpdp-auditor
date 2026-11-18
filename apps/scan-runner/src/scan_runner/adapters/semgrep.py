@@ -1,7 +1,9 @@
 """Adapter for Semgrep scanner."""
+
 import json
 import subprocess
 from pathlib import Path
+from typing import Any
 
 
 class SemgrepAdapter:
@@ -10,7 +12,7 @@ class SemgrepAdapter:
     def __init__(self) -> None:
         self.bin: str = "semgrep"
 
-    def run(self, repo_path: Path) -> list[dict]:
+    def run(self, repo_path: Path) -> list[dict[str, Any]]:
         """Execute Semgrep on *repo_path* and return raw findings."""
         try:
             result = subprocess.run(
@@ -22,10 +24,12 @@ class SemgrepAdapter:
         except subprocess.TimeoutExpired as exc:
             raise TimeoutError("Semgrep execution timed out") from exc
         if result.returncode == 0 and result.stdout:
-            data = json.loads(result.stdout)
-            return data.get("results", [])
+            data: dict[str, Any] = json.loads(result.stdout)
+            results = data.get("results", [])
+            if isinstance(results, list):
+                return [item for item in results if isinstance(item, dict)]
         return []
 
-    def normalize(self, raw: list[dict]) -> list[dict]:
+    def normalize(self, raw: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Convert Semgrep raw output to internal finding format."""
         return raw

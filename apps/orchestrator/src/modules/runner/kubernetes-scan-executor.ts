@@ -83,16 +83,6 @@ export class KubernetesScanExecutor implements ScanExecutor {
                         },
                       },
                     ],
-                    env: [
-                      {
-                        name: 'SCAN_ID',
-                        value: scanId,
-                      },
-                      {
-                        name: 'ORCHESTRATOR_URL',
-                        value: 'https://orchestrator.internal',
-                      },
-                    ],
                     resources: {
                       requests: {
                         cpu: '1',

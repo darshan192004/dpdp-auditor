@@ -55,3 +55,7 @@ prisma/*.db-journal
 
 # Playwright MCP session artifacts (never committed)
 .playwright-mcp/
+
+# Python caches
+__pycache__/
+*.py[cod]

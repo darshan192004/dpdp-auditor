@@ -52,7 +52,7 @@ _RESERVED: Final[frozenset[str]] = frozenset(
 )
 
 
-def _clean(key: str, value: Any) -> Any:
+def _clean(key: str, value: object) -> object:
     if _SENSITIVE_KEY.search(key):
         return _REDACTED
     if isinstance(value, SecretStr):
@@ -74,9 +74,7 @@ class JsonFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, Any] = {
-            "ts": datetime.fromtimestamp(record.created, tz=UTC).isoformat(
-                timespec="milliseconds"
-            ),
+            "ts": datetime.fromtimestamp(record.created, tz=UTC).isoformat(timespec="milliseconds"),
             "level": record.levelname.lower(),
             "logger": record.name,
             "msg": record.getMessage(),
