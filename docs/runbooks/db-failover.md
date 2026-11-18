@@ -49,7 +49,7 @@
 3. **Check orchestrator connection pool.**
    ```bash
    # Prisma connection pool status (via orchestrator health)
-   curl -s http://orchestrator.internal/internal/health | python3 -m json.tool
+   curl -s https://orchestrator.internal/internal/health | python3 -m json.tool
    ```
    Look for `database` status and active connection count.
 
@@ -101,7 +101,7 @@ If the database is a managed service (RDS, Cloud SQL, etc.) with automatic failo
    ```
 4. **Verify health:**
    ```bash
-   curl -s http://orchestrator.internal/internal/health | python3 -m json.tool
+   curl -s https://orchestrator.internal/internal/health | python3 -m json.tool
    # Expected: database: "healthy"
    ```
 5. **Re-process stalled scans** (see below).
@@ -173,7 +173,7 @@ After database recovery, handle scans that were in-flight:
 3. **Re-enqueue in BullMQ** (the reconciler picks up `queued` rows without a dispatched job; `architecture.md` §5):
    ```bash
    # Trigger the reconciler
-   curl -X POST http://orchestrator.internal/internal/admin/reconciler/run \
+   curl -X POST https://orchestrator.internal/internal/admin/reconciler/run \
      -H "X-Internal-Key: <key>"
    ```
 4. **Monitor** `scan_queue_depth` and `scan_failure_rate` for the next 30 minutes.

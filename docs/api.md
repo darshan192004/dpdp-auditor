@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Public base URL | `https://app.dpdpa-auditor.example/api/v1` |
-| Internal base URL | `http://orchestrator.internal:3001/internal/v1` |
+| Internal base URL | `https://orchestrator.internal:3001/internal/v1` |
 | Version | v1 |
 | Document version | 1.0 |
 | Date | 2026-11-04 |

@@ -9,55 +9,30 @@ import { ReportsService } from './reports.service.js';
 
 export const REPORT_RENDER_QUEUE: QueueName = 'report.render';
 
-/**
- * Minimal valid PDF wrapper around pre-rendered page content. Used only when
- * Puppeteer is unavailable in the environment (see renderPdf below).
- */
-function fallbackPdf(htmlLength: number): Buffer {
-  return Buffer.from(
-    `%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\nxref\n0 4\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \ntrailer\n<< /Size 4 /Root 1 0 R >>\nstartxref\n190\n%%EOF\n%% html-bytes ${htmlLength}`,
-    'utf8',
-  );
-}
-
-/**
- * P5-18: render the template HTML to PDF through Puppeteer when it is
- * installed. The specifier is non-literal so TypeScript does not require the
- * dependency at build time; a missing package degrades to the fallback.
- */
-async function renderPdf(html: string): Promise<Buffer> {
-  const specifier = 'puppeteer';
+/** Render failures propagate to BullMQ retries; never publish an empty placeholder PDF. */
+export async function renderPdf(
+  html: string,
+  browserWSEndpoint: string | undefined,
+): Promise<Buffer> {
+  if (!browserWSEndpoint)
+    throw new Error('REPORTS_BROWSER_WS_ENDPOINT is required for PDF rendering.');
+  const { default: puppeteer } = await import('puppeteer-core');
+  const browser = await puppeteer.connect({
+    browserWSEndpoint,
+    wsOptions: { handshakeTimeout: 15_000 },
+  });
   try {
-    const mod = (await import(specifier)) as {
-      default?: { launch: (opts: object) => Promise<BrowserLike> };
-      launch?: (opts: object) => Promise<BrowserLike>;
-    };
-    const launch = mod.default?.launch ?? mod.launch;
-    if (!launch) throw new Error('puppeteer launch unavailable');
-    const browser = await launch({ headless: true, args: ['--no-sandbox'] });
+    const page = await browser.newPage();
     try {
-      const page = await browser.newPage();
-      await page.setContent(html, { waitUntil: 'networkidle0' });
-      const buffer = await page.pdf({ format: 'A4', printBackground: true });
-      return Buffer.from(buffer);
+      await page.setContent(html, { waitUntil: 'load' });
+      await page.waitForNetworkIdle();
+      return Buffer.from(await page.pdf({ format: 'A4', printBackground: true }));
     } finally {
-      await browser.close();
+      await page.close();
     }
-  } catch (cause) {
-    logger.warn(
-      { err: cause },
-      'puppeteer unavailable; emitting fallback PDF shell (install puppeteer for rendered pages)',
-    );
-    return fallbackPdf(html.length);
+  } finally {
+    browser.disconnect();
   }
-}
-
-interface BrowserLike {
-  newPage(): Promise<{
-    setContent(html: string, options: object): Promise<void>;
-    pdf(options: object): Promise<Uint8Array>;
-  }>;
-  close(): Promise<void>;
 }
 
 /**
@@ -67,7 +42,7 @@ interface BrowserLike {
 export function createReportRenderWorker(
   env: Env,
   reports: ReportsService,
-  storage: ReportStorageService,
+  _storage: ReportStorageService,
 ): Worker {
   const worker = new Worker(
     REPORT_RENDER_QUEUE,
@@ -77,21 +52,17 @@ export function createReportRenderWorker(
         orgId: string;
       };
 
+      if (!(await reports.markRendering(orgId, reportId))) return true;
+
       // Template v1 over the shared view model (docs/api.md 10.6).
       const viewModel = await reports.viewModel(orgId, reportId);
       const html = renderReportHtml(viewModel as unknown as Parameters<typeof renderReportHtml>[0]);
-      const pdfBuffer = await renderPdf(html);
-
-      // P5-19: upload to storage, compute SHA-256 + size
-      const upload = storage.upload(reportId, pdfBuffer);
+      const pdfBuffer = await renderPdf(html, env.REPORTS_BROWSER_WS_ENDPOINT);
 
       // Mark report ready
       await reports.complete(orgId, reportId, { buffer: pdfBuffer.toString('base64') });
 
-      logger.info(
-        { reportId, storageKey: upload.storageKey, bytes: pdfBuffer.length },
-        'report rendered',
-      );
+      logger.info({ reportId, bytes: pdfBuffer.length }, 'report rendered');
       return true;
     },
     {
@@ -102,15 +73,17 @@ export function createReportRenderWorker(
 
   worker.on('error', (error: Error) => logger.error({ err: error }, 'report.render worker error'));
 
-  worker.on('failed', async (job: Job | undefined, error: Error) => {
-    if (!job || job.attemptsMade < (job.opts.attempts ?? 1)) return;
-    const { reportId } = (job?.data ?? {}) as { reportId?: string };
-    if (reportId) {
-      try {
+  worker.on('failed', async (job: Job | undefined, _error: Error) => {
+    const reportId = job?.data?.reportId as string | undefined;
+    if (!job || !reportId) return;
+    try {
+      // BullMQ emits failed for both retries and terminal failures. Stalls and
+      // unrecoverable errors can be terminal before attemptsMade reaches its limit.
+      if ((await job.getState()) === 'failed') {
         await reports.markFailed(reportId, 'Rendering failed.');
-      } catch {
-        logger.error({ err: error, reportId }, 'failed to mark report as failed');
       }
+    } catch (error) {
+      logger.error({ err: error, reportId }, 'failed to finalize report failure');
     }
   });
 
@@ -122,6 +95,8 @@ export function createReportRenderWorker(
 export class ReportRenderRunner implements OnApplicationShutdown {
   private worker?: Worker;
   private started = false;
+  private recoveryTimer?: ReturnType<typeof setInterval>;
+  private recovering = false;
 
   constructor(
     @Inject(ENV) private readonly env: Env,
@@ -133,9 +108,26 @@ export class ReportRenderRunner implements OnApplicationShutdown {
     if (this.started) return;
     this.started = true;
     this.worker = createReportRenderWorker(this.env, this.reports, this.storage);
+    const recover = async () => {
+      if (this.recovering) return;
+      this.recovering = true;
+      try {
+        await this.reports.recoverQueued();
+      } catch (err) {
+        logger.error({ err }, 'report queue recovery failed');
+      } finally {
+        this.recovering = false;
+      }
+    };
+    this.recoveryTimer = setInterval(() => {
+      void recover();
+    }, 30_000);
+    this.recoveryTimer.unref();
+    await recover();
   }
 
   async onApplicationShutdown(): Promise<void> {
+    clearInterval(this.recoveryTimer);
     await this.worker?.close();
   }
 }

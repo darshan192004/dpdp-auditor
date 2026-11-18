@@ -3,6 +3,7 @@ import { computed } from 'vue';
 
 import PageHeader from '~/components/shell/PageHeader.vue';
 import AppIcon from '~/components/ui/AppIcon.vue';
+import ErrorState from '~/components/ui/ErrorState.vue';
 import EmptyState from '~/components/ui/EmptyState.vue';
 import GlassCard from '~/components/glass/GlassCard.vue';
 import UsageMeter from '~/components/glass/UsageMeter.vue';
@@ -95,8 +96,9 @@ const loadError = computed(() => {
 });
 
 /** P5-01: org usage vs quota for the usage meter. */
+const requestFetch = useRequestFetch();
 const summaryResult = await useAsyncData<OrgSummary>('overview-org-summary', async () => {
-  const result = await $fetch<{ data: OrgSummary }>('/api/v1/org/summary');
+  const result = await requestFetch<{ data: OrgSummary }>('/api/v1/org/summary');
   return result.data;
 });
 const orgSummary = computed(() => summaryResult.data.value ?? null);
@@ -138,7 +140,7 @@ const QUICK_LINKS = [
       v-if="loadError"
       :message="loadError.message"
       :request-id="loadError.requestId ?? null"
-      @action="refresh"
+      @retry="refresh"
     />
 
     <template v-else>

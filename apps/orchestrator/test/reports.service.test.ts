@@ -56,6 +56,7 @@ function report(overrides: Partial<Report> = {}): Report & {
     storageKey: null,
     sha256: null,
     sizeBytes: null,
+    idempotencyKey: null,
     requestedBy: null,
     errorMessage: null,
     expiresAt: null,
@@ -80,19 +81,27 @@ function report(overrides: Partial<Report> = {}): Report & {
 }
 
 function make(found: ReturnType<typeof report> | null = report()) {
+  const tx = { transaction: true };
   const reports = {
+    transaction: vi.fn(async (work) => work(tx)),
+    lockForCompletion: vi.fn(),
     findById: vi.fn().mockResolvedValue(found),
     findByScanId: vi.fn().mockResolvedValue(null),
+    reserve: vi.fn().mockResolvedValue(report({ status: 'queued', templateVersion: 'standard' })),
+    pending: vi.fn().mockResolvedValue([]),
+    rendering: vi.fn().mockResolvedValue([]),
+    requeueRendering: vi.fn().mockResolvedValue({ count: 1 }),
     create: vi.fn(),
     markComplete: vi.fn(),
-    markRendering: vi.fn(),
+    markRendering: vi.fn().mockResolvedValue({ count: 1 }),
     markFailed: vi.fn(),
     countCreatedSince: vi.fn().mockResolvedValue(0),
   };
   const findings = { topForScan: vi.fn().mockResolvedValue([]) };
   const scans = { findById: vi.fn(), recordUsage: vi.fn().mockResolvedValue(true) };
   const audit = { record: vi.fn() };
-  const queue = { enqueue: vi.fn() };
+  const getJob = vi.fn().mockResolvedValue(undefined);
+  const queue = { enqueue: vi.fn(), queue: vi.fn().mockReturnValue({ getJob }) };
   const storage = {
     upload: vi.fn().mockReturnValue({
       storageKey: 'reports/rpt.pdf',
@@ -117,7 +126,19 @@ function make(found: ReturnType<typeof report> | null = report()) {
     organizations as unknown as ConstructorParameters<typeof ReportsService>[6],
     email as unknown as ConstructorParameters<typeof ReportsService>[7],
   );
-  return { service, reports, findings, scans, audit, queue, storage, organizations, email };
+  return {
+    service,
+    reports,
+    findings,
+    scans,
+    audit,
+    queue,
+    getJob,
+    tx,
+    storage,
+    organizations,
+    email,
+  };
 }
 
 describe('ReportsService (P4-20)', () => {
@@ -161,38 +182,43 @@ describe('report lifecycle', () => {
     await expect(m.service.request(input)).rejects.toMatchObject({ code: 'SCAN_NOT_READY' });
     expect(m.queue.enqueue).not.toHaveBeenCalled();
   });
-  it('reuses a ready report without consuming quota or queueing', async () => {
+  it('reuses a ready report returned by the atomic reservation without queueing', async () => {
     const m = make();
     m.scans.findById.mockResolvedValue({ status: 'completed' });
-    m.reports.findByScanId.mockResolvedValue(report());
+    m.reports.reserve.mockResolvedValue(report());
     expect(await m.service.request(input)).toMatchObject({ id: REPORT_ID, status: 'ready' });
-    expect(m.organizations.findById).not.toHaveBeenCalled();
     expect(m.queue.enqueue).not.toHaveBeenCalled();
   });
-  it('enforces organization existence and monthly quota', async () => {
+  it('requires an organization and passes its plan limit to atomic reservation', async () => {
     const m = make();
     m.scans.findById.mockResolvedValue({ status: 'completed' });
     m.organizations.findById.mockResolvedValueOnce(null);
     await expect(m.service.request(input)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    expect(m.reports.reserve).not.toHaveBeenCalled();
     m.organizations.findById.mockResolvedValue({ plan: 'free' });
-    m.reports.countCreatedSince.mockResolvedValue(999);
-    await expect(m.service.request(input)).rejects.toMatchObject({ code: 'PLAN_LIMIT_EXCEEDED' });
-    expect(m.reports.create).not.toHaveBeenCalled();
+    await m.service.request(input);
+    expect(m.reports.reserve).toHaveBeenCalledWith(input, 3, expect.any(Date));
   });
-  it.each(['free', 'enterprise'])('queues a report within the %s plan allowance', async (plan) => {
+  it('keeps a recoverable reservation on an ambiguous enqueue error and reuses its job ID', async () => {
     const m = make();
+    const queued = report({ status: 'queued', templateVersion: 'standard' });
     m.scans.findById.mockResolvedValue({ status: 'completed' });
-    m.organizations.findById.mockResolvedValue({ plan });
-    m.reports.findByScanId.mockResolvedValue(report({ status: 'failed' }));
-    m.reports.create.mockResolvedValue(report({ status: 'queued' }));
-    expect(await m.service.request(input)).toMatchObject({ status: 'queued' });
-    expect(m.queue.enqueue).toHaveBeenCalledWith('report.render', 'render', {
-      reportId: REPORT_ID,
-      orgId: ORG_ID,
-      scanId: SCAN_ID,
-      template: 'standard',
-    });
-    expect(m.reports.countCreatedSince).toHaveBeenCalledTimes(plan === 'enterprise' ? 0 : 1);
+    m.queue.enqueue.mockRejectedValueOnce(new Error('Connection lost after write'));
+    await expect(m.service.request(input)).rejects.toThrow('Connection lost');
+    m.reports.pending.mockResolvedValue([queued]);
+    await m.service.recoverQueued();
+    expect(m.queue.enqueue).toHaveBeenLastCalledWith(
+      'report.render',
+      'render',
+      {
+        reportId: REPORT_ID,
+        orgId: ORG_ID,
+        scanId: SCAN_ID,
+        template: 'standard',
+      },
+      { jobId: REPORT_ID },
+    );
+    expect(m.reports.create).not.toHaveBeenCalled();
   });
   it.each(['status', 'downloadUrl', 'markRendering', 'complete'] as const)(
     'rejects missing reports for %s',
@@ -212,13 +238,18 @@ describe('report lifecycle', () => {
     });
     expect(m.storage.signedUrl).not.toHaveBeenCalled();
     m.reports.findById.mockResolvedValue(
-      report({ sizeBytes: 42n, sha256: 'hash', storageKey: 'key', expiresAt: new Date(0) }),
+      report({
+        sizeBytes: 42n,
+        sha256: 'hash',
+        storageKey: 'key',
+        expiresAt: new Date('2999-01-01'),
+      }),
     );
     expect(await m.service.status(ORG_ID, REPORT_ID)).toMatchObject({
       sizeBytes: 42,
       sha256: 'hash',
       downloadUrl: 'https://example.com/signed',
-      expiresAt: new Date(0),
+      expiresAt: new Date('2999-01-01'),
     });
     for (const errorMessage of [null, 'renderer crashed']) {
       m.reports.findById.mockResolvedValue(report({ status: 'failed', errorMessage }));
@@ -249,6 +280,15 @@ describe('report lifecycle', () => {
       }),
     );
   });
+  it('does not sign or audit reports past their retention deadline', async () => {
+    const m = make(report({ storageKey: 'key', expiresAt: new Date(0) }));
+    expect(await m.service.status(ORG_ID, REPORT_ID)).not.toHaveProperty('downloadUrl');
+    await expect(m.service.downloadUrl(ORG_ID, REPORT_ID)).rejects.toMatchObject({
+      code: 'REPORT_EXPIRED',
+    });
+    expect(m.storage.signedUrl).not.toHaveBeenCalled();
+    expect(m.audit.record).not.toHaveBeenCalled();
+  });
   it('records rendering and failure transitions', async () => {
     const m = make();
     await m.service.markRendering(ORG_ID, REPORT_ID);
@@ -259,7 +299,7 @@ describe('report lifecycle', () => {
   it.each([true, false])(
     'stores completed PDFs and records usage (organization present: %s)',
     async (exists) => {
-      const m = make();
+      const m = make(report({ status: 'rendering' }));
       if (!exists) m.organizations.findById.mockResolvedValue(null);
       const pdf = Buffer.from('%PDF-test');
       expect(
@@ -269,6 +309,7 @@ describe('report lifecycle', () => {
       expect(m.reports.markComplete).toHaveBeenCalledWith(
         REPORT_ID,
         expect.objectContaining({ sizeBytes: 100n }),
+        m.tx,
       );
       expect(m.scans.recordUsage).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -277,12 +318,150 @@ describe('report lifecycle', () => {
           eventType: 'report_rendered',
           quantity: 1,
         }),
+        m.tx,
       );
       expect(m.email.sendReportReady).toHaveBeenCalledTimes(exists ? 1 : 0);
     },
   );
-  it('rejects malformed renderer callbacks before storage writes', async () => {
+  it('propagates metering failure out of the shared completion transaction without sending email', async () => {
+    const m = make(report({ status: 'rendering' }));
+    m.scans.recordUsage.mockRejectedValueOnce(new Error('metering unavailable'));
+    await expect(
+      m.service.complete(ORG_ID, REPORT_ID, {
+        buffer: Buffer.from('%PDF-test').toString('base64'),
+      }),
+    ).rejects.toThrow('metering unavailable');
+    expect(m.reports.transaction).toHaveBeenCalledOnce();
+    expect(m.reports.markComplete).toHaveBeenCalledWith(REPORT_ID, expect.any(Object), m.tx);
+    expect(m.scans.recordUsage).toHaveBeenCalledWith(expect.any(Object), m.tx);
+    expect(m.email.sendReportReady).not.toHaveBeenCalled();
+  });
+  it('returns persisted ready metadata without overwriting the file, metering or notifying again', async () => {
+    const m = make(
+      report({
+        storageKey: 'reports/original.pdf',
+        sha256: 'original-hash',
+        sizeBytes: 42n,
+        expiresAt: new Date('2999-01-01'),
+      }),
+    );
+    expect(
+      await m.service.complete(ORG_ID, REPORT_ID, {
+        buffer: Buffer.from('%PDF-different').toString('base64'),
+      }),
+    ).toMatchObject({ storageKey: 'reports/original.pdf', sha256: 'original-hash', sizeBytes: 42 });
+    expect(m.reports.lockForCompletion).toHaveBeenCalledWith(ORG_ID, REPORT_ID, m.tx);
+    expect(m.storage.upload).not.toHaveBeenCalled();
+    expect(m.scans.recordUsage).not.toHaveBeenCalled();
+    expect(m.email.sendReportReady).not.toHaveBeenCalled();
+  });
+  it.each(['failed', 'expired'] as const)(
+    'rejects a %s completion before uploading',
+    async (status) => {
+      const m = make(report({ status }));
+      await expect(m.service.complete(ORG_ID, REPORT_ID, {})).rejects.toMatchObject({
+        code: status === 'expired' ? 'REPORT_EXPIRED' : 'CONFLICT',
+      });
+      expect(m.storage.upload).not.toHaveBeenCalled();
+    },
+  );
+  it('retries a retained failed render job rather than adding the same ID', async () => {
     const m = make();
+    const retry = vi.fn();
+    m.getJob.mockResolvedValue({ getState: async () => 'failed', retry });
+    m.reports.pending.mockResolvedValue([report({ status: 'queued' })]);
+    await m.service.recoverQueued();
+    expect(retry).toHaveBeenCalledWith('failed', {
+      resetAttemptsMade: true,
+      resetAttemptsStarted: true,
+    });
+    expect(m.queue.enqueue).not.toHaveBeenCalled();
+  });
+  it.each(['active', 'waiting', 'delayed', 'completed'])(
+    'preserves ordinary deduplication for an existing %s job',
+    async (state) => {
+      const m = make();
+      const retry = vi.fn();
+      m.getJob.mockResolvedValue({ getState: async () => state, retry });
+      m.reports.pending.mockResolvedValue([report({ status: 'queued' })]);
+      await m.service.recoverQueued();
+      expect(retry).not.toHaveBeenCalled();
+      expect(m.queue.enqueue).toHaveBeenCalledOnce();
+    },
+  );
+  it.each(['failed', 'active', 'waiting', 'delayed', 'completed', 'unknown'])(
+    'reconciles a rendering report only when its queue state is terminal (%s)',
+    async (state) => {
+      const m = make();
+      m.reports.rendering.mockResolvedValue([report({ status: 'rendering' })]);
+      m.getJob.mockResolvedValue({ getState: async () => state });
+      await m.service.recoverQueued();
+      expect(m.reports.markFailed).toHaveBeenCalledTimes(state === 'failed' ? 1 : 0);
+      expect(m.queue.enqueue).not.toHaveBeenCalled();
+    },
+  );
+  it('repairs a missing job with the same durable report and no new quota reservation', async () => {
+    const m = make();
+    m.reports.rendering.mockResolvedValue([report({ status: 'rendering' })]);
+    await m.service.recoverQueued();
+    expect(m.reports.requeueRendering).toHaveBeenCalledExactlyOnceWith(REPORT_ID);
+    expect(m.queue.enqueue).toHaveBeenCalledExactlyOnceWith(
+      'report.render',
+      'render',
+      { reportId: REPORT_ID, orgId: ORG_ID, scanId: SCAN_ID, template: '2026.1' },
+      { jobId: REPORT_ID },
+    );
+    expect(m.reports.reserve).not.toHaveBeenCalled();
+    expect(m.reports.markFailed).not.toHaveBeenCalled();
+  });
+  it('preserves a report that completes between the recovery read and missing-job repair', async () => {
+    const m = make();
+    m.reports.rendering.mockResolvedValue([report({ status: 'rendering' })]);
+    m.reports.requeueRendering.mockResolvedValue({ count: 0 });
+    await m.service.recoverQueued();
+    expect(m.queue.enqueue).not.toHaveBeenCalled();
+    expect(m.reports.markFailed).not.toHaveBeenCalled();
+  });
+  it('retains the queued repair if Redis rejects its enqueue so the next sweep can retry', async () => {
+    const m = make();
+    m.reports.rendering.mockResolvedValueOnce([report({ status: 'rendering' })]);
+    m.queue.enqueue.mockRejectedValueOnce(new Error('Redis unavailable'));
+    await m.service.recoverQueued();
+    expect(m.reports.requeueRendering).toHaveBeenCalledOnce();
+    m.reports.pending.mockResolvedValue([report({ status: 'queued' })]);
+    await m.service.recoverQueued();
+    expect(m.reports.requeueRendering).toHaveBeenCalledOnce();
+    expect(m.queue.enqueue).toHaveBeenCalledTimes(2);
+    expect(m.reports.reserve).not.toHaveBeenCalled();
+  });
+  it('retries a failed reconciliation on the next sweep and continues to other reports', async () => {
+    const m = make();
+    m.reports.rendering.mockResolvedValue([{ id: 'first' }, { id: 'second' }]);
+    m.getJob
+      .mockRejectedValueOnce(new Error('Redis unavailable'))
+      .mockResolvedValue({ getState: async () => 'failed' });
+    await m.service.recoverQueued();
+    expect(m.reports.markFailed).toHaveBeenCalledExactlyOnceWith('second', 'Rendering failed.');
+    m.reports.markFailed.mockClear();
+    await m.service.recoverQueued();
+    expect(m.reports.markFailed.mock.calls).toEqual([
+      ['first', 'Rendering failed.'],
+      ['second', 'Rendering failed.'],
+    ]);
+  });
+  it('continues beyond a full page of active render jobs to reconcile later terminal jobs', async () => {
+    const m = make();
+    const active = Array.from({ length: 100 }, (_, i) => ({ id: `active-${i}` }));
+    m.reports.rendering.mockResolvedValueOnce(active).mockResolvedValueOnce([{ id: 'terminal' }]);
+    m.getJob.mockImplementation(async (id) => ({
+      getState: async () => (id === 'terminal' ? 'failed' : 'active'),
+    }));
+    await m.service.recoverQueued();
+    expect(m.reports.rendering.mock.calls).toEqual([[undefined], ['active-99']]);
+    expect(m.reports.markFailed).toHaveBeenCalledExactlyOnceWith('terminal', 'Rendering failed.');
+  });
+  it('rejects malformed renderer callbacks before storage writes', async () => {
+    const m = make(report({ status: 'rendering' }));
     await expect(m.service.complete(ORG_ID, REPORT_ID, {})).rejects.toThrow();
     expect(m.storage.upload).not.toHaveBeenCalled();
   });

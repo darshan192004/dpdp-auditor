@@ -21,12 +21,12 @@ const reportsPercent = computed(() => {
 
 const scansAria = computed(() => {
   const summary = props.summary;
-  return `Scans this month: ${summary?.scansUsedThisMonth ?? 0} of ${summary?.scansPerMonth ?? 0}`;
+  return `Scans this month: ${summary?.scansUsedThisMonth ?? 0} of ${summary ? (summary.scansPerMonth ?? 'unlimited') : 'unknown'}`;
 });
 
 const reportsAria = computed(() => {
   const summary = props.summary;
-  return `Reports this month: ${summary?.reportsUsedThisMonth ?? 0} of ${summary?.reportsPerMonth ?? 0}`;
+  return `Reports this month: ${summary?.reportsUsedThisMonth ?? 0} of ${summary ? (summary.reportsPerMonth ?? 'unlimited') : 'unknown'}`;
 });
 </script>
 
@@ -44,7 +44,8 @@ const reportsAria = computed(() => {
         <div class="mb-2 flex items-baseline justify-between gap-2">
           <p class="text-ink-500 text-xs font-medium">Scans this month</p>
           <p class="text-ink-900 font-mono tabular-nums">
-            {{ summary?.scansUsedThisMonth ?? '—' }}
+            {{ summary?.scansUsedThisMonth ?? '—' }} /
+            {{ summary ? (summary.scansPerMonth ?? 'Unlimited') : '—' }}
           </p>
         </div>
         <div class="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
@@ -64,7 +65,8 @@ const reportsAria = computed(() => {
         <div class="mb-2 flex items-baseline justify-between gap-2">
           <p class="text-ink-500 text-xs font-medium">Reports this month</p>
           <p class="text-ink-900 font-mono tabular-nums">
-            {{ summary?.reportsUsedThisMonth ?? '—' }}
+            {{ summary?.reportsUsedThisMonth ?? '—' }} /
+            {{ summary ? (summary.reportsPerMonth ?? 'Unlimited') : '—' }}
           </p>
         </div>
         <div class="h-1.5 w-full overflow-hidden rounded-full bg-white/10">

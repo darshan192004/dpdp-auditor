@@ -1,4 +1,5 @@
 import { createHmac } from 'node:crypto';
+import { isIP } from 'node:net';
 import type { H3Event } from 'h3';
 import { $fetch } from 'ofetch';
 import { ERROR_CODES, type ErrorCode } from '@dpdpa/contracts';
@@ -64,12 +65,25 @@ export function orchestratorConfig(event?: H3Event): OrchestratorConfig {
   };
 }
 
-function assertConfig(
+export function assertOrchestratorConfig(
   event: { context: { requestId?: string } },
   config: OrchestratorConfig,
 ): void {
   if (!config.url || !config.hmacKey || !config.internalKey) {
     apiError(event, 500, 'INTERNAL_ERROR', 'The audit service is not configured.');
+  }
+  let url: URL;
+  try {
+    url = new URL(config.url);
+  } catch {
+    apiError(event, 500, 'INTERNAL_ERROR', 'The audit service URL is invalid.');
+  }
+  const loopback =
+    url.hostname === 'localhost' ||
+    url.hostname === '[::1]' ||
+    (isIP(url.hostname) === 4 && url.hostname.startsWith('127.'));
+  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback)) {
+    apiError(event, 500, 'INTERNAL_ERROR', 'The audit service must use HTTPS.');
   }
 }
 
@@ -121,13 +135,15 @@ export async function callOrchestrator<T>(
 ): Promise<T> {
   const config = deps.config ?? orchestratorConfig();
   // One validation path, whether the config came from runtime config or a caller.
-  assertConfig(event, config);
+  assertOrchestratorConfig(event, config);
   const fetch = deps.fetch ?? $fetch;
   const now = deps.now ?? Date.now;
   const request = buildInternalRequest(event, options, config, now);
   try {
     return await fetch<T>(`${config.url}${options.path}`, {
       method: options.method,
+      // Internal credentials must never follow a redirect to another destination.
+      redirect: 'error',
       ...(request.body === undefined ? {} : { body: request.body }),
       headers: request.headers,
       signal: AbortSignal.timeout(15_000),

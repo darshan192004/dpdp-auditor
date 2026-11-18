@@ -42,7 +42,7 @@ interface ReportViewModel {
   };
   topFindings: Array<{
     id: string;
-    title: string;
+    message: string;
     severity: string;
     scanner: string;
     section: string | null;
@@ -234,7 +234,7 @@ function duration(ms: number | null): string {
           </thead>
           <tbody class="divide-ink-200 divide-y">
             <tr v-for="finding in report.topFindings" :key="finding.id">
-              <td class="py-2 pr-4">{{ finding.title }}</td>
+              <td class="py-2 pr-4">{{ finding.message }}</td>
               <td class="py-2 pr-4 capitalize">{{ finding.severity }}</td>
               <td class="py-2 pr-4 capitalize">{{ finding.status }}</td>
             </tr>

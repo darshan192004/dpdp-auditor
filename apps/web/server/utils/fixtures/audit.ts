@@ -133,8 +133,8 @@ export function fixtureAuditLogList(query: AuditQueryLike): AuditLogListResponse
   let rows = [...FIXTURE_AUDIT_ENTRIES].sort((a, b) => b.id - a.id);
   if (action) rows = rows.filter((row) => row.action === action);
   if (actorUserId) rows = rows.filter((row) => row.actor.id === actorUserId);
-  if (from) rows = rows.filter((row) => row.createdAt >= from);
-  if (to) rows = rows.filter((row) => row.createdAt <= to);
+  if (from) rows = rows.filter((row) => Date.parse(row.createdAt) >= Date.parse(from));
+  if (to) rows = rows.filter((row) => Date.parse(row.createdAt) <= Date.parse(to));
 
   const pageSize = Math.min(Math.max(Number(first(query.pageSize)) || 50, 1), 100);
   const totalPages = Math.max(Math.ceil(rows.length / pageSize), 1);
