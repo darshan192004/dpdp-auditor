@@ -46,6 +46,26 @@ The project follows these security principles (detailed in [docs/security.md](do
 - **Principle of least privilege** — Database roles, service accounts, and API scopes use minimum necessary permissions
 - **Supply chain integrity** — Container images are signed (cosign) with SBOMs; dependencies are audited in CI
 
+## Dependency Audit Exceptions
+
+CI runs `pnpm audit --audit-level=high` on every pull request. The following advisory is
+temporarily waived via `pnpm.auditConfig.ignoreGhsas` in `package.json` because no fix exists:
+
+- **Advisory:** [GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf)
+  (`CVE-2026-112366`), High
+- **Package:** `picomatch` <= 4.0.7
+- **Rationale:** ReDoS via single-branch repeated extglobs. All published versions are
+  affected and the advisory has `patched_versions: <0.0.0`, so upgrading and
+  `pnpm audit --fix` cannot resolve it. Every path in this repo is a transitive dev/build
+  dependency (Vite, Vitest, tinyglobby, ESLint tooling); attacker-controlled glob patterns
+  never reach it from application runtime input.
+- **Removal trigger:** Remove the waiver as soon as a patched `picomatch` is published and
+  the lockfile is updated, or if the advisory is withdrawn. Re-check during the weekly
+  dependency task (P7-14).
+
+Exceptions must stay narrowly scoped: one GHSA ID per entry, with a linked advisory, a
+written rationale, and a removal condition. Do not raise the audit level to hide findings.
+
 ## Threat Model
 
 A STRIDE threat model is maintained in [docs/threat-model.md](docs/threat-model.md).
