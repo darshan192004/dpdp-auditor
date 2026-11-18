@@ -92,8 +92,8 @@ Total: ~19–20 elapsed weeks with parallel tracks. Critical path: 2 → 3 → 4
 
 ### Tasks
 
-| ID | Task | Size | Owner | Depends on |
-|---|---|---|---|---|
+| ID | Task | Size | Owner | Depends on | Status |
+|---|---|---|---|---|---|
 | P0-01 | Create monorepo with pnpm workspaces, Turborepo, `.nvmrc` (Node 22), editorconfig, gitignore | S | Platform | — | ✅ Done |
 | P0-02 | Add root TypeScript config (strict, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`) and per-package extends | XS | Platform | P0-01 | ✅ Done |
 | P0-03 | Configure ESLint + Prettier + Tailwind class sorting; fail CI on warnings | S | Platform | P0-01 | ✅ Done |
@@ -145,8 +145,8 @@ Total: ~19–20 elapsed weeks with parallel tracks. Critical path: 2 → 3 → 4
 
 ### 4.1 Infrastructure
 
-| ID | Task | Size | Owner | Depends on |
-|---|---|---|---|---|
+| ID | Task | Size | Owner | Depends on | Status |
+|---|---|---|---|---|---|
 | P1-01 | Terraform: Kubernetes cluster, node pools (app + scanner taint), VPC, DNS | L | Platform | P0-17 | _Deferred — infrastructure not provisioned_ |
 | P1-02 | Terraform: managed PostgreSQL 16 (multi-AZ), Redis 7 (Sentinel), S3 bucket with lifecycle | L | Platform | P1-01 | _Deferred — infrastructure not provisioned_ |
 | P1-03 | Namespaces: `app`, `data`, `scanners`; resource quotas and limit ranges | M | Platform | P1-01 | _Deferred — infrastructure not provisioned_ |
@@ -160,8 +160,8 @@ Total: ~19–20 elapsed weeks with parallel tracks. Critical path: 2 → 3 → 4
 
 ### 4.2 Orchestrator foundation
 
-| ID | Task | Size | Owner | Depends on |
-|---|---|---|---|---|
+| ID | Task | Size | Owner | Depends on | Status |
+|---|---|---|---|---|---|
 | P1-11 | NestJS + Fastify bootstrap, config validation (Zod), graceful shutdown, health endpoints | M | Backend | P0-02 | ✅ Done |
 | P1-12 | Prisma schema v1 for all core tables; initial migration from `database.md` | L | Backend | P1-02 | ✅ Done |
 | P1-13 | Migration CI job (`prisma migrate deploy`) as an Argo pre-sync hook | S | Backend | P1-12 | ✅ Done |
@@ -176,8 +176,8 @@ Total: ~19–20 elapsed weeks with parallel tracks. Critical path: 2 → 3 → 4
 
 ### 4.3 Web foundation `[FE]`
 
-| ID | Task | Size | Owner | Depends on |
-|---|---|---|---|---|
+| ID | Task | Size | Owner | Depends on | Status |
+|---|---|---|---|---|---|
 | P1-22 | Nuxt 4 app init, TypeScript strict, Nuxt UI 3, Tailwind 4 tokens from `design.md` | M | Frontend | P0-02 | ✅ Done |
 | P1-23 | `nuxt-security` configuration per `security.md` §8; verify headers with `curl` | M | Frontend + Security | P1-22 | ✅ Done |
 | P1-24 | Base layouts (`default`, `auth`, `app`, `print`), app shell, skip link | M | Frontend | P1-22 | ✅ Done |
@@ -221,19 +221,19 @@ Total: ~19–20 elapsed weeks with parallel tracks. Critical path: 2 → 3 → 4
 
 ### Tasks
 
-| ID | Task | Size | Owner | Depends on |
-|---|---|---|---|---|
-| P2-01 | _Retired — GitHub App registration is post-MVP (ADR-011)._ | — | — | — |
-| P2-02 | _Retired — App private key handling is post-MVP (ADR-011)._ | — | — | — |
+| ID | Task | Size | Owner | Depends on | Status |
+|---|---|---|---|---|---|
+| P2-01 | _Retired — GitHub App registration is post-MVP (ADR-011)._ | — | — | — | _Retired_ |
+| P2-02 | _Retired — App private key handling is post-MVP (ADR-011)._ | — | — | — | _Retired_ |
 | P2-03 | OAuth flow with PKCE and signed `state`; scope `read:user user:email` only (identity only; GitHub OAuth App registration is the only GitHub config) | M | Backend | P1-01 | ✅ Done |
 | P2-04 | Session management with `nuxt-auth-utils`: sealed cookie, 8 h absolute, 30 min idle | M | Frontend | P2-03, P1-22 | ✅ Done |
 | P2-05 | `users`, `organizations`, `memberships` repositories and services | M | Backend | P1-12 | ✅ Done |
 | P2-06 | Onboarding: create org, invite members, role assignment | M | Backend | P2-05 | ✅ Done |
-| P2-07 | _Retired — installation callback is post-MVP (ADR-011)._ | — | — | — |
-| P2-08 | _Retired — installation token service is post-MVP (ADR-011)._ | — | — | — |
+| P2-07 | _Retired — installation callback is post-MVP (ADR-011)._ | — | — | — | _Retired_ |
+| P2-08 | _Retired — installation token service is post-MVP (ADR-011)._ | — | — | — | _Retired_ |
 | P2-09 | Repository resolve: exact URL validation, `github.com` host allowlist, anonymous `git ls-remote` lookup (default branch + size-cap probe), DB upsert | M | Backend | P2-05 | ✅ Done |
-| P2-10 | _Retired — webhook endpoint is post-MVP (ADR-011)._ | — | — | — |
-| P2-11 | _Retired — webhook handlers are post-MVP (ADR-011)._ | — | — | — |
+| P2-10 | _Retired — webhook endpoint is post-MVP (ADR-011)._ | — | — | — | _Retired_ |
+| P2-11 | _Retired — webhook handlers are post-MVP (ADR-011)._ | — | — | — | _Retired_ |
 | P2-12 | Repository list/detail/disconnect services with soft delete and retention scheduling | M | Backend | P2-09 | ✅ Done |
 | P2-13 | API key create/list/revoke with hashed storage and scopes | M | Backend | P2-05 | ✅ Done |
 | P2-14 | Auth middleware for API keys with 30 s cache and immediate revocation path | M | Backend | P2-13 | ✅ Done |
@@ -274,8 +274,8 @@ Retired IDs stay reserved: P2-01, P2-02, P2-07, P2-08, P2-10, P2-11, and the old
 
 ### 6.1 Runner image and scanners
 
-| ID | Task | Size | Owner | Depends on |
-|---|---|---|---|---|
+| ID | Task | Size | Owner | Depends on | Status |
+|---|---|---|---|---|---|
 | P3-01 `[PY]` | Build `scan-runner` image: Git, Semgrep 1.95.x, Checkov 3.2.x, Gitleaks 8.21.x, Python 3.12 | L | Platform | P1-03 | ✅ Done |
 | P3-02 `[PY]` | Entrypoint: env validation, workspace setup, stage sequencing, structured logs | L | Backend | P3-01 | ✅ Done |
 | P3-03 `[PY]` | Safe clone: `--depth 1 --single-branch`, no submodules, timeout, size pre-check, symlink escape guard | M | Backend | P3-02 | ✅ Done |
@@ -294,8 +294,8 @@ Retired IDs stay reserved: P2-01, P2-02, P2-07, P2-08, P2-10, P2-11, and the old
 
 ### 6.2 Orchestration
 
-| ID | Task | Size | Owner | Depends on |
-|---|---|---|---|---|
+| ID | Task | Size | Owner | Depends on | Status |
+|---|---|---|---|---|---|
 | P3-14 | Scan creation service: idempotency key, one-active-scan-per-ref rule, plan limits | M | Backend | P1-12, P2-12 | ✅ Done |
 | P3-15 | Kubernetes Job creation with Secret ordering, owner references, cleanup on failure | L | Backend | P1-03, P3-14 | ✅ Done |
 | P3-16 | Job watcher: conditions, OOM, deadline exceeded, missing callback handling | M | Backend | P3-15 | ✅ Done |
@@ -311,8 +311,8 @@ Retired IDs stay reserved: P2-01, P2-02, P2-07, P2-08, P2-10, P2-11, and the old
 
 ### 6.3 Frontend `[FE]`
 
-| ID | Task | Size | Owner | Depends on |
-|---|---|---|---|---|
+| ID | Task | Size | Owner | Depends on | Status |
+|---|---|---|---|---|---|
 | P3-26 | `ScanSubmitForm` with repo picker, ref selection, profile, idempotency key | L | Frontend | P3-22 | ✅ Done |
 | P3-27 | `ScanProgress` component with stage model, per-scanner status, partial warning | M | Frontend | P3-22 | ✅ Done |
 | P3-28 | `useScanPolling` composable with backoff, visibility pause, terminal stop | M | Frontend | P3-22 | ✅ Done |
@@ -349,8 +349,8 @@ Retired IDs stay reserved: P2-01, P2-02, P2-07, P2-08, P2-10, P2-11, and the old
 
 ### Tasks
 
-| ID | Task | Size | Owner | Depends on |
-|---|---|---|---|---|
+| ID | Task | Size | Owner | Depends on | Status |
+|---|---|---|---|---|---|
 | P4-01 | Rule-pack schema (Zod) for controls, mappings, suppressions, scoring config | M | Backend | P0-06 | ✅ Done |
 | P4-02 | Rule-pack loader with signature and SHA-256 verification; fail closed | M | Backend | P4-01 | ✅ Done |
 | P4-03 | Seed all controls from `rules.md` §4 into `dpdpa_rules` with weights and applicability | L | Product | P4-01 | ✅ Done |
@@ -409,8 +409,8 @@ Retired IDs stay reserved: P2-01, P2-02, P2-07, P2-08, P2-10, P2-11, and the old
 
 ### 8.1 Application screens `[FE]`
 
-| ID | Task | Size | Owner | Depends on |
-|---|---|---|---|---|
+| ID | Task | Size | Owner | Depends on | Status |
+|---|---|---|---|---|---|
 | P5-01 | Overview dashboard: latest score, trend, top sections, recent scans, usage meter | L | Frontend | P4-22 | ✅ Done |
 | P5-02 | Repository list and detail with scan history and trend | M | Frontend | P4-17 | ✅ Done |
 | P5-03 | Scan list with filters, status, grade | M | Frontend | P4-17 | ✅ Done |
@@ -430,8 +430,8 @@ Retired IDs stay reserved: P2-01, P2-02, P2-07, P2-08, P2-10, P2-11, and the old
 
 ### 8.2 Reports
 
-| ID | Task | Size | Owner | Depends on |
-|---|---|---|---|---|
+| ID | Task | Size | Owner | Depends on | Status |
+|---|---|---|---|---|---|
 | P5-17 | Renderer service: Fastify + Puppeteer, queue consumer, local templates only | L | Backend | P4-20 | ✅ Done |
 | P5-18 | PDF template v1: cover, executive summary, score breakdown, top findings, remediation, methodology, appendix | L | Frontend + Product | P5-17 | ✅ Done |
 | P5-19 | S3 upload with SHA-256, `storage_key`, `size_bytes`, `expires_at` | M | Backend | P5-17 | ✅ Done |
@@ -444,8 +444,8 @@ Retired IDs stay reserved: P2-01, P2-02, P2-07, P2-08, P2-10, P2-11, and the old
 
 ### 8.3 Notifications and metering
 
-| ID | Task | Size | Owner | Depends on |
-|---|---|---|---|---|
+| ID | Task | Size | Owner | Depends on | Status |
+|---|---|---|---|---|---|
 | P5-26 | Transactional email: invite, scan completed, scan failed | M | Backend | P2-06 | ✅ Done |
 | P5-27 | Outbound customer webhooks for scan completion (Growth+) — post-MVP backlog | M | Backend | P3-18 | ✅ Done |
 | P5-28 | Usage metering reconciliation: scans, reports, storage byte-hours | M | Backend | P3-25 | ✅ Done |
@@ -540,12 +540,12 @@ Retired IDs stay reserved: P2-01, P2-02, P2-07, P2-08, P2-10, P2-11, and the old
 
 ### 10.1 Launch
 
-| ID | Task | Size | Owner | Depends on |
-|---|---|---|---|---|
+| ID | Task | Size | Owner | Depends on | Status |
+|---|---|---|---|---|---|
 | P7-01 | Launch readiness review: product, engineering, security, legal, support sign-off | M | CTO | P6-* | ✅ Done |
 | P7-02 | Production cutover: DNS, TLS, WAF, HSTS preload submission (after stability) | M | Platform | P1-01 | _Deferred — infrastructure not provisioned_ |
-| P7-03 | _Retired — Open-source project; no billing, no paid plans._ | — | — | — |
-| P7-04 | _Retired — Open-source project; no trial or paid plan flows._ | — | — | — |
+| P7-03 | _Retired — Open-source project; no billing, no paid plans._ | — | — | — | _Retired_ |
+| P7-04 | _Retired — Open-source project; no trial or paid plan flows._ | — | — | — | _Retired_ |
 | P7-05 | Analytics: activation, scan success, export rate, triage rate, retention funnels | M | Product | P5-01 | ✅ Done |
 | P7-06 | Support: help centre, in-app contact, SLAs by plan | M | Support | P6-13 | ✅ Done |
 | P7-07 | Marketing site: positioning, pricing, security page, docs | L | Product | P6-13 | ✅ Done |

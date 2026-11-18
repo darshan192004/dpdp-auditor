@@ -92,11 +92,11 @@ pnpm dev
 
 ### Testing
 
-| Layer | Command | Coverage Target |
-|-------|---------|----------------|
-| Unit | `pnpm test` | ≥ 80% lines, ≥ 70% branches |
+| Layer       | Command                 | Coverage Target                       |
+| ----------- | ----------------------- | ------------------------------------- |
+| Unit        | `pnpm test`             | ≥ 80% lines, ≥ 70% branches           |
 | Integration | `pnpm test:integration` | Required for cross-service boundaries |
-| E2E | `pnpm test:e2e` | Playwright, critical user flows |
+| E2E         | `pnpm test:e2e`         | Playwright, critical user flows       |
 
 Tests that verify scoring logic must use explicit golden fixtures, not snapshots.
 

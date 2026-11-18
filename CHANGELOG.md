@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+
 - Complete project scaffold: monorepo with pnpm workspaces and Turborepo
 - `packages/contracts`: shared Zod schemas (IDs, pagination, error envelope, finding, fingerprint, SLO)
 - `packages/config`: shared ESLint, TypeScript, and Tailwind presets
@@ -28,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Launch readiness checklist
 
 ### Documentation
+
 - `CONTRIBUTING.md` — How to contribute to the project
 - `CODE_OF_CONDUCT.md` — Community standards
 - `SECURITY.md` — Vulnerability reporting policy
