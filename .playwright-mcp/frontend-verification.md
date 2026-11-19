@@ -117,10 +117,77 @@ Mobile navigation: hamburger is 44×44, opens a `role="dialog"` rail, focus land
 - These are infrastructure/backend constraints of this local environment. No frontend code
   path is known to be broken by them.
 
+## Post-final deeper audit (issue-linked fixes)
+
+A deeper keyboard/validation pass on the real stack found four defects that the earlier route sweep
+did not cover. Each was filed separately and is fixed on its own branch against
+`feat/e2e-fullstack-verification`.
+
+| Issue | Finding | Fix | PR |
+|---|---|---|---|
+| [#85](https://github.com/darshan192004/dpdp-auditor/issues/85) | Triage disposition offered two indistinguishable `Reopen` options | `open` is now **Leave open** for an open finding and **Mark open** for a closed finding; `reopened` stays **Reopen** | [#89](https://github.com/darshan192004/dpdp-auditor/pull/89) |
+| [#86](https://github.com/darshan192004/dpdp-auditor/issues/86) | Create API key dialog declared `aria-modal` but did not move/trap/restore focus, handle Escape, or expose a close control | Focus moves to the dialog heading, Tab wraps at both ends, Escape and the new close button restore focus to the trigger | [#90](https://github.com/darshan192004/dpdp-auditor/pull/90) |
+| [#87](https://github.com/darshan192004/dpdp-auditor/issues/87) | Empty scan submission showed the raw contract message in a page-level alert with no field association or focus move | Plain-language inline error on the URL/repository fields with `aria-invalid`, `aria-describedby`, focus move, and clear-on-edit | [#91](https://github.com/darshan192004/dpdp-auditor/pull/91) |
+| [#88](https://github.com/darshan192004/dpdp-auditor/issues/88) | Invalid repository URL was sent to `/api/v1/repos/resolve`, returning a 422 page-level alert only | Shared validator rejects non-GitHub URLs locally; inline field error with ARIA wiring and focus; resolver is not called | [#92](https://github.com/darshan192004/dpdp-auditor/pull/92) |
+
+### #85 evidence
+
+- Before: option labels `["Reopen","Mark false positive","Accept risk","Mark fixed","Reopen"]`
+  with values `["open","false_positive","accepted_risk","fixed","reopened"]`.
+- After: `["Leave open","Mark false positive","Accept risk","Mark fixed","Reopen"]`, all unique.
+- Screenshots: `.playwright-mcp/issue-triage-duplicate-reopen.png`,
+  `.playwright-mcp/issue-triage-duplicate-reopen-fixed.png`.
+- Regression test `apps/web/test/triage-form.test.ts` was RED (3 failures) before the fix and
+  GREEN (3 passed) after.
+
+### #86 evidence
+
+- Before: focus stayed on the trigger; no close button; Tab escaped to `BODY`; Escape left the
+  dialog open.
+- After browser check: on open, `activeTag=H2`, `activeId=create-key-heading`,
+  `insideDialog=true`, close button present. Escape and the close button both close the dialog and
+  return focus to `Create API key`.
+- Browser Tab check: Shift+Tab from the heading wraps to **Cancel** (`defaultPrevented=true`);
+  Tab from **Cancel** wraps back to the heading (`defaultPrevented=true`).
+- Screenshots/snapshots: `.playwright-mcp/issue-api-key-modal-focus.png/.yml` (before),
+  `.playwright-mcp/issue-api-key-modal-focus-fixed.png/.yml` (after).
+- Regression test `apps/web/test/api-key-dialog.test.ts` was RED (4 failures) before the fix and
+  GREEN (4 passed) after.
+- Full gates on the fix branch: 56 files / 447 tests, typecheck, lint, build.
+
+### #87 evidence
+
+- Before: empty submit showed `Provide exactly one of repositoryId or githubUrl.` in a generic
+  page-level alert, with no `aria-invalid`, no `aria-describedby`, and no focus move.
+- After browser check: one `role="alert"` with `id="scan-source-error"` and plain-language copy;
+  both `#scan-url` and `#scan-repo` have `aria-invalid="true"` and reference the error; focus is on
+  `#scan-url`. Typing a valid URL removes the alert and both invalid states, leaving only
+  `aria-describedby="scan-url-help"`.
+- Evidence: `.playwright-mcp/issue-scan-empty-feedback-fixed.png/.yml`.
+- Regression test `apps/web/test/scan-submit-form.test.ts` was RED (6 failures) before the fix and
+  GREEN (13 tests in the file) after.
+- Full gates on the fix branch: 55 files / 449 tests, typecheck, lint, build.
+
+### #88 evidence
+
+- Before: a GitLab URL produced a console error
+  `422 (Enter a valid GitHub repository URL.) @ /api/v1/repos/resolve` and only a page-level alert;
+  the URL field had no error state.
+- After browser check: the same input produces no resolver call, no console errors, and only the
+  inline `#repo-url-error` alert. The input has `aria-invalid="true"` and
+  `aria-describedby="repo-url-help repo-url-error"`, focus is on `#repo-url`, and no page-level
+  alert is shown. Correcting the URL clears all error state.
+- Evidence: `.playwright-mcp/issue-repos-invalid-url-fixed.png/.yml`.
+- Regression tests were RED (8 failures across `github-url.allowlist.test.ts` and the new
+  `repos-connect-form.test.ts`) before the fix and GREEN (18 tests) after.
+- Full gates on the fix branch: 56 files / 453 tests, typecheck, lint, build.
+
 ## Verdict
 
 **MVP-ready.** The rebuilt Signal Console renders every route end-to-end in real mode, all
 interaction flows behave correctly (including honest surfacing of backend failures), desktop
 and mobile layouts have no overflow or accessibility regressions, motion honors
-`prefers-reduced-motion`, and all quality gates pass. The remaining blockers are backend quota,
-backend availability, and Docker availability in this environment — none are frontend work.
+`prefers-reduced-motion`, and all quality gates pass. The deeper keyboard/validation audit added
+four issue-linked fixes (#85–#88, PRs #89–#92), each with failing-first regression tests and
+browser evidence. The remaining blockers are backend quota, backend availability, and Docker
+availability in this environment — none are frontend work.
