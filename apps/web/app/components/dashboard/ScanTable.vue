@@ -39,7 +39,7 @@ const when = (iso: string) => formatTimestamp(iso);
 </script>
 
 <template>
-  <section aria-labelledby="scans-table-heading">
+  <section aria-labelledby="scans-table-heading" class="min-w-0">
     <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
       <h2 id="scans-table-heading" class="text-ink-400 font-mono text-xs tracking-widest uppercase">
         Scan history

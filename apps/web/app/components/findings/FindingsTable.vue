@@ -139,7 +139,7 @@ function lineRange(finding: FindingView): string {
         <tbody v-if="loading">
           <tr v-for="row in 6" :key="row">
             <td colspan="7" class="border-ink-100 border-t px-3 py-3">
-              <div class="bg-ink-100 h-4 animate-pulse rounded-[var(--radius-control)]" />
+              <div class="ds-skeleton h-4 rounded-[var(--radius-control)]" />
             </td>
           </tr>
         </tbody>

@@ -71,7 +71,7 @@ async function save(): Promise<void> {
           @click="select(finding)"
         >
           <DsBadge :tone="finding.severity">{{ finding.severity }}</DsBadge>
-          <span class="text-ink-900 flex-1 text-sm">{{ finding.message }}</span>
+          <span class="text-ink-900 min-w-0 flex-1 text-sm break-words">{{ finding.message }}</span>
           <span class="text-ink-400 font-mono text-xs">{{ finding.status }}</span>
         </button>
       </DsCard>

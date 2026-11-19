@@ -14,7 +14,7 @@ const ranked = computed(() =>
 </script>
 
 <template>
-  <section aria-labelledby="fix-first-heading">
+  <section aria-labelledby="fix-first-heading" class="min-w-0">
     <h2
       id="fix-first-heading"
       class="text-ink-400 mb-3 font-mono text-xs tracking-widest uppercase"

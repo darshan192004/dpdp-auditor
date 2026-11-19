@@ -6,6 +6,7 @@ import NewFindings from '~/components/new/NewFindings.vue';
 import { useAppContext } from '~/composables/useAppContext';
 import { useFindingsQuery } from '~/composables/useFindingsQuery';
 import { useToasts } from '~/composables/useToasts';
+import { apiErrorMessage } from '~~/shared/api-error';
 import type { FindingStatus, FindingsPage } from '~~/shared/findings';
 import { serialiseFindingsQuery } from '~~/shared/findings-query';
 
@@ -69,8 +70,12 @@ async function onTriage(draft: {
     push('success', 'Disposition saved', `Status: ${draft.status}.`);
     selectedId.value = null;
     await refresh();
-  } catch {
-    push('error', 'Disposition not saved', 'The finding could not be updated. Try again.');
+  } catch (cause) {
+    push(
+      'error',
+      'Disposition not saved',
+      apiErrorMessage(cause, 'The finding could not be updated. Try again.'),
+    );
   } finally {
     triaging.value = false;
   }

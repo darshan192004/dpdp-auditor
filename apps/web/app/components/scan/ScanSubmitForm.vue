@@ -86,13 +86,12 @@ function submit(): void {
 
 <template>
   <section
-    aria-labelledby="scan-submit-heading"
+    aria-label="Scan submission"
     class="bg-surface rounded-[var(--radius-card)] p-5 shadow-[var(--shadow-card)]"
   >
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h2 id="scan-submit-heading" class="text-ink-900 text-sm font-semibold">Start a scan</h2>
-        <p class="text-ink-500 mt-1 text-xs">
+        <p class="text-ink-500 text-xs">
           Scans read the default branch. No repository credentials are stored.
         </p>
       </div>

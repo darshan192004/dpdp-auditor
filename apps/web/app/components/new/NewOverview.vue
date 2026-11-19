@@ -41,7 +41,7 @@ const coverage = computed(() => coverageFor((props.latestScan?.coverage ?? {}) a
     >
       <template #actions>
         <NuxtLink
-          to="/app/scans"
+          to="/app/scans?new=1"
           class="bg-brand-500 text-ink-50 rounded-[var(--radius-control)] px-4 py-2 text-sm"
         >
           + New scan

@@ -14,7 +14,7 @@ const LABELS: Record<State, string> = { ready: 'READY', partial: 'PARTIAL', at_r
 </script>
 
 <template>
-  <section aria-labelledby="section-coverage-heading">
+  <section aria-labelledby="section-coverage-heading" class="min-w-0">
     <h2
       id="section-coverage-heading"
       class="text-ink-400 mb-3 font-mono text-xs tracking-widest uppercase"
@@ -31,7 +31,9 @@ const LABELS: Record<State, string> = { ready: 'READY', partial: 'PARTIAL', at_r
         <p class="font-mono text-xs">{{ section.code }}</p>
         <p class="text-ink-900 mt-2 text-sm font-medium">{{ section.title }}</p>
         <p class="mt-3 font-mono text-[11px]">{{ LABELS[section.state] }}</p>
-        <p class="text-ink-400 mt-1 text-xs">{{ section.controls }} controls</p>
+        <p class="text-ink-400 mt-1 text-xs">
+          {{ section.controls }} {{ section.controls === 1 ? 'control' : 'controls' }}
+        </p>
       </article>
     </div>
   </section>

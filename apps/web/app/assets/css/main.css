@@ -130,6 +130,17 @@
   }
 }
 
+/* Route crossfade (nuxt.config app.pageTransition). */
+.page-enter-active,
+.page-leave-active {
+  transition: opacity var(--motion-base) var(--ease-out);
+}
+
+.page-enter-from,
+.page-leave-to {
+  opacity: 0;
+}
+
 /* Loading shimmer is a solid lighter band sliding across a solid base; no
    decorative gradient/glow (design.md §14). */
 .ds-skeleton {

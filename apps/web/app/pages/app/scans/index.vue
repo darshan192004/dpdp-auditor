@@ -7,9 +7,12 @@ import DsErrorState from '~/components/ds/DsErrorState.vue';
 import DashboardPageHeader from '~/components/dashboard/DashboardPageHeader.vue';
 import { useAppContext } from '~/composables/useAppContext';
 import { useToasts } from '~/composables/useToasts';
+import { apiErrorMessage } from '~~/shared/api-error';
 import type { SavedRepoView } from '~~/shared/repo';
 import { canManageScans, scanSubmitPath, type ScanProfile, type ScanStatus } from '~~/shared/scan';
 
+const route = useRoute();
+const router = useRouter();
 const { org } = useAppContext();
 const { push } = useToasts();
 const canSubmit = computed(() => canManageScans(org.value?.role ?? null));
@@ -44,6 +47,13 @@ const quota = ref<{ used: number; limit: number } | null>(null);
 // page while the tab is visible; the timer is cleared on route change.
 let refreshTimer: ReturnType<typeof setInterval> | undefined;
 onMounted(() => {
+  // Overview's "+ New scan" links here with ?new=1; open the drawer once, then
+  // drop the marker so a refresh does not reopen it.
+  if (route.query.new === '1') {
+    drawerOpen.value = true;
+    const { new: _marker, ...rest } = route.query;
+    void router.replace({ query: rest });
+  }
   refreshTimer = setInterval(() => {
     if (document.visibilityState !== 'visible') return;
     void scansRequest.refresh();
@@ -75,8 +85,12 @@ async function startScan(payload: {
     drawerOpen.value = false;
     push('success', 'Scan queued', 'The scan is now running.');
     await navigateTo(`/app/scans/${response.data.id}`);
-  } catch {
-    push('error', 'Scan could not be started', 'Check the repository URL and try again.');
+  } catch (cause) {
+    push(
+      'error',
+      'Scan could not be started',
+      apiErrorMessage(cause, 'Check the repository URL and try again.'),
+    );
   } finally {
     submitting.value = false;
   }

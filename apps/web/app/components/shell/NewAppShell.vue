@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
 import ConsoleSidebar from '~/components/shell/ConsoleSidebar.vue';
 import AppIcon from '~/components/ui/AppIcon.vue';
@@ -50,6 +50,24 @@ function toggleNav(): void {
 function closeMobile(): void {
   mobileOpen.value = false;
 }
+
+// The mobile rail is a dialog: start focus on its close control and give it
+// back to the hamburger when it closes.
+const mobilePanel = ref<HTMLElement | null>(null);
+const hamburger = ref<HTMLButtonElement | null>(null);
+let navTrigger: HTMLElement | null = null;
+
+watch(mobileOpen, async (open) => {
+  if (!import.meta.client) return;
+  if (open) {
+    navTrigger = document.activeElement as HTMLElement | null;
+    await nextTick();
+    mobilePanel.value?.querySelector<HTMLElement>('button')?.focus();
+  } else {
+    (navTrigger ?? hamburger.value)?.focus();
+    navTrigger = null;
+  }
+});
 </script>
 
 <template>
@@ -74,7 +92,15 @@ function closeMobile(): void {
       @keydown.esc="closeMobile"
     >
       <div class="absolute inset-0 bg-[var(--color-overlay)]" @click="closeMobile" />
-      <div class="relative h-full w-64 max-w-[85vw]">
+      <div ref="mobilePanel" class="bg-canvas relative h-full w-64 max-w-[85vw]">
+        <button
+          type="button"
+          aria-label="Close navigation menu"
+          class="border-ink-300 hover:bg-surface-raised absolute top-3 right-3 z-10 inline-flex h-11 w-11 items-center justify-center rounded-[var(--radius-control)] border"
+          @click="closeMobile"
+        >
+          <AppIcon name="x" :size="18" />
+        </button>
         <ConsoleSidebar @navigate="closeMobile" />
       </div>
     </div>
@@ -84,8 +110,9 @@ function closeMobile(): void {
         <header class="border-ink-200 bg-canvas sticky top-0 z-20 border-b px-4 py-3 lg:px-6">
           <div class="flex items-center gap-3">
             <button
+              ref="hamburger"
               type="button"
-              class="border-ink-300 hover:bg-surface-raised inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius-control)] border transition-colors duration-[var(--motion-fast)]"
+              class="border-ink-300 hover:bg-surface-raised inline-flex h-11 w-11 items-center justify-center rounded-[var(--radius-control)] border transition-colors duration-[var(--motion-fast)]"
               :aria-label="navOpen ? 'Close navigation' : 'Open navigation'"
               :aria-expanded="navOpen"
               @click="toggleNav"

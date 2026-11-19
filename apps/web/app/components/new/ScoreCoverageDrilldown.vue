@@ -42,7 +42,7 @@ defineProps<{
     <div class="mt-3 grid gap-2">
       <DsCard v-for="finding in findings" :key="finding.id">
         <DsBadge :tone="finding.severity">{{ finding.severity }}</DsBadge>
-        <span class="ml-3 text-sm">{{ finding.message }}</span>
+        <span class="ml-3 min-w-0 text-sm break-words">{{ finding.message }}</span>
       </DsCard>
       <p v-if="findings.length === 0" class="text-ink-400 text-sm">
         No findings contributed to this score.

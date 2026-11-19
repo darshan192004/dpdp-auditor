@@ -2,6 +2,7 @@ import { mountSuspended } from '@nuxt/test-utils/runtime';
 import { describe, expect, it } from 'vitest';
 
 import FindingDetail from '../app/components/findings/FindingDetail.vue';
+import FindingDrawer from '../app/components/findings/FindingDrawer.vue';
 import { FIXTURE_FINDINGS } from '../server/utils/fixtures/findings';
 
 const loggedFinding = FIXTURE_FINDINGS.find((finding) => finding.id.endsWith('101'))!;
@@ -104,5 +105,17 @@ describe('FindingDetail (docs/design.md §5.4)', () => {
 
     expect(wrapper.emitted('triage')).toBeUndefined();
     expect(wrapper.text()).toContain('at least 10 characters');
+  });
+
+  it('gives the slideover a resolvable dialog description', async () => {
+    await mountSuspended(FindingDrawer, {
+      props: { open: true, finding: loggedFinding, role: 'auditor' },
+      attachTo: document.body,
+    });
+
+    const dialog = document.querySelector('[role="dialog"]');
+    const describedBy = dialog?.getAttribute('aria-describedby');
+    expect(describedBy).toBeTruthy();
+    expect(document.getElementById(describedBy!)).not.toBeNull();
   });
 });

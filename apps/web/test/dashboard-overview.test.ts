@@ -31,13 +31,16 @@ describe('overview building blocks', () => {
     const wrapper = await mountSuspended(SectionCoverageGrid, {
       props: {
         sections: [
-          { code: '§3', title: 'Notice', state: 'ready', controls: 3 },
+          { code: '§3', title: 'Notice', state: 'ready', controls: 1 },
           { code: '§8', title: 'Retention', state: 'at_risk', controls: 2 },
         ],
       },
     });
     expect(wrapper.text()).toContain('READY');
     expect(wrapper.text()).toContain('AT RISK');
+    expect(wrapper.text()).toContain('1 control');
+    expect(wrapper.text()).not.toContain('1 controls');
+    expect(wrapper.text()).toContain('2 controls');
   });
 
   it('ranks the highest severity findings first and caps the list', async () => {
@@ -101,4 +104,5 @@ it('NewOverview renders score ring, readiness grid and ranked actions', async ()
   expect(wrapper.text()).toContain('PARTIAL');
   expect(wrapper.text()).toContain('Secret f1');
   expect(wrapper.text()).toContain('ok');
+  expect(wrapper.find('a[href="/app/scans?new=1"]').exists()).toBe(true);
 });
