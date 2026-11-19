@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onBeforeUnmount, onMounted } from 'vue';
 
 import NewOverview from '~/components/new/NewOverview.vue';
 import { ruleSections, type RuleSectionOption, type RulesPage } from '~~/shared/rules';
@@ -16,8 +16,13 @@ interface CatalogSummary {
   mappings: number;
 }
 
+// useRequestFetch forwards the session cookie during SSR (useFetch uses it
+// internally). Plain $fetch inside useAsyncData does not, which silently
+// empties the authenticated below-the-fold data on first paint.
+const requestFetch = useRequestFetch();
+
 const catalogRequest = await useAsyncData<CatalogSummary>('overview-catalog', async () => {
-  const page = await $fetch<RulesPage>('/api/v1/rules');
+  const page = await requestFetch<RulesPage>('/api/v1/rules');
   const controls = page.data;
   return {
     total: controls.length,
@@ -28,7 +33,9 @@ const catalogRequest = await useAsyncData<CatalogSummary>('overview-catalog', as
 });
 
 const latestRequest = await useAsyncData<ScanSummary | null>('overview-latest-scan', async () => {
-  const page = await $fetch<{ data: ScanListPage }>('/api/v1/scans?status=completed&pageSize=1');
+  const page = await requestFetch<{ data: ScanListPage }>(
+    '/api/v1/scans?status=completed&pageSize=1',
+  );
   return page.data.items[0] ?? null;
 });
 
@@ -37,7 +44,7 @@ const detailRequest = await useAsyncData<ScanDetail | null>(
   'overview-scan-detail',
   () =>
     scanId.value
-      ? $fetch<{ data: ScanDetail }>(`/api/v1/scan/${scanId.value}`).then((r) => r.data)
+      ? requestFetch<{ data: ScanDetail }>(`/api/v1/scan/${scanId.value}`).then((r) => r.data)
       : Promise.resolve(null),
   { watch: [scanId] },
 );
@@ -45,7 +52,7 @@ const findingsRequest = await useAsyncData<FindingsPage['data']>(
   'overview-findings',
   () =>
     scanId.value
-      ? $fetch<FindingsPage>(`/api/v1/scan/${scanId.value}/findings?pageSize=100`).then(
+      ? requestFetch<FindingsPage>(`/api/v1/scan/${scanId.value}/findings?pageSize=100`).then(
           (r) => r.data,
         )
       : Promise.resolve([]),
@@ -53,11 +60,28 @@ const findingsRequest = await useAsyncData<FindingsPage['data']>(
 );
 const healthRequest = await useAsyncData<string>('overview-health', async () => {
   try {
-    const health = await $fetch<{ status: string }>('/api/health');
+    const health = await requestFetch<{ status: string }>('/api/health');
     return health.status;
   } catch {
     return 'unavailable';
   }
+});
+
+// useAsyncData resolves once on the server. Keep the dashboard numbers current
+// while the tab is visible so a scan that finishes updates without a reload.
+// The rules catalog is static, so only the scan-derived requests are polled.
+let refreshTimer: ReturnType<typeof setInterval> | undefined;
+onMounted(() => {
+  refreshTimer = setInterval(() => {
+    if (document.visibilityState !== 'visible') return;
+    void latestRequest.refresh();
+    void detailRequest.refresh();
+    void findingsRequest.refresh();
+    void healthRequest.refresh();
+  }, 5000);
+});
+onBeforeUnmount(() => {
+  if (refreshTimer !== undefined) clearInterval(refreshTimer);
 });
 
 // FixFirstList ranks whatever it is given and its empty copy says "No open

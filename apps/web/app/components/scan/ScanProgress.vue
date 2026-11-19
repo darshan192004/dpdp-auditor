@@ -99,7 +99,9 @@ onBeforeUnmount(() => {
       </div>
       <p class="text-ink-500 flex items-baseline gap-1 text-xs">
         Elapsed
-        <span class="text-ink-800 font-mono tabular-nums">{{ elapsed }}</span>
+        <span data-allow-mismatch="text" class="text-ink-800 font-mono tabular-nums">{{
+          elapsed
+        }}</span>
         <span
           v-if="!terminal"
           class="scan-spinner border-brand-500 inline-block h-3 w-3 rounded-full border-2 border-t-transparent"

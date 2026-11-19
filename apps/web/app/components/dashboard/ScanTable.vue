@@ -6,6 +6,7 @@ import {
   SCAN_STATUSES,
   SCAN_STATUS_LABELS,
   formatScore,
+  formatTimestamp,
   type ScanListPage,
   type ScanStatus,
   type ScanSummary,
@@ -32,7 +33,9 @@ const options = [
   ...SCAN_STATUSES.map((s) => ({ value: s, label: SCAN_STATUS_LABELS[s] })),
 ];
 const pages = computed(() => Array.from({ length: props.pagination.totalPages }, (_, i) => i + 1));
-const when = (iso: string) => new Date(iso).toLocaleDateString();
+// Deterministic UTC string: toLocaleDateString differs between server and
+// browser locales and caused a hydration mismatch on first paint.
+const when = (iso: string) => formatTimestamp(iso);
 </script>
 
 <template>

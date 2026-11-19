@@ -6,8 +6,6 @@ import NewScanDetail from '~/components/new/NewScanDetail.vue';
 import { useScanPolling } from '~/composables/useScanPolling';
 import { useToasts } from '~/composables/useToasts';
 
-definePageMeta({ layout: 'default' });
-
 const route = useRoute();
 const scanId = computed(() => String(route.params.scanId));
 const { push } = useToasts();

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 import ScanTable from '~/components/dashboard/ScanTable.vue';
 import StartScanDrawer from '~/components/dashboard/StartScanDrawer.vue';
@@ -39,6 +39,19 @@ const pagination = computed(
 );
 const repos = computed(() => reposRequest.data.value?.data.items ?? []);
 const quota = ref<{ used: number; limit: number } | null>(null);
+
+// Status chips and scores must move as scans progress, so re-fetch the current
+// page while the tab is visible; the timer is cleared on route change.
+let refreshTimer: ReturnType<typeof setInterval> | undefined;
+onMounted(() => {
+  refreshTimer = setInterval(() => {
+    if (document.visibilityState !== 'visible') return;
+    void scansRequest.refresh();
+  }, 5000);
+});
+onBeforeUnmount(() => {
+  if (refreshTimer !== undefined) clearInterval(refreshTimer);
+});
 
 function setStatus(value: ScanStatus | ''): void {
   status.value = value;
