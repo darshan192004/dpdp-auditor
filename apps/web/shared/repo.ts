@@ -1,5 +1,7 @@
 /** P2-C: shared repo contracts between Nitro and the browser. */
 
+import { GITHUB_URL_PATTERN } from './scan';
+
 export type RepoVisibility = 'public' | 'private' | 'internal';
 
 export interface ResolveRepoInput {
@@ -73,7 +75,7 @@ function parseGithubUrl(raw: unknown): string {
     throw new RepoInputError('githubUrl', 'Enter a GitHub repository URL.');
   }
   const url = value.trim();
-  if (url.length === 0 || url.length > 2048) {
+  if (url.length === 0 || url.length > 2048 || !GITHUB_URL_PATTERN.test(url)) {
     throw new RepoInputError('githubUrl', 'Enter a valid GitHub repository URL.');
   }
   return url;
