@@ -71,3 +71,34 @@ describe('overview building blocks', () => {
     expect(full.find('svg').exists()).toBe(true);
   });
 });
+
+const COUNTS = { critical: 1, high: 0, medium: 0, low: 0, info: 0, total: 1 };
+
+it('NewOverview renders score ring, readiness grid and ranked actions', async () => {
+  const NewOverview = (await import('../app/components/new/NewOverview.vue')).default;
+  const wrapper = await mountSuspended(NewOverview, {
+    props: {
+      stats: [
+        { label: 'Scored controls', value: 11 },
+        { label: 'Sections covered', value: 7 },
+      ],
+      latestScan: {
+        id: 'scn_1',
+        status: 'completed',
+        score: 82.6,
+        grade: 'B',
+        coverage: { semgrep: 'completed', checkov: 'completed', gitleaks: 'completed' },
+        repository: { id: 'r1', fullName: 'acme/repo', visibility: 'public' },
+      },
+      counts: COUNTS,
+      sections: [{ code: '§6', title: 'Security', state: 'partial', controls: 4 }],
+      findings: [FINDING('f1', 'critical')],
+      health: 'ok',
+    },
+  });
+  expect(wrapper.text()).toContain('82.6');
+  expect(wrapper.text()).toContain('grade B');
+  expect(wrapper.text()).toContain('PARTIAL');
+  expect(wrapper.text()).toContain('Secret f1');
+  expect(wrapper.text()).toContain('ok');
+});
