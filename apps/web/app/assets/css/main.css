@@ -107,11 +107,51 @@
 }
 
 /* Live progress motion. The global reduced-motion override below still wins. */
-@keyframes scan-spin { to { transform: rotate(360deg); } }
-@keyframes scan-pulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
+@keyframes scan-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes scan-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes skeleton-shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* Loading shimmer is a solid lighter band sliding across a solid base; no
+   decorative gradient/glow (design.md §14). */
+.ds-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-ink-100);
+}
+
+.ds-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--color-ink-300);
+  opacity: 0.55;
+  pointer-events: none;
+  animation: skeleton-shimmer 1.4s linear infinite;
+}
 
 @media (prefers-reduced-motion: reduce) {
-  .scan-spinner, .scan-stage-active {
+  .scan-spinner,
+  .scan-stage-active,
+  .ds-skeleton::after {
     animation: none !important;
   }
 }

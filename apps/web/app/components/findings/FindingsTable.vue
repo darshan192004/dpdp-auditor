@@ -146,12 +146,13 @@ function lineRange(finding: FindingView): string {
 
         <tbody v-else>
           <tr
-            v-for="finding in findings"
+            v-for="(finding, index) in findings"
             :id="`finding-row-${finding.id}`"
             :key="finding.id"
             tabindex="0"
             :aria-current="selectedId === finding.id ? 'true' : undefined"
-            class="border-ink-100 hover:bg-ink-100/60 focus-visible:ring-brand-500 group cursor-pointer border-t align-top focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset"
+            :style="{ transitionDelay: `${Math.min(index, 19) * 20}ms` }"
+            class="border-ink-100 hover:bg-ink-100/60 focus-visible:ring-brand-500 group cursor-pointer border-t align-top transition-[transform,opacity] duration-[var(--motion-base)] ease-[var(--ease-out)] focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset"
             @click="emit('select', finding)"
             @keydown.enter.prevent="emit('select', finding)"
           >

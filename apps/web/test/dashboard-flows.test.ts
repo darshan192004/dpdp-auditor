@@ -178,3 +178,22 @@ it('rules, audit and remediation screens expose their data and controls', async 
   const remediationView = await mountSuspended(NewRemediationIndex, { props: { scans } });
   expect(remediationView.find('a[href="/app/scans/s1/remediation"]').exists()).toBe(true);
 });
+
+it('tokens define motion animations and reduced-motion coverage', async () => {
+  const { existsSync, readFileSync } = await import('node:fs');
+  const { resolve } = await import('node:path');
+  // Nuxt's Vitest environment does not guarantee a file: import.meta.url, so
+  // resolve from the working directory (apps/web) with a repo-root fallback.
+  const candidates = [
+    resolve(process.cwd(), 'app/assets/css/main.css'),
+    resolve(process.cwd(), 'apps/web/app/assets/css/main.css'),
+  ];
+  const cssPath = candidates.find((candidate) => existsSync(candidate));
+  expect(cssPath).toBeDefined();
+  const css = readFileSync(cssPath!, 'utf8');
+  expect(css).toContain('@keyframes scan-spin');
+  expect(css).toContain('@keyframes scan-pulse');
+  expect(css).toContain('@keyframes skeleton-shimmer');
+  expect(css).toContain('prefers-reduced-motion: reduce');
+  expect(css).toContain('.ds-skeleton');
+});

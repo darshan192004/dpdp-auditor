@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-surface-raised animate-pulse rounded-[var(--radius-control)]" aria-hidden="true">
+  <div class="ds-skeleton rounded-[var(--radius-control)]" aria-hidden="true">
     <slot />
   </div>
 </template>
