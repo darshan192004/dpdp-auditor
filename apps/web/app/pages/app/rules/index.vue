@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
+import NewRules from '~/components/new/NewRules.vue';
 import RuleCard from '~/components/rules/RuleCard.vue';
 import SectionNav from '~/components/rules/SectionNav.vue';
 import PageHeader from '~/components/shell/PageHeader.vue';
@@ -19,6 +20,8 @@ import {
 } from '~~/shared/rules';
 
 definePageMeta({ layout: 'app' });
+
+const newUi = useRuntimeConfig().public.newUi;
 
 const route = useRoute();
 const router = useRouter();
@@ -59,7 +62,13 @@ async function clearFilters(): Promise<void> {
 </script>
 
 <template>
-  <div class="space-y-5">
+  <NewRules
+    v-if="newUi"
+    :rules="rules.map((rule) => ({ code: rule.code, title: rule.title }))"
+    :loading="loading"
+    :error="loadError?.message ?? null"
+  />
+  <div v-else class="space-y-5">
     <PageHeader title="Rules" :breadcrumbs="[{ label: 'Rules' }]">
       <template #actions>
         <p class="text-ink-500 text-xs tabular-nums" role="status" aria-live="polite">

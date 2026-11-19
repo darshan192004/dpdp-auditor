@@ -6,9 +6,13 @@
  */
 import { computed } from 'vue';
 
+import DsSkeleton from '~/components/ds/DsSkeleton.vue';
+import NewReport from '~/components/new/NewReport.vue';
 import { SCAN_STATUS_LABELS, formatScore, formatTimestamp, scanSections } from '~~/shared/scan';
 
 definePageMeta({ layout: 'print' });
+
+const newUi = useRuntimeConfig().public.newUi;
 
 interface ReportViewModel {
   report: { id: string; format: string; templateVersion: string; createdAt: string };
@@ -97,7 +101,13 @@ function duration(ms: number | null): string {
 </script>
 
 <template>
-  <article class="text-ink-900 space-y-8 text-sm">
+  <DsSkeleton v-if="newUi && loading" class="h-32" />
+  <NewReport
+    v-else-if="newUi"
+    :scan-id="report?.scan.id ?? ''"
+    :can-export="report?.scan.status === 'completed'"
+  />
+  <article v-else class="text-ink-900 space-y-8 text-sm">
     <header class="border-ink-200 border-b pb-5">
       <p class="text-ink-400 font-mono text-xs tracking-widest uppercase">DPDPA audit report</p>
       <h1 class="mt-2 text-2xl font-semibold">

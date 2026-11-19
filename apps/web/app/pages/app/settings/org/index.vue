@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue';
 
+import NewSettings from '~/components/new/NewSettings.vue';
 import PageHeader from '~/components/shell/PageHeader.vue';
 import ErrorState from '~/components/ui/ErrorState.vue';
 import {
@@ -27,6 +28,8 @@ import { formatTimestamp } from '~~/shared/scan';
 import UsageMeter from '~/components/glass/UsageMeter.vue';
 
 definePageMeta({ layout: 'app' });
+
+const newUi = useRuntimeConfig().public.newUi;
 
 // Both reads are tenant-scoped by the session; the role inside `OrgDetail`
 // decides which controls render (docs/api.md §7.2–7.3).
@@ -239,7 +242,8 @@ async function removeMember(member: OrgMember): Promise<void> {
 </script>
 
 <template>
-  <div class="space-y-5">
+  <NewSettings v-if="newUi" :org-name="org?.name ?? ''" :loading="loading" />
+  <div v-else class="space-y-5">
     <PageHeader title="Organisation settings" :breadcrumbs="[{ label: 'Settings' }]" />
 
     <ErrorState

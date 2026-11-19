@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue';
+import NewAudit from '~/components/new/NewAudit.vue';
 import PageHeader from '~/components/shell/PageHeader.vue';
 import EmptyState from '~/components/ui/EmptyState.vue';
 import ErrorState from '~/components/ui/ErrorState.vue';
@@ -7,6 +8,8 @@ import { formatTimestamp } from '~~/shared/scan';
 import type { AuditLogListResponse } from '~~/shared/audit';
 
 definePageMeta({ layout: 'app' });
+
+const newUi = useRuntimeConfig().public.newUi;
 
 const filters = reactive({
   action: '',
@@ -119,7 +122,19 @@ function formatAction(action: string): string {
 </script>
 
 <template>
-  <div class="space-y-5">
+  <NewAudit
+    v-if="newUi"
+    :events="
+      entries.map((entry) => ({
+        id: String(entry.id),
+        action: entry.action,
+        createdAt: entry.createdAt,
+      }))
+    "
+    :loading="loading"
+    :error="loadError?.message ?? null"
+  />
+  <div v-else class="space-y-5">
     <PageHeader title="Audit" :breadcrumbs="[{ label: 'Audit' }]" />
 
     <ErrorState
