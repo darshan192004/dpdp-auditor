@@ -1,55 +1,105 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 
-import DsDrawer from '~/components/ds/DsDrawer.vue';
-import DsFilterChips from '~/components/ds/DsFilterChips.vue';
-import DsFindingRow from '~/components/ds/DsFindingRow.vue';
-import type { FindingSeverity, FindingView } from '~~/shared/findings';
+import DashboardPageHeader from '~/components/dashboard/DashboardPageHeader.vue';
+import SeverityBar from '~/components/dashboard/SeverityBar.vue';
+import FindingDrawer from '~/components/findings/FindingDrawer.vue';
+import FindingsFilterBar from '~/components/findings/FindingsFilterBar.vue';
+import FindingsTable from '~/components/findings/FindingsTable.vue';
+import DsSkeleton from '~/components/ds/DsSkeleton.vue';
+import type {
+  FindingSort,
+  FindingStatus,
+  FindingView,
+  FindingsFilters,
+  FindingsPagination,
+} from '~~/shared/findings';
 
-const props = defineProps<{ findings: FindingView[] }>();
-const route = useRoute();
-
-const SEVERITIES: FindingSeverity[] = ['critical', 'high', 'medium', 'low', 'info'];
-const active = ref<FindingSeverity[]>([]);
-const selected = ref<FindingView | null>(null);
-
-const visible = computed(() =>
-  active.value.length === 0
-    ? props.findings
-    : props.findings.filter((finding) => active.value.includes(finding.severity)),
+// The four core props (findings, pagination, selected, loading) are the
+// presentational contract; filters/sort/role/triaging let the page delegate
+// the workbench controls while owning all state and mutations.
+const props = withDefaults(
+  defineProps<{
+    findings: FindingView[];
+    pagination: FindingsPagination;
+    selected: FindingView | null;
+    filters: FindingsFilters;
+    sort: FindingSort;
+    role: string;
+    loading?: boolean;
+    triaging?: boolean;
+  }>(),
+  { loading: false, triaging: false },
 );
+
+const emit = defineEmits<{
+  select: [finding: FindingView];
+  close: [];
+  triage: [draft: { status: FindingStatus; note?: string; externalUrl?: string }];
+  'update:filters': [patch: Partial<FindingsFilters>];
+  clear: [];
+  'update:sort': [sort: FindingSort];
+  'update:page': [page: number];
+  'update:pageSize': [pageSize: number];
+}>();
+
+const counts = computed(() => ({
+  critical: props.findings.filter((finding) => finding.severity === 'critical').length,
+  high: props.findings.filter((finding) => finding.severity === 'high').length,
+  medium: props.findings.filter((finding) => finding.severity === 'medium').length,
+  low: props.findings.filter((finding) => finding.severity === 'low').length,
+  info: props.findings.filter((finding) => finding.severity === 'info').length,
+  total: props.findings.length,
+}));
 </script>
 
 <template>
-  <div>
-    <h1 class="text-2xl font-semibold">Findings</h1>
-    <DsFilterChips v-model="active" :options="SEVERITIES" class="mt-4" />
-    <div class="mt-4 grid gap-2">
-      <div
-        v-for="(finding, index) in visible.slice(0, 20)"
-        :key="finding.id"
-        :style="{ transitionDelay: `${Math.min(index, 19) * 20}ms` }"
-        class="min-w-0 transition-[transform,opacity] duration-[var(--motion-base)] ease-[var(--ease-out)]"
-      >
-        <DsFindingRow :finding="finding" @select="selected = $event" />
-      </div>
-      <p v-if="visible.length === 0" class="text-ink-400 mt-4 text-sm">
-        No findings match these filters.
+  <div class="min-w-0">
+    <DashboardPageHeader
+      title="Findings"
+      subtitle="Every finding carries evidence, a DPDP mapping and a fix."
+    >
+      <template #actions>
+        <span class="text-ink-400 font-mono text-xs">{{ pagination.totalItems }} total</span>
+      </template>
+    </DashboardPageHeader>
+
+    <div class="bg-surface rounded-[var(--radius-card)] p-4 shadow-[var(--shadow-card)]">
+      <SeverityBar :counts="counts" />
+      <p v-if="selected" class="text-ink-400 mt-2 font-mono text-xs">
+        Selected evidence · {{ selected.evidence.hash }}
       </p>
     </div>
-    <DsDrawer :open="selected !== null" :title="selected?.message ?? ''" @close="selected = null">
-      <template v-if="selected">
-        <p class="text-ink-400 font-mono text-xs">
-          {{ selected.severity }} · {{ selected.evidence.hash }}
-        </p>
-        <p class="mt-4 text-sm">{{ selected.remediation?.summary ?? 'Review this finding.' }}</p>
-        <NuxtLink
-          :to="`/app/scans/${route.params.scanId}/remediation?finding=${selected.id}`"
-          class="text-brand-500 mt-6 inline-block font-mono text-xs hover:underline"
-        >
-          Open remediation workspace
-        </NuxtLink>
-      </template>
-    </DsDrawer>
+
+    <FindingsFilterBar
+      :filters="filters"
+      :total-items="pagination.totalItems"
+      class="mt-4"
+      @update="emit('update:filters', $event)"
+      @clear="emit('clear')"
+    />
+
+    <DsSkeleton v-if="loading" class="mt-4 h-64" />
+    <FindingsTable
+      v-else
+      :findings="findings"
+      :pagination="pagination"
+      :sort="sort"
+      :selected-id="selected?.id ?? null"
+      @select="emit('select', $event)"
+      @update:sort="emit('update:sort', $event)"
+      @update:page="emit('update:page', $event)"
+      @update:page-size="emit('update:pageSize', $event)"
+      @clear="emit('clear')"
+    />
+
+    <FindingDrawer
+      :finding="selected"
+      :open="selected !== null"
+      :role="role"
+      :submitting="triaging"
+      @update:open="!$event && emit('close')"
+      @triage="emit('triage', $event)"
+    />
   </div>
 </template>

@@ -4,6 +4,11 @@ import { describe, expect, it } from 'vitest';
 import StartScanDrawer from '../app/components/dashboard/StartScanDrawer.vue';
 import type { SavedRepoView } from '../shared/repo';
 
+// Warm the findings component tree at module scope: the in-test dynamic import
+// below then resolves from cache instead of spending Vitest's 5s test budget on
+// first-time transforms of FindingsTable / FindingsDrawer / Nuxt UI.
+await import('../app/components/new/NewFindings.vue');
+
 const REPOS: SavedRepoView[] = [
   {
     id: 'repo_1',
@@ -67,4 +72,49 @@ it('scan detail shows score with coverage and a cancel action for running scans'
   expect(wrapper.find('button[data-action="cancel"]').exists()).toBe(true);
   await wrapper.find('button[data-action="cancel"]').trigger('click');
   expect(wrapper.emitted('cancel')?.[0]?.[0]).toBe('Cancelled from the console');
+});
+
+it('findings view forwards triage and selection', async () => {
+  const NewFindings = (await import('../app/components/new/NewFindings.vue')).default;
+  const finding = {
+    id: 'f1',
+    scanId: 'scn_1',
+    scanner: 'semgrep',
+    scannerRuleId: 'r1',
+    severity: 'high',
+    confidence: 'direct',
+    status: 'open',
+    isNew: true,
+    filePath: 'src/a.ts',
+    lineStart: 1,
+    lineEnd: 2,
+    message: 'Issue',
+    evidence: { hash: 'sha256:abc' },
+    dpdpa: null,
+    remediation: { summary: 'Fix it', steps: [] },
+  } as const;
+  const filters = {
+    severity: [],
+    scanner: [],
+    section: [],
+    status: [],
+    file: '',
+    q: '',
+    page: 1,
+    pageSize: 50,
+    sort: '-severity' as const,
+  };
+  const wrapper = await mountSuspended(NewFindings, {
+    props: {
+      findings: [finding],
+      pagination: { page: 1, pageSize: 50, totalItems: 1, totalPages: 1 },
+      selected: finding,
+      filters,
+      sort: filters.sort,
+      role: 'auditor',
+    },
+  });
+  expect(wrapper.text()).toContain('Issue');
+  expect(wrapper.text()).toContain('sha256:abc');
+  expect(wrapper.text()).toContain('1 total');
 });
