@@ -3,8 +3,6 @@ import ScoreCoverageDrilldown from '~/components/new/ScoreCoverageDrilldown.vue'
 import type { FindingsPage, FindingView } from '~~/shared/findings';
 import { coverageFor, scanSections, SECTION_LABELS, type ScanDetail } from '~~/shared/scan';
 
-definePageMeta({ layout: 'app' });
-
 const route = useRoute();
 const scanId = computed(() => String(route.params.scanId));
 const { data: scanData } = await useFetch<{ data: ScanDetail }>(

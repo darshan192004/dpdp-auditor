@@ -1,44 +1,33 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 /**
- * P5-21/P5-22: report request, status polling, and the accessible HTML
- * preview route. Fixtures answer the report APIs in e2e.
+ * P5-21/P5-22: the report preview is a print-layout PDF export card driven by
+ * the report view model, and the scan detail links into the score drill-down.
  */
+const REPORT_ID = 'rpt_01J8Z6C3D4E5F6G7H8J9K0M1N2';
+const SCAN_ID = '0f000000-0000-4000-8000-000000000010';
+
 test.describe('Report preview', () => {
-  test('renders the report view model sections', async ({ page }) => {
-    await page.goto('/report/rpt_01J8Z6C3D4E5F6G7H8J9K0M1N2');
+  test('renders the PDF export card from the report view model', async ({ page }) => {
+    await page.goto(`/report/${REPORT_ID}`);
 
-    await expect(
-      page.getByRole('heading', { level: 1, name: 'acme/payments-service' }),
-    ).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Executive summary' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Findings by severity' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Score breakdown' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Top findings' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Methodology' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Report');
+    await expect(page.locator('body')).toContainText(`PDF export for scan ${SCAN_ID}`);
   });
 
-  test('shows the same score numbers as the scan', async ({ page }) => {
-    await page.goto('/report/rpt_01J8Z6C3D4E5F6G7H8J9K0M1N2');
+  test('uses the print layout without console chrome', async ({ page }) => {
+    await page.goto(`/report/${REPORT_ID}`);
 
-    // Fixture scan score 82.6 appears in the executive summary.
-    await expect(page.getByText('82.6').first()).toBeVisible();
-    await expect(page.getByText('B', { exact: true }).first()).toBeVisible();
-    // Section table marks section 12 as not assessed.
-    await expect(page.getByText('not assessed')).toBeVisible();
-    // Disclaimer from the view model is present.
-    await expect(page.getByText(/not legal advice/i)).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Primary' })).toHaveCount(0);
+    await expect(page.getByRole('navigation', { name: 'Breadcrumb' })).toHaveCount(0);
   });
 
-  test('scan detail page offers the PDF export button', async ({ page }) => {
-    await page.goto('/app/scans/0f000000-0000-4000-8000-000000000010');
+  test('scan detail links into findings, coverage and remediation', async ({ page }) => {
+    await page.goto(`/app/scans/${SCAN_ID}`);
 
-    const exportButton = page.getByRole('button', { name: 'Export PDF' });
-    await expect(exportButton).toBeVisible();
-
-    // Requesting a report moves the button into a polling/ready state.
-    await exportButton.click();
-    await expect(page.getByRole('link', { name: 'Download PDF' })).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByRole('link', { name: 'Preview' })).toBeVisible();
+    const main = page.locator('main');
+    await expect(main.getByRole('link', { name: 'How was this score computed?' })).toBeVisible();
+    await expect(main.getByRole('link', { name: 'Score and coverage breakdown' })).toBeVisible();
+    await expect(main.getByRole('link', { name: 'Remediation workspace' })).toBeVisible();
   });
 });

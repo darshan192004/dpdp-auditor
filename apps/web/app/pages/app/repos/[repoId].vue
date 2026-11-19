@@ -7,8 +7,6 @@ import { useAppContext } from '~/composables/useAppContext';
 import type { RepoDetailView } from '~~/shared/repo';
 import { formatTimestamp } from '~~/shared/scan';
 
-definePageMeta({ layout: 'app' });
-
 const route = useRoute();
 const repoId = computed(() => String(route.params.repoId ?? ''));
 const { org } = useAppContext();

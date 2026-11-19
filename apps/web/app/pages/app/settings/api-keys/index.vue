@@ -15,8 +15,6 @@ import {
 } from '~~/shared/api-key';
 import { formatTimestamp } from '~~/shared/scan';
 
-definePageMeta({ layout: 'app' });
-
 const keysRequest = await useFetch<{ data: ApiKeyView[] }>('/api/v1/api-keys');
 
 const keys = computed(() => keysRequest.data.value?.data ?? []);

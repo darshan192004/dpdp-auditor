@@ -16,7 +16,7 @@ defineEmits<{ select: [finding: FindingView] }>();
     <DsBadge :tone="finding.severity">{{ finding.severity }}</DsBadge>
     <span class="min-w-0 flex-1">
       <span class="text-ink-900 block text-sm">{{ finding.message }}</span>
-      <span class="text-ink-400 mt-1 block font-mono text-xs">
+      <span class="text-ink-400 mt-1 block font-mono text-xs break-all">
         {{ finding.filePath }}:{{ finding.lineStart }} · {{ finding.evidence.hash }}
       </span>
     </span>

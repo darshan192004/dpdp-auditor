@@ -1,6 +1,10 @@
 <script setup lang="ts">
 // Landing page — docs/design.md §2 route map ("/", SSG/ISR, public).
 // Full marketing design lands in Phase 5; this establishes route + copy rules.
+// The landing page owns its own header and main landmark, so it must render
+// outside the console shell (design.md §2 route map).
+definePageMeta({ layout: 'default' });
+
 const STEPS = [
   {
     step: '01',

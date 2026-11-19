@@ -29,7 +29,7 @@ const visible = computed(() =>
         v-for="(finding, index) in visible.slice(0, 20)"
         :key="finding.id"
         :style="{ transitionDelay: `${Math.min(index, 19) * 20}ms` }"
-        class="transition-[transform,opacity] duration-[var(--motion-base)] ease-[var(--ease-out)]"
+        class="min-w-0 transition-[transform,opacity] duration-[var(--motion-base)] ease-[var(--ease-out)]"
       >
         <DsFindingRow :finding="finding" @select="selected = $event" />
       </div>

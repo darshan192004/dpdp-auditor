@@ -9,8 +9,6 @@ import ConfidenceBadge from '~/components/findings/ConfidenceBadge.vue';
 import SeverityBadge from '~/components/findings/SeverityBadge.vue';
 import { ruleSectionLabel, ruleWeightLabel, type RuleView } from '~~/shared/rules';
 
-definePageMeta({ layout: 'app' });
-
 const route = useRoute();
 const code = computed(() => String(route.params.code));
 

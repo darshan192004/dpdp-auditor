@@ -10,10 +10,9 @@ export default defineConfig({
     port: 3000,
     reuseExistingServer: !process.env.CI,
     // Fixtures keep the workbench verifiable without Docker, Postgres, or the
-    // Phase 2 session. The new-UI flag is opt-in and absent from production.
+    // Phase 2 session.
     env: {
       NUXT_FIXTURES: '1',
-      ...(process.env.NUXT_PUBLIC_NEW_UI === '1' ? { NUXT_PUBLIC_NEW_UI: '1' } : {}),
     },
     // Cold-start headroom: the dev server re-bootstraps modules before serving
     // (observed 14s+ for @nuxt/ui alone on a cold cache).

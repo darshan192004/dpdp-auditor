@@ -14,8 +14,6 @@ import {
 } from '~~/shared/repo';
 import { formatTimestamp } from '~~/shared/scan';
 
-definePageMeta({ layout: 'app' });
-
 const { org } = useAppContext();
 const canManage = computed(() => ['owner', 'admin'].includes(org.value?.role ?? ''));
 

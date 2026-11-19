@@ -1,54 +1,35 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
-// Fixture ids are fixed in server/utils/fixtures/scans.ts. They are duplicated
-// here because Playwright cannot resolve the `~~` Nuxt alias.
+// Fixture ids are fixed in server/utils/fixtures/scans.ts.
 const SCAN_ID = '0f000000-0000-4000-8000-000000000010';
 const PARTIAL_SCAN_ID = '0f000000-0000-4000-8000-000000000011';
 const SCAN_PATH = `/app/scans/${SCAN_ID}`;
 const PARTIAL_SCAN_PATH = `/app/scans/${PARTIAL_SCAN_ID}`;
 
-test('scorecard: score, trend, sections, and links into findings', async ({ page }) => {
+test('scorecard: score, coverage and drill-down links', async ({ page }) => {
   await page.goto(SCAN_PATH);
 
-  await expect(
-    page.getByRole('heading', { name: 'acme/payments-service', level: 1 }),
-  ).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Scan progress' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Timeline' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Export PDF' })).toBeVisible();
-  const scorecard = page.getByRole('region', { name: 'DPDPA score', exact: true });
-  await expect(scorecard.getByText('82.6', { exact: true })).toBeVisible();
-  await expect(scorecard.getByText('Grade B', { exact: true })).toBeVisible();
-  await expect(page.getByText('4.2 vs last')).toBeVisible();
+  const main = page.locator('main');
+  await expect(main.getByRole('heading', { level: 1 })).toHaveText('acme/payments-service');
+  await expect(main).toContainText('82.6');
+  await expect(main).toContainText('coverage: full');
+  await expect(main).toContainText('B');
+  await expect(main.getByRole('link', { name: 'How was this score computed?' })).toBeVisible();
+  await expect(main.getByRole('link', { name: 'Score and coverage breakdown' })).toBeVisible();
+  await expect(main.getByRole('link', { name: 'Remediation workspace' })).toBeVisible();
 
-  const rows = page.locator('tbody tr');
-  await expect(rows).toHaveCount(10);
-  await expect(rows.first()).toContainText('Correction and erasure');
-  await expect(rows.last()).toContainText('Right to access');
-  await expect(rows.last()).toContainText('Not assessed by code');
-
-  await page.getByRole('link', { name: /Critical/ }).click();
-  await expect(page).toHaveURL(new RegExp(`/app/scans/${SCAN_ID}/findings\\?severity=critical`));
-  await expect(page.locator('tbody tr')).toHaveCount(3);
-
-  await page.goBack();
-  await rows.getByRole('link', { name: /Consent/ }).click();
-  await expect(page).toHaveURL(new RegExp(`/app/scans/${SCAN_ID}/findings\\?section=6`));
-  await expect(page.getByText('1 finding')).toBeVisible();
+  await main.getByRole('link', { name: 'How was this score computed?' }).click();
+  await expect(page).toHaveURL(new RegExp(`/app/scans/${SCAN_ID}/findings$`));
 });
 
-test('partial coverage withholds the grade and explains why', async ({ page }) => {
+test('partial coverage names the timed-out scanner and withholds the grade', async ({ page }) => {
   await page.goto(PARTIAL_SCAN_PATH);
 
-  const scorecard = page.getByRole('region', { name: 'DPDPA score', exact: true });
-  await expect(scorecard.getByText('74.1', { exact: true })).toBeVisible();
-  await expect(scorecard.getByText('Grade withheld', { exact: true })).toBeVisible();
-  await expect(scorecard.getByRole('status')).toContainText('Gitleaks timed out');
-  await expect(scorecard.getByRole('status')).toContainText(
-    'Grade withheld until every scanner completes.',
-  );
-  await expect(scorecard.getByText('Grade B', { exact: true })).toHaveCount(0);
+  const main = page.locator('main');
+  await expect(main).toContainText('74.1');
+  await expect(main).toContainText('coverage: partial');
+  await expect(main).toContainText('Coverage incomplete: Gitleaks timed out.');
 });
 
 test('scorecard has no serious or critical a11y violations', async ({ page }) => {

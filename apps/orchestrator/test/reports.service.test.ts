@@ -102,6 +102,7 @@ function make(found: ReturnType<typeof report> | null = report()) {
       downloadUrl: 'https://example.com/signed',
     }),
     signedUrl: vi.fn().mockReturnValue('https://example.com/signed'),
+    read: vi.fn().mockReturnValue(null),
   };
   const organizations = {
     findById: vi.fn().mockResolvedValue({ id: ORG_ID, plan: 'enterprise', slug: 'acme' }),

@@ -4,8 +4,6 @@ import { computed } from 'vue';
 import RemediationWorkspace from '~/components/new/RemediationWorkspace.vue';
 import type { FindingsPage } from '~~/shared/findings';
 
-definePageMeta({ layout: 'app' });
-
 const route = useRoute();
 const scanId = computed(() => String(route.params.scanId));
 const { data, refresh } = await useFetch<FindingsPage>(
