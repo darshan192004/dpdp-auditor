@@ -100,6 +100,12 @@ onBeforeUnmount(() => {
       <p class="text-ink-500 flex items-baseline gap-1 text-xs">
         Elapsed
         <span class="text-ink-800 font-mono tabular-nums">{{ elapsed }}</span>
+        <span
+          v-if="!terminal"
+          class="scan-spinner border-brand-500 inline-block h-3 w-3 rounded-full border-2 border-t-transparent"
+          style="animation: scan-spin 900ms linear infinite"
+          aria-hidden="true"
+        />
       </p>
     </div>
 
@@ -114,7 +120,12 @@ onBeforeUnmount(() => {
       >
         <span
           class="flex h-4 w-4 items-center justify-center rounded-full"
-          :class="STAGE_DOT[stage.state]"
+          :class="[STAGE_DOT[stage.state], { 'scan-stage-active': stage.state === 'current' }]"
+          :style="
+            stage.state === 'current'
+              ? { animation: 'scan-pulse 1.4s ease-in-out infinite' }
+              : undefined
+          "
           aria-hidden="true"
         >
           <AppIcon v-if="stage.state === 'done'" name="check" :size="10" />

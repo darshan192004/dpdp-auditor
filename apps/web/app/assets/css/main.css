@@ -106,6 +106,16 @@
   --color-overlay: rgb(0 0 0 / 0.6);
 }
 
+/* Live progress motion. The global reduced-motion override below still wins. */
+@keyframes scan-spin { to { transform: rotate(360deg); } }
+@keyframes scan-pulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .scan-spinner, .scan-stage-active {
+    animation: none !important;
+  }
+}
+
 @layer base {
   :root {
     color-scheme: dark;

@@ -1,43 +1,32 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
+import DsErrorState from '~/components/ds/DsErrorState.vue';
 import NewScanDetail from '~/components/new/NewScanDetail.vue';
 import { useScanPolling } from '~/composables/useScanPolling';
-import { coverageFor } from '~~/shared/scan';
+import { useToasts } from '~/composables/useToasts';
+
+definePageMeta({ layout: 'default' });
 
 const route = useRoute();
 const scanId = computed(() => String(route.params.scanId));
+const { push } = useToasts();
+const { scan, status, error, refresh } = await useScanPolling(scanId);
 
-/**
- * One fetch owns the scan detail. `useScanPolling` server-renders the first
- * response, then polls while the scan is active.
- */
-const { scan, status } = await useScanPolling(scanId);
-
-/** Coverage is only meaningful for a completed scan. */
-const coverage = computed(() => {
-  if (scan.value === null || scan.value.status !== 'completed') {
-    return { state: 'full' as const, note: null };
+async function cancel(reason: string): Promise<void> {
+  try {
+    await $fetch(`/api/v1/scan/${scanId.value}/cancel`, { method: 'POST', body: { reason } });
+    push('success', 'Scan cancelled', 'Partial results are still available.');
+    await refresh();
+  } catch {
+    push('error', 'Cancel failed', 'The scan could not be cancelled. Try again.');
   }
-  return coverageFor(scan.value.coverage);
-});
+}
 </script>
 
 <template>
-  <NewScanDetail
-    :loading="status === 'pending'"
-    :scan="
-      scan === null
-        ? null
-        : {
-            id: scan.id,
-            status: scan.status,
-            score: scan.score,
-            grade: scan.grade,
-            coverage: scan.status === 'completed' ? coverage.state : 'not scored',
-            repository: scan.repository.fullName,
-            note: coverage.note,
-          }
-    "
-  />
+  <div>
+    <DsErrorState v-if="error" message="This scan could not be loaded." @retry="refresh" />
+    <NewScanDetail :scan="scan" :loading="status === 'pending'" @cancel="cancel" />
+  </div>
 </template>

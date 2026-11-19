@@ -12,14 +12,30 @@ describe('NewScanDetail', () => {
           status: 'completed',
           score: 100,
           grade: 'A',
-          coverage: 'full',
-          repository: 'acme/repo',
-        },
+          coverage: { semgrep: 'completed', checkov: 'completed', gitleaks: 'completed' },
+          repository: { id: 'r1', fullName: 'acme/repo', visibility: 'public' },
+          ref: 'main',
+          commitSha: null,
+          previousScore: null,
+          sectionScores: {},
+          counts: { critical: 0, high: 0, medium: 0, low: 0, info: 0, total: 0 },
+          scannerVersions: {},
+          rulePackVersion: null,
+          scoringVersion: null,
+          error: null,
+          timestamps: {
+            queuedAt: '2026-11-19T05:00:00Z',
+            startedAt: '2026-11-19T05:00:10Z',
+            completedAt: '2026-11-19T05:01:00Z',
+            durationMs: 50_000,
+          },
+          links: { findings: '', events: '', report: '' },
+        } as import('../shared/scan').ScanDetail,
       },
     });
     expect(wrapper.text()).toContain('100.0');
     expect(wrapper.text()).toContain('A');
-    expect(wrapper.text()).toContain('coverage: full');
+    expect(wrapper.text()).toContain('full coverage');
     expect(wrapper.findAll('h1')).toHaveLength(1);
   });
 });
