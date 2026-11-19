@@ -118,3 +118,63 @@ it('findings view forwards triage and selection', async () => {
   expect(wrapper.text()).toContain('sha256:abc');
   expect(wrapper.text()).toContain('1 total');
 });
+
+it('rules, audit and remediation screens expose their data and controls', async () => {
+  const rules = [
+    {
+      code: 'S6.3',
+      section: '§6',
+      title: 'Encryption',
+      summary: 'Encrypt data',
+      obligation: 'Protect personal data',
+      legalReference: 'DPDP Act §6',
+      severity: 'high',
+      weight: 2,
+      scored: true,
+      evidenceStrength: 'direct',
+      tags: [],
+      mappings: [],
+      remediation: 'Enable encryption at rest',
+    },
+  ] as import('../shared/rules').RuleView[];
+  const events = [
+    {
+      id: 1,
+      actor: { type: 'user', id: null, name: 'dev@test' },
+      action: 'scan.created',
+      resource: { type: 'scan', id: 's1' },
+      ip: null,
+      userAgent: null,
+      metadata: {},
+      createdAt: '2026-11-19T00:00:00Z',
+    },
+  ] as import('../shared/audit').AuditLogEntry[];
+  const scans = [
+    {
+      id: 's1',
+      repositoryId: 'r1',
+      repositoryFullName: 'acme/repo',
+      status: 'completed',
+      score: 90,
+      grade: 'A',
+      counts: { critical: 0, high: 0, medium: 0, low: 0, info: 0, total: 0 },
+      createdAt: '2026-11-19T00:00:00Z',
+      completedAt: null,
+    },
+  ] as import('../shared/scan').ScanSummary[];
+
+  const NewRules = (await import('../app/components/new/NewRules.vue')).default;
+  const rulesView = await mountSuspended(NewRules, { props: { rules } });
+  expect(rulesView.text()).toContain('Encryption');
+  expect(rulesView.find('input[data-rule-search]').exists()).toBe(true);
+
+  const NewAudit = (await import('../app/components/new/NewAudit.vue')).default;
+  const auditView = await mountSuspended(NewAudit, { props: { events } });
+  expect(auditView.text()).toContain('scan.created');
+  expect(auditView.find('input[data-audit-action]').exists()).toBe(true);
+
+  const NewRemediationIndex = (await import('../app/components/new/NewRemediationIndex.vue'))
+    .default;
+  const remediationView = await mountSuspended(NewRemediationIndex, { props: { scans } });
+  expect(remediationView.find('a[href="/app/scans/s1/remediation"]').exists()).toBe(true);
+});

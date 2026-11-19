@@ -11,21 +11,16 @@ const { data, status, error } = await useFetch<AuditLogListResponse>(
 const entries = computed(() => data.value?.data ?? []);
 const loading = computed(() => status.value === 'pending');
 const loadError = computed(() => {
-  const failure = error.value as { data?: { error?: { message?: string } } } | null;
-  return failure?.data?.error?.message ?? null;
+  if (!error.value) return null;
+  const failure = error.value as {
+    data?: { error?: { message?: string; requestId?: string } };
+  };
+  const message = failure.data?.error?.message ?? 'The audit log could not be loaded.';
+  const requestId = failure.data?.error?.requestId;
+  return requestId ? `${message} (request ${requestId})` : message;
 });
 </script>
 
 <template>
-  <NewAudit
-    :events="
-      entries.map((entry) => ({
-        id: String(entry.id),
-        action: entry.action,
-        createdAt: entry.createdAt,
-      }))
-    "
-    :loading="loading"
-    :error="loadError"
-  />
+  <NewAudit :events="entries" :loading="loading" :error="loadError" />
 </template>
