@@ -17,7 +17,7 @@ const viewModel = {
   },
   scan: {
     id: 'scan_1',
-    repository: { fullName: 'improwised/jovVix', visibility: 'public' },
+    repository: { id: 'repo_1', fullName: 'improwised/jovVix', visibility: 'public' },
     ref: 'main',
     commitSha: 'd581ea1c3619d5635445dfb7e151846cc6e12619',
     status: 'completed',
@@ -43,7 +43,13 @@ const viewModel = {
       message: 'Container runs as root',
       severity: 'high',
       scanner: 'semgrep',
-      section: '8(4)',
+      dpdpa: {
+        code: 'DPDPA-8.4-SEC-01',
+        section: '8(4)',
+        title: 'Security safeguards',
+        severity: 'high',
+        rationale: null,
+      },
       status: 'open',
     },
   ],
@@ -66,6 +72,7 @@ describe('NewReport', () => {
     expect(text).toContain('improwised/jovVix');
     expect(text).toContain('100.0');
     expect(text).toContain('Container runs as root');
+    expect(text).toContain('8(4)');
     expect(text).toContain('Engineering signals, not legal advice.');
     expect(wrapper.find('a[href="/api/v1/report/pdf/report_1/download"]').exists()).toBe(true);
     expect(wrapper.find('button').text()).toContain('Print');

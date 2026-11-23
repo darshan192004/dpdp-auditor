@@ -18,7 +18,7 @@ describe('remaining rebuilt screens', () => {
           organization: { name: 'Local Dev Org', slug: 'local-dev-org', dataRegion: 'ap-south-1' },
           scan: {
             id: 'scan_1',
-            repository: { fullName: 'acme/repo', visibility: 'public' },
+            repository: { id: 'repo_1', fullName: 'acme/repo', visibility: 'public' },
             ref: 'main',
             commitSha: null,
             status: 'completed',

@@ -8,51 +8,9 @@ import { computed } from 'vue';
 
 import DsSkeleton from '~/components/ds/DsSkeleton.vue';
 import NewReport from '~/components/new/NewReport.vue';
+import type { ReportViewModel } from '~~/shared/report';
 
 definePageMeta({ layout: 'print' });
-
-interface ReportViewModel {
-  report: { id: string; format: string; templateVersion: string; createdAt: string };
-  organization: { name: string; slug: string; dataRegion: string };
-  scan: {
-    id: string;
-    repository: { fullName: string; visibility: string };
-    ref: string;
-    commitSha: string | null;
-    status: string;
-    score: number | null;
-    grade: string | null;
-    sectionScores: Record<string, number | null>;
-    counts: {
-      critical: number;
-      high: number;
-      medium: number;
-      low: number;
-      info: number;
-      total: number;
-    };
-    coverage: Record<string, string>;
-    rulePackVersion: string | null;
-    scoringVersion: string | null;
-    timestamps: {
-      queuedAt: string;
-      startedAt: string | null;
-      completedAt: string | null;
-      durationMs: number | null;
-    };
-  };
-  topFindings: Array<{
-    id: string;
-    message: string;
-    severity: string;
-    scanner: string;
-    section: string | null;
-    status: string;
-  }>;
-  methodology: { scoringVersion: string | null; rulePackVersion: string | null; summary: string };
-  disclaimer: string;
-  generatedAt: string;
-}
 
 const route = useRoute();
 const reportId = computed(() => String(route.params.reportId));

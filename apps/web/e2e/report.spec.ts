@@ -8,11 +8,14 @@ const REPORT_ID = 'rpt_01J8Z6C3D4E5F6G7H8J9K0M1N2';
 const SCAN_ID = '0f000000-0000-4000-8000-000000000010';
 
 test.describe('Report preview', () => {
-  test('renders the PDF export card from the report view model', async ({ page }) => {
+  test('renders the accessible report preview from the view model', async ({ page }) => {
     await page.goto(`/report/${REPORT_ID}`);
 
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Report');
-    await expect(page.locator('body')).toContainText(`PDF export for scan ${SCAN_ID}`);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('acme/payments-service');
+    await expect(page.locator('body')).toContainText('DPDPA compliance report');
+    await expect(page.locator('body')).toContainText('Section readiness');
+    await expect(page.getByRole('link', { name: 'Download PDF' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Print / Save as PDF' })).toBeVisible();
   });
 
   test('uses the print layout without console chrome', async ({ page }) => {

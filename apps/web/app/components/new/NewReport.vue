@@ -8,59 +8,20 @@ import { computed } from 'vue';
 
 import DsCard from '~/components/ds/DsCard.vue';
 import DsEmptyState from '~/components/ds/DsEmptyState.vue';
-
-interface ReportView {
-  report: { id: string; format: string; templateVersion: string; createdAt: string };
-  organization: { name: string; slug: string; dataRegion: string };
-  scan: {
-    id: string;
-    repository: { fullName: string; visibility: string };
-    ref: string;
-    commitSha: string | null;
-    status: string;
-    score: number | null;
-    grade: string | null;
-    sectionScores: Record<string, number | null>;
-    counts: {
-      critical: number;
-      high: number;
-      medium: number;
-      low: number;
-      info: number;
-      total: number;
-    };
-    coverage: Record<string, string>;
-    rulePackVersion: string | null;
-    scoringVersion: string | null;
-    timestamps: {
-      queuedAt: string;
-      startedAt: string | null;
-      completedAt: string | null;
-      durationMs: number | null;
-    };
-  };
-  topFindings: Array<{
-    id: string;
-    message: string;
-    severity: string;
-    scanner: string;
-    section: string | null;
-    status: string;
-  }>;
-  methodology: { scoringVersion: string | null; rulePackVersion: string | null; summary: string };
-  disclaimer: string;
-  generatedAt: string;
-}
+import DsSkeleton from '~/components/ds/DsSkeleton.vue';
+import type { ReportViewModel } from '~~/shared/report';
 
 const props = withDefaults(
-  defineProps<{ report: ReportView | null; error?: string | null; loading?: boolean }>(),
+  defineProps<{ report: ReportViewModel | null; error?: string | null; loading?: boolean }>(),
   { error: null, loading: false },
 );
 
 const scan = computed(() => props.report?.scan ?? null);
 const counts = computed(() => scan.value?.counts ?? null);
 const sections = computed(() =>
-  Object.entries(scan.value?.sectionScores ?? {}).sort((a, b) => (a[1] ?? 0) - (b[1] ?? 0)),
+  Object.entries(scan.value?.sectionScores ?? {}).sort(
+    (a, b) => (a[1] ?? Infinity) - (b[1] ?? Infinity),
+  ),
 );
 const score = computed(() =>
   scan.value?.score === null || scan.value?.score === undefined ? '—' : scan.value.score.toFixed(1),
@@ -193,7 +154,7 @@ function printReport(): void {
               class="border-ink-200 border-t align-top"
             >
               <td class="px-3 py-2 font-mono">{{ finding.severity }}</td>
-              <td class="px-3 py-2">{{ finding.section ?? 'Unmapped' }}</td>
+              <td class="px-3 py-2">{{ finding.dpdpa?.section ?? 'Unmapped' }}</td>
               <td class="px-3 py-2">{{ finding.message }}</td>
               <td class="px-3 py-2">{{ finding.scanner }}</td>
             </tr>
