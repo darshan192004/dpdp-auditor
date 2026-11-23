@@ -143,6 +143,20 @@ describe('renderReportPdf (real PDF rendering)', () => {
     expect(pageCount).toBeLessThanOrEqual(4);
   });
 
+  it('keeps pagination bounded with a long findings table', async () => {
+    const template = model().topFindings;
+    const many = Array.from({ length: 200 }, (_, index) => ({
+      ...template[index % template.length]!,
+      id: `f_${index}`,
+    }));
+    const raw = (await pdf({ topFindings: many })).toString('latin1');
+    const pageCount = Number(raw.match(/\/Count\s+(\d+)/)?.[1] ?? 0);
+
+    expect(pageCount).toBeGreaterThan(4);
+    // Without the footer fix, each content page also emits two blank pages.
+    expect(pageCount).toBeLessThanOrEqual(40);
+  });
+
   it('embeds the report content as extractable text', async () => {
     const raw = extractText(await pdf());
     for (const expected of [

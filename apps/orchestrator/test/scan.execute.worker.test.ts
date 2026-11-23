@@ -169,6 +169,8 @@ describe('createScanExecuteWorker', () => {
     expect(secretData.TIMEOUT_SEMGREP).toBe('600');
     expect(secretData).not.toHaveProperty('TIMEOUT_CHECKOV');
     expect(secretData).not.toHaveProperty('TIMEOUT_GITLEAKS');
+    expect(secretData).not.toHaveProperty('DATABASE_URL');
+    expect(secretData).not.toHaveProperty('REPORTS_STORAGE_DIR');
   });
 
   it('does not enqueue a Kubernetes watcher when the Docker driver is selected', async () => {
