@@ -35,6 +35,9 @@ jobs:
       - name: Lint workflows
         run: docker run --rm -v "${{ github.workspace }}":/repo -w /repo rhysd/actionlint -color
 
+      - name: Test PR Agent event handling
+        run: node --test .github/scripts/pr-agent-context.test.cjs
+
   code:
     name: Code CI
     runs-on: ubuntu-latest

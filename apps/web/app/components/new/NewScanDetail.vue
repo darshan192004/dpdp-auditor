@@ -17,9 +17,12 @@ import {
   type ScanDetail as ScanDetailView,
 } from '~~/shared/scan';
 
-const props = withDefaults(defineProps<{ scan: ScanDetailView | null; loading?: boolean }>(), {
-  loading: false,
-});
+const props = withDefaults(
+  defineProps<{ scan: ScanDetailView | null; loading?: boolean; cancelling?: boolean }>(),
+  {
+    loading: false,
+  },
+);
 const emit = defineEmits<{ cancel: [reason: string] }>();
 
 const CANCEL_REASON = 'Cancelled from the console';
@@ -68,6 +71,7 @@ function confirmCancel(): void {
           <button
             v-if="running && !confirming"
             type="button"
+            :disabled="cancelling"
             data-action="request-cancel"
             class="border-risk-critical-border text-risk-critical-text rounded-[var(--radius-control)] border px-3 py-1.5 text-sm"
             @click="confirming = true"

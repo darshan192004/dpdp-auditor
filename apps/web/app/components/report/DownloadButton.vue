@@ -18,22 +18,29 @@ const message = ref<string | null>(null);
 let idempotencyKey: string | null = null;
 let timer: ReturnType<typeof setTimeout> | null = null;
 let attempts = 0;
+let disposed = false;
+const abortController = new AbortController();
 
 function clearTimer(): void {
   if (timer !== null) clearTimeout(timer);
   timer = null;
 }
 
-onBeforeUnmount(clearTimer);
+onBeforeUnmount(() => {
+  disposed = true;
+  abortController.abort();
+  clearTimer();
+});
 
 function messageFrom(cause: unknown): string {
-  const data = (cause as { data?: { error?: { message?: unknown } } }).data;
+  const data = (cause as { data?: { error?: { message?: unknown } } } | null)?.data;
   const text = data?.error?.message;
   return typeof text === 'string' ? text : 'The report could not be requested. Try again.';
 }
 
 async function poll(): Promise<void> {
-  if (reportId.value === null) return;
+  clearTimer();
+  if (disposed || reportId.value === null) return;
   attempts += 1;
   if (attempts > 40) {
     state.value = 'failed';
@@ -43,24 +50,30 @@ async function poll(): Promise<void> {
   try {
     const response = await $fetch<{ data: { status: ReportStatus } }>(
       `/api/v1/report/pdf/${reportId.value}`,
+      { signal: abortController.signal },
     );
+    if (disposed) return;
     if (response.data.status === 'ready') {
       state.value = 'ready';
       return;
     }
     if (response.data.status === 'failed') {
+      idempotencyKey = null;
       state.value = 'failed';
       message.value = 'Rendering failed. Try again.';
       return;
     }
     timer = setTimeout(() => void poll(), 3000);
   } catch (cause) {
+    if (disposed) return;
     state.value = 'failed';
     message.value = messageFrom(cause);
   }
 }
 
 async function request(): Promise<void> {
+  if (disposed || !props.canExport || state.value === 'requesting' || state.value === 'polling')
+    return;
   message.value = null;
   state.value = 'requesting';
   if (idempotencyKey === null) idempotencyKey = crypto.randomUUID();
@@ -69,11 +82,19 @@ async function request(): Promise<void> {
       '/api/v1/report/pdf',
       {
         method: 'POST',
+        signal: abortController.signal,
         body: { scanId: props.scanId },
         headers: { 'Idempotency-Key': idempotencyKey },
       },
     );
+    if (disposed) return;
     reportId.value = response.data.id;
+    if (response.data.status === 'failed') {
+      idempotencyKey = null;
+      state.value = 'failed';
+      message.value = 'Rendering failed. Try again.';
+      return;
+    }
     if (response.data.status === 'ready') {
       state.value = 'ready';
       return;
@@ -82,6 +103,7 @@ async function request(): Promise<void> {
     attempts = 0;
     timer = setTimeout(() => void poll(), 2000);
   } catch (cause) {
+    if (disposed) return;
     state.value = 'failed';
     message.value = messageFrom(cause);
   }

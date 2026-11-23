@@ -49,7 +49,7 @@ Follow the incident-response outline in `security.md` §15: **detect and declare
 1. **Stop the retention job** to prevent further writes if the job itself is leaking:
    ```bash
    # Pause the BullMQ retention queue
-   curl -X POST http://orchestrator.internal/internal/admin/queue/pause \
+   curl -X POST https://orchestrator.internal/internal/admin/queue/pause \
      -H "X-Internal-Key: <key>" \
      -d '{"queue": "retention"}'
    ```

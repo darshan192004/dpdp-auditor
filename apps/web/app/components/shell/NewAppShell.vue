@@ -22,9 +22,20 @@ let media: MediaQueryList | null = null;
 
 function syncBreakpoint(): void {
   isDesktop.value = window.matchMedia('(min-width: 1024px)').matches;
+  if (isDesktop.value) closeMobile();
 }
 
 function onGlobalKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Tab' && mobileOpen.value && mobilePanel.value) {
+    const controls = [
+      ...mobilePanel.value.querySelectorAll<HTMLElement>('a[href],button:not([disabled])'),
+    ].filter((el) => el.getClientRects().length);
+    const boundary = event.shiftKey ? controls[0] : controls.at(-1);
+    if (document.activeElement === boundary) {
+      event.preventDefault();
+      (event.shiftKey ? controls.at(-1) : controls[0])?.focus();
+    }
+  }
   if (event.key === 'Escape' && mobileOpen.value) closeMobile();
 }
 
@@ -64,6 +75,7 @@ watch(mobileOpen, async (open) => {
     await nextTick();
     mobilePanel.value?.querySelector<HTMLElement>('button')?.focus();
   } else {
+    await nextTick();
     (navTrigger ?? hamburger.value)?.focus();
     navTrigger = null;
   }
@@ -74,6 +86,7 @@ watch(mobileOpen, async (open) => {
   <div class="bg-canvas text-ink-800 min-h-screen">
     <a
       href="#main"
+      :inert="mobileOpen"
       class="focus-visible:ring-brand-500 focus:bg-surface sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:rounded-[var(--radius-control)] focus:px-4 focus:py-2 focus:ring-2"
     >
       Skip to content
@@ -88,6 +101,7 @@ watch(mobileOpen, async (open) => {
       id="app-sidebar-mobile"
       class="fixed inset-0 z-40 lg:hidden"
       role="dialog"
+      aria-modal="true"
       aria-label="Navigation"
       @keydown.esc="closeMobile"
     >
@@ -105,7 +119,7 @@ watch(mobileOpen, async (open) => {
       </div>
     </div>
 
-    <div class="flex min-h-screen" :class="desktopOpen ? 'lg:pl-64' : ''">
+    <div :inert="mobileOpen" class="flex min-h-screen" :class="desktopOpen ? 'lg:pl-64' : ''">
       <div class="flex min-w-0 flex-1 flex-col">
         <header class="border-ink-200 bg-canvas sticky top-0 z-20 border-b px-4 py-3 lg:px-6">
           <div class="flex items-center gap-3">

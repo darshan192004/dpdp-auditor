@@ -29,6 +29,7 @@ watch(
 );
 
 function onKeydown(event: KeyboardEvent): void {
+  if (!props.open) return;
   if (event.key === 'Escape') {
     emit('close');
     return;
@@ -46,7 +47,10 @@ function onKeydown(event: KeyboardEvent): void {
 
   const first = focusOrder[0]!;
   const last = focusOrder[focusOrder.length - 1]!;
-  if (event.shiftKey && document.activeElement === first) {
+  if (
+    event.shiftKey &&
+    (document.activeElement === first || document.activeElement === controls[0])
+  ) {
     event.preventDefault();
     last.focus();
   } else if (!event.shiftKey && document.activeElement === last) {

@@ -43,7 +43,7 @@ interface ReportViewModel {
   };
   topFindings: Array<{
     id: string;
-    title: string;
+    message: string;
     severity: string;
     scanner: string;
     section: string | null;

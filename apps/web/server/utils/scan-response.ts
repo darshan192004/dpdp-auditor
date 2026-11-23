@@ -20,6 +20,7 @@ export interface ScanCreateSource {
 export interface CreatedScanResponse {
   data: {
     id: string;
+    replayed?: boolean;
     repositoryId?: string;
     githubUrl?: string;
     status: string;
@@ -42,6 +43,7 @@ export function shapeCreatedScan(
   return {
     data: {
       id,
+      ...(upstream.replayed === undefined ? {} : { replayed: upstream.replayed }),
       ...(source.repositoryId ? { repositoryId: source.repositoryId } : {}),
       ...(source.githubUrl ? { githubUrl: source.githubUrl } : {}),
       status: upstream.status,
