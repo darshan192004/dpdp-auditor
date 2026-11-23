@@ -825,6 +825,8 @@ Only `owner` and `admin` can read audit logs. `metadata` is allowlisted per acti
 
 **Export — `GET /api/v1/audit-logs/export?format=json` (owner/admin)**
 
+Export filters are `action` (exact), `actorUserId`, `from`, and `to`. The list endpoint alone accepts `actionContains`.
+
 Streams the full filtered audit trail as newline-delimited JSON with `Content-Disposition: attachment; filename="audit-logs-<org>-<date>.jsonl"`. Keyset-paginated internally (server-side, no client cursor), capped at 100,000 rows; beyond the cap the response ends with a trailing `{"truncated": true, "nextFrom": "<ISO date>"}` record and the client narrows `from`/`to` and re-requests. Every export emits the audit action `audit.exported` (actor, row count, filter) — exporting is itself audited. Rate limit: 5 exports/hour/org.
 
 ### 7.5 API keys
