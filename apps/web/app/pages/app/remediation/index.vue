@@ -23,12 +23,17 @@ const loadError = computed(() => {
 </script>
 
 <template>
-  <NewRemediationIndex :scans="scans" :loading="loading" :error="loadError" />
-  <nav v-if="(data?.data.pagination.totalPages ?? 0) > 1" aria-label="Pagination">
-    <button :disabled="page <= 1 || loading" @click="page--">Previous</button>
-    <span>Page {{ page }} of {{ data?.data.pagination.totalPages }}</span>
-    <button :disabled="page >= (data?.data.pagination.totalPages ?? 1) || loading" @click="page++">
-      Next
-    </button>
-  </nav>
+  <div>
+    <NewRemediationIndex :scans="scans" :loading="loading" :error="loadError" />
+    <nav v-if="(data?.data.pagination.totalPages ?? 0) > 1" aria-label="Pagination">
+      <button :disabled="page <= 1 || loading" @click="page--">Previous</button>
+      <span>Page {{ page }} of {{ data?.data.pagination.totalPages }}</span>
+      <button
+        :disabled="page >= (data?.data.pagination.totalPages ?? 1) || loading"
+        @click="page++"
+      >
+        Next
+      </button>
+    </nav>
+  </div>
 </template>
