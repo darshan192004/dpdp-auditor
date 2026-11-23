@@ -3,6 +3,7 @@ import type { OrgPlan } from '@prisma/client';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { ApiError } from '../../common/api-error.js';
+import { ENV, type Env } from '../../config/env.js';
 import type { RepoVisibilityValue } from './repo.schemas.js';
 import { parseGithubRepoUrl } from './repo-url.js';
 
@@ -46,6 +47,15 @@ export type GithubFetch = (fullName: string) => Promise<GithubRepoMetadata | nul
  */
 export function repoSizeCapBytes(plan: OrgPlan): number {
   return plan === 'growth' || plan === 'enterprise' ? 250 * MB : 100 * MB;
+}
+
+/**
+ * `REPO_SIZE_CAP_MB` overrides the plan cap when present; `0` removes it
+ * entirely (development only — loadEnv rejects it in production).
+ */
+export function effectiveRepoSizeCapBytes(plan: OrgPlan, capMb?: number): number {
+  if (capMb === undefined) return repoSizeCapBytes(plan);
+  return capMb === 0 ? Number.POSITIVE_INFINITY : capMb * MB;
 }
 
 /** `git ls-remote --symref <url> HEAD` prints `ref: refs/heads/<branch>\tHEAD`. */
@@ -128,6 +138,7 @@ export class RepoResolverService {
   constructor(
     @Inject(GIT_RUNNER) private readonly git: GitRunner,
     @Inject(GITHUB_FETCH) private readonly fetchRepo: GithubFetch,
+    @Inject(ENV) private readonly env: Env,
   ) {}
 
   async resolve(githubUrl: string, plan: OrgPlan): Promise<ResolvedRepo> {
@@ -138,10 +149,11 @@ export class RepoResolverService {
     }
 
     const sizeBytes = metadata.sizeKb * 1024;
-    if (sizeBytes > repoSizeCapBytes(plan)) {
+    const capBytes = effectiveRepoSizeCapBytes(plan, this.env.REPO_SIZE_CAP_MB);
+    if (sizeBytes > capBytes) {
       throw new ApiError(
         'REPO_TOO_LARGE',
-        `Repository is ${Math.ceil(sizeBytes / MB)} MB; the plan cap is ${Math.ceil(repoSizeCapBytes(plan) / MB)} MB.`,
+        `Repository is ${Math.ceil(sizeBytes / MB)} MB; the plan cap is ${Math.ceil(capBytes / MB)} MB.`,
       );
     }
 

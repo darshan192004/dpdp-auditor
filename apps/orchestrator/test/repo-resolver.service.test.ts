@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { Env } from '../src/config/env.js';
 import {
   defaultGithubFetch,
+  effectiveRepoSizeCapBytes,
   parseSymrefHead,
   repoSizeCapBytes,
   RepoResolverService,
@@ -21,10 +23,15 @@ const METADATA = {
   language: 'TypeScript',
 };
 
-function make(metadata: GithubRepoMetadata = METADATA, stdout = 'ref: refs/heads/develop\tHEAD\n') {
+function make(
+  metadata: GithubRepoMetadata = METADATA,
+  stdout = 'ref: refs/heads/develop\tHEAD\n',
+  capMb?: number,
+) {
   const git = vi.fn<GitRunner>().mockResolvedValue(stdout);
   const fetchRepo = vi.fn<GithubFetch>().mockResolvedValue(metadata);
-  const service = new RepoResolverService(git, fetchRepo);
+  const env = { REPO_SIZE_CAP_MB: capMb } as Env;
+  const service = new RepoResolverService(git, fetchRepo, env);
   return { service, git, fetchRepo };
 }
 
@@ -38,6 +45,21 @@ describe('repoSizeCapBytes', () => {
     expect(repoSizeCapBytes('starter')).toBe(100 * MB);
     expect(repoSizeCapBytes('growth')).toBe(250 * MB);
     expect(repoSizeCapBytes('enterprise')).toBe(250 * MB);
+  });
+});
+
+describe('effectiveRepoSizeCapBytes', () => {
+  it('keeps plan caps when no override is configured', () => {
+    expect(effectiveRepoSizeCapBytes('free')).toBe(100 * MB);
+    expect(effectiveRepoSizeCapBytes('enterprise', undefined)).toBe(250 * MB);
+  });
+
+  it('treats a zero override as unlimited', () => {
+    expect(effectiveRepoSizeCapBytes('free', 0)).toBe(Number.POSITIVE_INFINITY);
+  });
+
+  it('uses a positive override for every plan', () => {
+    expect(effectiveRepoSizeCapBytes('growth', 25)).toBe(25 * MB);
   });
 });
 
@@ -104,6 +126,20 @@ describe('RepoResolverService.resolve', () => {
     });
     await expect(make(big).service.resolve(URL, 'growth')).resolves.toMatchObject({
       sizeBytes: 150 * MB,
+    });
+  });
+
+  it('accepts any repository size when the cap override is zero', async () => {
+    const huge = { ...METADATA, sizeKb: 5_000 * 1024 };
+    await expect(make(huge, undefined, 0).service.resolve(URL, 'free')).resolves.toMatchObject({
+      sizeBytes: 5_000 * MB,
+    });
+  });
+
+  it('honours a lower explicit cap even on Growth', async () => {
+    const big = { ...METADATA, sizeKb: 150 * 1024 };
+    await expect(make(big, undefined, 25).service.resolve(URL, 'growth')).rejects.toMatchObject({
+      code: 'REPO_TOO_LARGE',
     });
   });
 
