@@ -111,16 +111,27 @@ class ReportWriter {
   }
 
   private footer(): void {
-    this.setText('Helvetica', 7.5, '#8b919e');
-    this.doc.text(this.footerText, MARGIN, PAGE_HEIGHT - 30, {
-      width: CONTENT_WIDTH - 60,
-      lineBreak: false,
-    });
-    this.doc.text(`Page ${this.pageNo}`, PAGE_WIDTH - MARGIN - 50, PAGE_HEIGHT - 30, {
-      width: 50,
-      align: 'right',
-      lineBreak: false,
-    });
+    // PDFKit auto-paginates when a text baseline plus its line height would
+    // cross the bottom margin. Footer text is deliberately inside that margin,
+    // so disable the check for these two draws or every footer spawns blank
+    // pages. The page margin is restored immediately afterwards.
+    const page = this.doc.page;
+    const bottomMargin = page.margins.bottom;
+    page.margins.bottom = 0;
+    try {
+      this.setText('Helvetica', 7.5, '#8b919e');
+      this.doc.text(this.footerText, MARGIN, PAGE_HEIGHT - 30, {
+        width: CONTENT_WIDTH - 60,
+        lineBreak: false,
+      });
+      this.doc.text(`Page ${this.pageNo}`, PAGE_WIDTH - MARGIN - 50, PAGE_HEIGHT - 30, {
+        width: 50,
+        align: 'right',
+        lineBreak: false,
+      });
+    } finally {
+      page.margins.bottom = bottomMargin;
+    }
   }
 
   private nextPage(): void {

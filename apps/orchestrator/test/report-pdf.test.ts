@@ -132,6 +132,17 @@ describe('renderReportPdf (real PDF rendering)', () => {
     expect(raw).not.toContain('html-bytes');
   });
 
+  it('does not emit blank pages around footers', async () => {
+    const buffer = await pdf({ topFindings: [] });
+    const raw = buffer.toString('latin1');
+    const pageCount = Number(raw.match(/\/Count\s+(\d+)/)?.[1] ?? 0);
+
+    // Cover + at most two content pages. The old layout emitted two extra
+    // pages per footer because PDFKit auto-broke when drawing near the bottom.
+    expect(pageCount).toBeGreaterThan(0);
+    expect(pageCount).toBeLessThanOrEqual(4);
+  });
+
   it('embeds the report content as extractable text', async () => {
     const raw = extractText(await pdf());
     for (const expected of [
