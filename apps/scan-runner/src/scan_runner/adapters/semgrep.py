@@ -12,14 +12,14 @@ class SemgrepAdapter:
     def __init__(self) -> None:
         self.bin: str = "semgrep"
 
-    def run(self, repo_path: Path) -> list[dict[str, Any]]:
+    def run(self, repo_path: Path, timeout: int = 300) -> list[dict[str, Any]]:
         """Execute Semgrep on *repo_path* and return raw findings."""
         try:
             result = subprocess.run(
                 [self.bin, "--json", str(repo_path)],
                 capture_output=True,
                 text=True,
-                timeout=300,
+                timeout=timeout,
             )
         except subprocess.TimeoutExpired as exc:
             raise TimeoutError("Semgrep execution timed out") from exc

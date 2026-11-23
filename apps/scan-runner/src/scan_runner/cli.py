@@ -76,7 +76,7 @@ def run_scanner(
     """
     start = time.monotonic()
     try:
-        raw = adapter.run(workspace)
+        raw = adapter.run(workspace, timeout)
     except TimeoutError:
         duration_ms = int((time.monotonic() - start) * 1000)
         log.warning("scanner %s timed out after %ds", name, timeout)
