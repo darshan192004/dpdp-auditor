@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { fixtureAuditLogList } from '../server/utils/fixtures/audit';
 
 describe('audit fixture date filtering', () => {
+  it('matches action substrings case-insensitively while keeping exact filters literal', () => {
+    expect(
+      fixtureAuditLogList({ actionContains: 'TRIAG' }).data.map((row) => row.action),
+    ).toContain('finding.triaged');
+    expect(fixtureAuditLogList({ action: 'TRIAG' }).data).toEqual([]);
+  });
   it('compares instants so timezone offsets preserve inclusive date boundaries', () => {
     const row = fixtureAuditLogList({}).data[0]!;
     const instant = Date.parse(row.createdAt);
