@@ -57,19 +57,19 @@ interface ReportViewModel {
 const route = useRoute();
 const reportId = computed(() => String(route.params.reportId));
 
-const { data, status } = await useFetch<{ data: ReportViewModel }>(
+const { data, status, error } = await useFetch<{ data: ReportViewModel }>(
   () => `/api/v1/report/pdf/${reportId.value}/view`,
 );
 
 const report = computed(() => data.value?.data ?? null);
 const loading = computed(() => status.value === 'pending');
+const errorMessage = computed(() => {
+  const data = error.value?.data as { error?: { message?: string } } | undefined;
+  return data?.error?.message ?? error.value?.message ?? null;
+});
 </script>
 
 <template>
   <DsSkeleton v-if="loading" class="h-32" />
-  <NewReport
-    v-else
-    :scan-id="report?.scan.id ?? ''"
-    :can-export="report?.scan.status === 'completed'"
-  />
+  <NewReport v-else :report="report" :error="errorMessage" />
 </template>
