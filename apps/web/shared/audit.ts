@@ -43,6 +43,7 @@ export interface AuditLogListResponse {
 /** Query parameters for audit log list (api.md §7.4). */
 export interface AuditLogQuery {
   action?: string | null;
+  actionContains?: string | null;
   actorUserId?: string | null;
   from?: string | null;
   to?: string | null;
@@ -118,6 +119,9 @@ export function parseAuditLogQuery(raw: unknown): AuditLogQuery {
   const record = asRecord(raw);
   return {
     action: optionalString(record, 'action'),
+    ...(record.actionContains === undefined
+      ? {}
+      : { actionContains: optionalString(record, 'actionContains') }),
     actorUserId: optionalString(record, 'actorUserId'),
     from: parseDate(record.from, 'from'),
     to: parseDate(record.to, 'to'),

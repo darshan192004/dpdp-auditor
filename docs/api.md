@@ -801,6 +801,8 @@ Only owners may grant the owner role or change another owner; an admin attempt r
 
 `GET /api/v1/audit-logs?action=scan.started&actorUserId=usr_...&from=...&to=...&page=1&pageSize=50`
 
+`action` matches an exact action name. The optional `actionContains` filter matches a case-insensitive literal substring before pagination.
+
 ```json
 {
   "data": [
