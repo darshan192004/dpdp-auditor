@@ -42,6 +42,9 @@
       "ignoreGhsas": [
         "GHSA-fc5q-39xc-vjpf"
       ]
+    },
+    "overrides": {
+      "@prisma/config>effect": "3.22.1"
     }
   }
 }
