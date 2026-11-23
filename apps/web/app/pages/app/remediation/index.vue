@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 
 import NewRemediationIndex from '~/components/new/NewRemediationIndex.vue';
 import type { ScanListPage } from '~~/shared/scan';
 
+const page = ref(1);
 const { data, status, error } = await useFetch<{ data: ScanListPage }>(
-  '/api/v1/scans?page=1&pageSize=100',
+  () => `/api/v1/scans?status=completed&page=${page.value}&pageSize=100`,
 );
 
 const scans = computed(() => data.value?.data.items ?? []);
@@ -23,4 +24,11 @@ const loadError = computed(() => {
 
 <template>
   <NewRemediationIndex :scans="scans" :loading="loading" :error="loadError" />
+  <nav v-if="(data?.data.pagination.totalPages ?? 0) > 1" aria-label="Pagination">
+    <button :disabled="page <= 1 || loading" @click="page--">Previous</button>
+    <span>Page {{ page }} of {{ data?.data.pagination.totalPages }}</span>
+    <button :disabled="page >= (data?.data.pagination.totalPages ?? 1) || loading" @click="page++">
+      Next
+    </button>
+  </nav>
 </template>

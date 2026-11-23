@@ -2,7 +2,7 @@ import type { H3Event } from 'h3';
 import { $fetch } from 'ofetch';
 import type { MeMembership, MeUser } from '~~/shared/auth';
 import { apiError } from './api-error';
-import { buildInternalRequest, orchestratorConfig } from './orchestrator';
+import { assertOrchestratorConfig, buildInternalRequest, orchestratorConfig } from './orchestrator';
 
 /** Must match `runtimeConfig.session.name` in `nuxt.config.ts`. */
 export const SESSION_COOKIE_NAME = 'dpdpa_session';
@@ -94,12 +94,13 @@ export async function fetchResolvedSession(
   const config = orchestratorConfig(event);
   if (!config.url || !config.hmacKey || !config.internalKey) return null;
 
-  const path = `/internal/v1/identity/sessions/${encodeURIComponent(sessionId)}`;
-  const request = buildInternalRequest(event, { method: 'GET', path }, config);
-
   try {
+    assertOrchestratorConfig(event, config);
+    const path = `/internal/v1/identity/sessions/${encodeURIComponent(sessionId)}`;
+    const request = buildInternalRequest(event, { method: 'GET', path }, config);
     const response = await $fetch.raw<{ data: ResolvedSession }>(`${config.url}${path}`, {
       method: 'GET',
+      redirect: 'error',
       headers: request.headers,
       signal: AbortSignal.timeout(15_000),
     });

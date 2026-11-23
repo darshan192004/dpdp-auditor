@@ -2,9 +2,9 @@
 
 | Field             | Value                                             |
 | ----------------- | ------------------------------------------------- |
-| Document version  | 1.0                                               |
-| Status            | Approved for MVP build                            |
-| Date              | 2026-11-04                                        |
+| Document version  | 1.1                                               |
+| Status            | Draft — operator details require legal review                            |
+| Date              | 2026-11-17                                        |
 | Audience          | Customers, DPO, legal                             |
 | Related documents | `security.md`, `quickstart.md`, `architecture.md` |
 
@@ -26,11 +26,11 @@ DPDPA GitHub Code Auditor is a SaaS service operated by **[Company Name]** that 
 
 - **Metadata only:** repository name, owner, default branch, size, visibility, language.
 - **Findings:** file paths, line ranges, rule identifiers, and code snippets that match our scanning rules.
-- **No source code is stored.** The clone is deleted after the scan job completes.
+- **Clones are ephemeral.** The clone is deleted after the scan job completes. Redacted finding snippets and derived PDF reports remain subject to their retention policies.
 
 ## 3. What we do not do
 
-- We do not store your source code.
+- We delete repository clones after scanning; retained findings may include redacted code snippets.
 - We do not share your findings with third parties.
 - We do not use your data to train any model.
 - We do not retain raw scan output beyond 24 hours for debugging.
@@ -44,7 +44,7 @@ DPDPA GitHub Code Auditor is a SaaS service operated by **[Company Name]** that 
 | Encryption at rest    | PostgreSQL (AES-256), Redis (in-memory only), S3 (SSE-KMS).              |
 | Access control        | Role-based access; API keys are hashed and revocable.                    |
 | Audit logging         | Every security-relevant action is logged with a request ID.              |
-| Zero retention        | No source code, no PII, no secrets in any persistent store.              |
+| Zero retention        | Ephemeral clones; redacted finding evidence and account data persist under retention policies.              |
 
 See `security.md` for the full control set.
 
@@ -58,6 +58,7 @@ See `security.md` for the full control set.
 | Findings            | Retained while the scan is active; rolled up into reports         |
 | Audit logs          | Retained per the audit retention policy in `operations.md`        |
 | API keys            | Revoked on demand; hashed storage means we cannot read them       |
+| PDF reports         | 30 days after upload; expired downloads are blocked                |
 
 ## 6. Your rights
 

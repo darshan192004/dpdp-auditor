@@ -89,6 +89,8 @@ const coverage = computed(() => coverageFor((props.latestScan?.coverage ?? {}) a
       <div v-if="recentScans?.length" class="min-w-0">
         <ScanTable
           :scans="recentScans"
+          :can-submit="false"
+          :show-filters="false"
           :pagination="{ page: 1, pageSize: 5, totalItems: recentScans.length, totalPages: 1 }"
           status=""
         />

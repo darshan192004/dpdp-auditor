@@ -3,11 +3,12 @@ import { computed, nextTick, reactive, ref, watch } from 'vue';
 
 import type { SavedRepoView } from '~~/shared/repo';
 import {
+  ScanInputError,
   createIdempotencyKey,
   quotaExhausted,
   validateScanSubmit,
-  ScanInputError,
   type ScanProfile,
+  type ScanSubmitInput,
   type ScanQuota,
 } from '~~/shared/scan';
 
@@ -21,8 +22,10 @@ const props = withDefaults(
     repos: SavedRepoView[];
     quota?: ScanQuota | null;
     canSubmit?: boolean;
+    submitRequest?:
+      ((payload: ScanSubmitInput & { idempotencyKey: string }) => Promise<void>) | null;
   }>(),
-  { quota: null, canSubmit: true },
+  { quota: null, canSubmit: true, submitRequest: null },
 );
 
 const emit = defineEmits<{
@@ -58,7 +61,8 @@ const refInput = ref<HTMLInputElement | null>(null);
 const idempotencyKey = createIdempotencyKey();
 
 const exhausted = computed(() => quotaExhausted(props.quota));
-const disabled = computed(() => exhausted.value || !props.canSubmit);
+const submitting = ref(false);
+const disabled = computed(() => exhausted.value || !props.canSubmit || submitting.value);
 const quotaLabel = computed(() => {
   if (props.quota === null) return null;
   return props.quota.limit > 0
@@ -83,12 +87,14 @@ const repoDescribedBy = computed(() => (errors.source ? 'scan-source-error' : un
 const refDescribedBy = computed(() => (errors.ref ? 'scan-ref-error' : undefined));
 
 watch(selectedRepo, (repo) => {
-  if (repo !== null) form.ref = repo.defaultBranch;
+  form.ref = repo?.defaultBranch ?? '';
+  if (repo !== null) form.githubUrl = '';
 });
 
 watch(
   () => form.githubUrl,
   (value) => {
+    if (value.trim() !== '') form.repositoryId = '';
     errors.githubUrl = undefined;
     if (value.trim() !== '' || form.repositoryId !== '') errors.source = undefined;
   },
@@ -116,6 +122,8 @@ function clearErrors(): void {
 }
 
 async function submit(): Promise<void> {
+  if (disabled.value) return;
+  submitting.value = true;
   clearErrors();
   const raw =
     form.repositoryId === ''
@@ -124,7 +132,9 @@ async function submit(): Promise<void> {
 
   try {
     const input = validateScanSubmit(raw);
-    emit('submit', { ...input, idempotencyKey });
+    const payload = { ...input, idempotencyKey };
+    if (props.submitRequest) await props.submitRequest(payload);
+    else emit('submit', payload);
   } catch (cause) {
     if (cause instanceof ScanInputError) {
       if (cause.message === 'Provide exactly one of repositoryId or githubUrl.') {
@@ -138,12 +148,14 @@ async function submit(): Promise<void> {
         errors.page = cause.message;
       }
     } else {
-      errors.page = 'The scan could not be started.';
+      errors.page = cause instanceof Error ? cause.message : 'The scan could not be started.';
     }
 
     await nextTick();
     if (errors.source || errors.githubUrl) urlInput.value?.focus();
     else if (errors.ref) refInput.value?.focus();
+  } finally {
+    submitting.value = false;
   }
 }
 </script>

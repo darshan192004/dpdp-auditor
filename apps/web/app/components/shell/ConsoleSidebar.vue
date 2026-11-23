@@ -48,7 +48,7 @@ function isActive(item: (typeof NAV)[number]): boolean {
       Workspace
     </p>
 
-    <nav aria-label="Primary" class="flex min-h-0 flex-1 flex-col gap-1 px-2">
+    <nav aria-label="Primary" class="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2">
       <NuxtLink
         v-for="item in NAV"
         :key="item.to"

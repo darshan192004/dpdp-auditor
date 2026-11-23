@@ -95,7 +95,11 @@ export function brandingFor(settings: unknown): Branding {
   const branding = asRecord(root.branding);
   return {
     logoUrl: text(branding.logoUrl),
-    primaryColor: text(branding.primaryColor),
+    primaryColor:
+      typeof branding.primaryColor === 'string' &&
+      /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(branding.primaryColor)
+        ? branding.primaryColor
+        : null,
     footerText: text(branding.footerText),
   };
 }

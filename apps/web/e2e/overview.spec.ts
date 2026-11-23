@@ -15,10 +15,10 @@ test.describe('Overview', () => {
     const main = page.locator('main');
     await expect(main.getByRole('heading', { level: 1 })).toHaveText('Overview');
     await expect(main).toContainText('Scored controls');
-    await expect(main).toContainText('Not yet scored');
+    await expect(main).toContainText('Open findings');
     await expect(main).toContainText('Sections covered');
     await expect(main).toContainText('Scanner mappings');
-    await expect(main.locator('section')).toHaveCount(4);
+    await expect(main.getByRole('heading', { name: 'Finding severity' })).toBeVisible();
   });
 
   test('has no serious or critical accessibility violations', async ({ page }) => {

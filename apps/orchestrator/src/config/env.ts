@@ -21,6 +21,24 @@ export const envSchema = z.object({
   // Docker runner socket/pipe: /var/run/docker.sock on Linux,
   // //./pipe/docker_engine on Windows. Defaults to the Linux path.
   DOCKER_SOCKET_PATH: z.string().min(1).optional(),
+  // Local PDF storage shared by the report worker and API process.
+  REPORTS_STORAGE_DIR: z.string().min(1).optional(),
+  // Chromium runs separately from the distroless API image. Keep this endpoint private.
+  REPORTS_BROWSER_WS_ENDPOINT: z
+    .string()
+    .url()
+    .refine((value) => {
+      try {
+        const url = new URL(value);
+        return (
+          url.protocol === 'wss:' ||
+          (url.protocol === 'ws:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname))
+        );
+      } catch {
+        return false;
+      }
+    }, 'Use WSS for remote browsers or WS only for a loopback sidecar')
+    .optional(),
   // Email configuration for report notifications (dev/test only)
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().optional(),

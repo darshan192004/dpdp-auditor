@@ -1,6 +1,7 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime';
 import { nextTick } from 'vue';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { flushPromises } from '@vue/test-utils';
 
 import ScanSubmitForm from '../app/components/scan/ScanSubmitForm.vue';
 import type { SavedRepoView } from '../shared/repo';
@@ -104,6 +105,30 @@ describe('ScanSubmitForm (docs/design.md §5.5)', () => {
       profile: 'standard',
     });
     expect(payload).not.toHaveProperty('githubUrl');
+  });
+
+  it('clears the repository ref when switching back to a URL', async () => {
+    const wrapper = await form();
+    await wrapper.find('select#scan-repo').setValue(REPOS[1]!.id);
+    expect((wrapper.find('input#scan-ref').element as HTMLInputElement).value).toBe('develop');
+    await wrapper.find('input#scan-url').setValue('https://github.com/acme/public');
+    await submit(wrapper);
+    expect(wrapper.emitted('submit')?.[0]?.[0]).toMatchObject({
+      githubUrl: 'https://github.com/acme/public',
+    });
+    expect(wrapper.emitted('submit')?.[0]?.[0]).not.toHaveProperty('ref');
+    expect(wrapper.emitted('submit')?.[0]?.[0]).not.toHaveProperty('repositoryId');
+  });
+
+  it('awaits submission and displays request failures without an unhandled rejection', async () => {
+    const submitRequest = vi.fn().mockRejectedValue(new Error('Monthly scan quota exceeded.'));
+    const wrapper = await form({ submitRequest });
+    await wrapper.find('input#scan-url').setValue('https://github.com/acme/public');
+    await submit(wrapper);
+    await flushPromises();
+    expect(submitRequest).toHaveBeenCalledTimes(1);
+    expect(wrapper.find('[role="alert"]').text()).toContain('Monthly scan quota exceeded.');
+    expect(wrapper.find('button[type="submit"]').attributes('disabled')).toBeUndefined();
   });
 
   it('disables submit when the scan limit is reached and links to scan settings', async () => {
