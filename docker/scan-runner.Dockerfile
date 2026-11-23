@@ -11,32 +11,33 @@ RUN CGO_ENABLED=0 GOBIN=/out go install -trimpath \
       -ldflags="-s -w -X github.com/zricethezav/gitleaks/v8/cmd.Version=${GITLEAKS_VERSION}" \
       github.com/zricethezav/gitleaks/v8@v${GITLEAKS_VERSION}
 
-FROM ${PYTHON_IMAGE} AS runtime
+FROM ${PYTHON_IMAGE} AS wheels
 
 ARG SEMGREP_VERSION=1.95.0
 ARG CHECKOV_VERSION=3.2.0
 
+# Build any native dependencies with the compiler in the full Python image.
+# Only wheels and the runtime programs belong in the deployed scanner.
+COPY apps/scan-runner /src/scan-runner
+RUN python -m pip wheel --no-cache-dir --wheel-dir=/wheels \
+      setuptools==80.9.0 \
+      semgrep==${SEMGREP_VERSION} \
+      checkov==${CHECKOV_VERSION} \
+      /src/scan-runner
+
+FROM python:3.12-slim-trixie@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b AS runtime
 ENV PIP_NO_CACHE_DIR=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# Semgrep and Checkov are installed from PyPI at their pinned versions.
-# setuptools is pinned because Semgrep 1.95.0 imports pkg_resources, which the
-# Python 3.12 base image no longer installs by default.
-RUN python -m pip install --no-cache-dir \
-      setuptools==80.9.0 \
-      semgrep==${SEMGREP_VERSION} \
-      checkov==${CHECKOV_VERSION}
-
-# Install Debian's patched OpenEXR runtime and development packages.
-RUN apt-get update && apt-get install -y --only-upgrade libopenexr-dev libopenexr-3-1-30 \
+RUN apt-get update && apt-get install -y --no-install-recommends git libstdc++6 \
     && rm -rf /var/lib/apt/lists/*
+# Semgrep 1.95.0 uses pkg_resources, supplied by the pinned setuptools wheel.
+RUN --mount=type=bind,from=wheels,source=/wheels,target=/wheels \
+    python -m pip install --no-index --find-links=/wheels \
+      setuptools==80.9.0 semgrep checkov dpdpa-scan-runner
 
 COPY --from=gitleaks-build /out/gitleaks /usr/local/bin/gitleaks
-
-COPY apps/scan-runner /src/scan-runner
-RUN python -m pip install --no-cache-dir /src/scan-runner
-
 COPY docker/scan-runner-smoke.sh /usr/local/bin/smoke-scan-runner
 RUN chmod 0755 /usr/local/bin/smoke-scan-runner
 
