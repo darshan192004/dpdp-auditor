@@ -18,8 +18,11 @@ test.describe('Signal Console shell', () => {
 
   test('scan detail shows score with coverage and grade', async ({ page }) => {
     await page.goto(`/app/scans/${SCAN_ID}`);
-    await expect(page.locator('main')).toContainText('coverage:');
-    await expect(page.locator('main')).toContainText('Score and coverage breakdown');
+    await expect(page.locator('main')).toContainText('full coverage');
+    await expect(page.getByRole('link', { name: 'Coverage', exact: true })).toHaveAttribute(
+      'href',
+      `/app/scans/${SCAN_ID}/coverage`,
+    );
     await page.screenshot({
       path: '../../.playwright-mcp/rebuild-scan-detail.png',
       fullPage: true,

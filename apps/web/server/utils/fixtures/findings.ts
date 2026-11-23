@@ -1,4 +1,9 @@
 import {
+  FIXTURE_PARTIAL_SCAN_ID,
+  FIXTURE_RUNNING_SCAN_ID,
+  PARTIAL_FINDING_COUNTS,
+} from '~~/shared/fixtures';
+import {
   DEFAULT_FINDINGS_FILTERS,
   FINDING_STATUSES,
   type FindingSeverity,
@@ -465,10 +470,21 @@ const SEED: readonly FindingView[] = [
 
 export const FIXTURE_FINDINGS = SEED;
 
-let state: FindingView[] = structuredClone([...SEED]);
+// The partial scan finished Semgrep and Checkov before Gitleaks timed out.
+const partialFindings = Object.entries(PARTIAL_FINDING_COUNTS).flatMap(([severity, count]) =>
+  SEED.filter((finding) => finding.severity === severity && finding.scanner !== 'gitleaks')
+    .slice(0, count)
+    .map((finding) => ({
+      ...finding,
+      id: finding.id.replace(/^0f000000/, '0f000001'),
+      scanId: FIXTURE_PARTIAL_SCAN_ID,
+    })),
+);
+const initialFindings = [...SEED, ...partialFindings];
+let state: FindingView[] = structuredClone(initialFindings);
 
 export function resetFixtureState(): void {
-  state = structuredClone([...SEED]);
+  state = structuredClone(initialFindings);
 }
 
 export class FixtureNotFoundError extends Error {
@@ -546,12 +562,12 @@ export function listFixtureFindings(
   filters: FindingsFilters = DEFAULT_FINDINGS_FILTERS,
   scanId: string = FIXTURE_SCAN_ID,
 ): FindingsPage {
-  if (scanId !== FIXTURE_SCAN_ID) {
+  if (![FIXTURE_SCAN_ID, FIXTURE_PARTIAL_SCAN_ID, FIXTURE_RUNNING_SCAN_ID].includes(scanId)) {
     throw new FixtureNotFoundError('The scan does not exist.');
   }
 
   const matching = state
-    .filter((finding) => matches(finding, filters))
+    .filter((finding) => finding.scanId === scanId && matches(finding, filters))
     .sort(comparator(filters.sort));
   const totalItems = matching.length;
   const start = (filters.page - 1) * filters.pageSize;

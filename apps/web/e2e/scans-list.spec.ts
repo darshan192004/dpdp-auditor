@@ -21,7 +21,7 @@ test.describe('Scan list', () => {
     await expect(main.getByRole('link', { name: /acme\/payments-service/ })).toHaveCount(3);
     await expect(main).toContainText('82.6');
     await expect(main).toContainText('74.1');
-    await expect(main).toContainText('scanning');
+    await expect(main.getByRole('row').filter({ hasText: 'Scanning' })).toHaveCount(1);
   });
 
   test('explains an empty scan list', async ({ page }) => {
@@ -43,7 +43,7 @@ test.describe('Scan list', () => {
       .click();
 
     await expect(page).toHaveURL(/\/app\/scans$/);
-    await expect(page.locator('main')).toContainText('No scans found.');
+    await expect(page.locator('main')).toContainText('No scans yet.');
   });
 
   test('navigates from the list to the scan detail page', async ({ page }) => {

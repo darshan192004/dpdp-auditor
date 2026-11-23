@@ -26,8 +26,8 @@ test.describe('Report preview', () => {
     await page.goto(`/app/scans/${SCAN_ID}`);
 
     const main = page.locator('main');
-    await expect(main.getByRole('link', { name: 'How was this score computed?' })).toBeVisible();
-    await expect(main.getByRole('link', { name: 'Score and coverage breakdown' })).toBeVisible();
-    await expect(main.getByRole('link', { name: 'Remediation workspace' })).toBeVisible();
+    await expect(main.getByRole('link', { name: 'Findings', exact: true })).toBeVisible();
+    await expect(main.getByRole('link', { name: 'Coverage', exact: true })).toBeVisible();
+    await expect(main.getByRole('link', { name: 'Remediation', exact: true })).toBeVisible();
   });
 });

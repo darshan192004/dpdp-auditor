@@ -1,4 +1,9 @@
 import {
+  FIXTURE_PARTIAL_SCAN_ID,
+  FIXTURE_RUNNING_SCAN_ID,
+  PARTIAL_FINDING_COUNTS,
+} from '~~/shared/fixtures';
+import {
   SCAN_STATUSES,
   ScanInputError,
   type ScanDetail,
@@ -6,6 +11,8 @@ import {
   type ScanListPage,
 } from '~~/shared/scan';
 import { FIXTURE_SCAN_ID, FixtureNotFoundError } from './findings';
+
+export { FIXTURE_PARTIAL_SCAN_ID, FIXTURE_RUNNING_SCAN_ID };
 
 /**
  * Contract-shaped scan fixtures (docs/api.md §3.2, §3.5) for the scorecard,
@@ -22,12 +29,6 @@ const REPOSITORY = {
   fullName: 'acme/payments-service',
   visibility: 'private',
 };
-
-/** A completed scan where one scanner timed out: the grade is withheld. */
-export const FIXTURE_PARTIAL_SCAN_ID = '0f000000-0000-4000-8000-000000000011';
-
-/** A scan still in flight, so the progress view and polling have a subject. */
-export const FIXTURE_RUNNING_SCAN_ID = '0f000000-0000-4000-8000-000000000012';
 
 const FULL: ScanDetail = {
   id: FIXTURE_SCAN_ID,
@@ -90,7 +91,7 @@ const PARTIAL: ScanDetail = {
     '13': 50.0,
     '16': null,
   },
-  counts: { critical: 1, high: 2, medium: 3, low: 1, info: 0, total: 7 },
+  counts: { ...PARTIAL_FINDING_COUNTS, total: 7 },
   coverage: { semgrep: 'completed', checkov: 'completed', gitleaks: 'timed_out' },
   scannerVersions: { semgrep: '1.95.0', checkov: '3.2.0', gitleaks: '8.21.0' },
   rulePackVersion: '2026.10.1',
