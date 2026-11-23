@@ -29,7 +29,9 @@ test('findings workbench: filter, inspect, triage, restore', async ({ page }) =>
   const drawer = page.getByRole('dialog');
   await expect(drawer).toBeVisible();
   await expect(
-    drawer.getByRole('heading', { name: 'Personal data is written to application logs.' }),
+    drawer
+      .getByRole('article')
+      .getByRole('heading', { name: 'Personal data is written to application logs.' }),
   ).toBeVisible();
   await expect(drawer.getByText('services/payments/api/views.py:142–149')).toBeVisible();
 
