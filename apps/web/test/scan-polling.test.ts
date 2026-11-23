@@ -83,6 +83,21 @@ afterEach(() => {
 });
 
 describe('useScanPolling (docs/design.md §7.3)', () => {
+  it('does not report initial loading while refreshing an already-loaded scan', async () => {
+    fetchState.status.value = 'pending';
+    wrapper = await mountSuspended(Harness);
+
+    expect(api?.initialLoading.value).toBe(false);
+  });
+
+  it('reports initial loading before the first response arrives', async () => {
+    fetchState.data.value = null;
+    fetchState.status.value = 'pending';
+    wrapper = await mountSuspended(Harness);
+
+    expect(api?.initialLoading.value).toBe(true);
+  });
+
   it('polls every two seconds while the scan is active', async () => {
     wrapper = await mountSuspended(Harness);
 

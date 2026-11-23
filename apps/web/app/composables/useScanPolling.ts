@@ -32,6 +32,10 @@ export function useScanPolling(
   );
 
   const scan = computed<ScanDetail | null>(() => data.value?.data ?? null);
+  // Refreshing keeps the previous payload, so only show a skeleton before the
+  // first response. Using `status` alone would remount the whole pane every
+  // poll tick (useFetch sets it back to 'pending' while refreshing).
+  const initialLoading = computed(() => status.value === 'pending' && scan.value === null);
   const isTerminal = computed(() => scan.value !== null && isTerminalStatus(scan.value.status));
   const isPaused = computed(() => !visible.value);
   const pollError = computed(() =>
@@ -113,6 +117,7 @@ export function useScanPolling(
     data,
     scan,
     status,
+    initialLoading,
     error,
     refresh,
     isTerminal,

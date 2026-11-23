@@ -9,7 +9,7 @@ import { useToasts } from '~/composables/useToasts';
 const route = useRoute();
 const scanId = computed(() => String(route.params.scanId));
 const { push } = useToasts();
-const { scan, status, error, refresh } = await useScanPolling(scanId);
+const { scan, initialLoading, error, refresh } = await useScanPolling(scanId);
 
 const cancelling = ref(false);
 async function cancel(reason: string): Promise<void> {
@@ -33,7 +33,7 @@ async function cancel(reason: string): Promise<void> {
     <NewScanDetail
       :scan="scan"
       :cancelling="cancelling"
-      :loading="status === 'pending'"
+      :loading="initialLoading"
       @cancel="cancel"
     />
   </div>
