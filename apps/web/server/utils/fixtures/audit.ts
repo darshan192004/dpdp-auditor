@@ -152,7 +152,8 @@ export function fixtureAuditLogList(query: AuditQueryLike): AuditLogListResponse
 
 /** Every fixture entry as NDJSON for the export endpoint. */
 export function fixtureAuditLogNdjson(query: AuditQueryLike): string {
-  return fixtureAuditLogList({ ...query, page: '1', pageSize: '100' })
+  // Export accepts exact action names; substring searches apply to the list UI.
+  return fixtureAuditLogList({ ...query, actionContains: '', page: '1', pageSize: '100' })
     .data.map((entry) => JSON.stringify(entry))
     .join('\n');
 }
