@@ -1,4 +1,5 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime';
+import { nextTick } from 'vue';
 import { describe, expect, it, vi } from 'vitest';
 import { flushPromises } from '@vue/test-utils';
 
@@ -24,9 +25,10 @@ const REPOS: SavedRepoView[] = [
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
-function form(overrides: Record<string, unknown> = {}) {
+function form(overrides: Record<string, unknown> = {}, mountOptions: Record<string, unknown> = {}) {
   return mountSuspended(ScanSubmitForm, {
     props: { repos: REPOS, quota: { used: 2, limit: 10 }, ...overrides },
+    ...mountOptions,
   });
 }
 
@@ -146,5 +148,98 @@ describe('ScanSubmitForm (docs/design.md §5.5)', () => {
     await wrapper.find('input#scan-url').setValue('https://github.com/acme/payments-service');
     const button = wrapper.find('button[type="submit"]');
     expect(button.attributes('disabled')).toBeDefined();
+  });
+
+  it('explains an empty submit inline instead of showing the raw contract message', async () => {
+    const wrapper = await form();
+    await submit(wrapper);
+
+    expect(wrapper.emitted('submit')).toBeUndefined();
+
+    const url = wrapper.find('input#scan-url');
+    const repo = wrapper.find('select#scan-repo');
+    expect(url.attributes('aria-invalid')).toBe('true');
+    expect(repo.attributes('aria-invalid')).toBe('true');
+    expect(url.attributes('aria-describedby')).toContain('scan-source-error');
+    expect(repo.attributes('aria-describedby')).toContain('scan-source-error');
+
+    const inline = wrapper.find('#scan-source-error');
+    expect(inline.exists()).toBe(true);
+    expect(inline.attributes('role')).toBe('alert');
+    expect(inline.text()).toMatch(/choose a saved repository or paste a GitHub URL/i);
+    expect(inline.text()).not.toMatch(/repositoryId|githubUrl/);
+    expect(wrapper.text()).not.toContain('Provide exactly one of repositoryId or githubUrl.');
+    expect(wrapper.findAll('[role="alert"]')).toHaveLength(1);
+  });
+
+  it('moves focus to the URL field on an empty submit', async () => {
+    const wrapper = await form({}, { attachTo: document.body });
+    await submit(wrapper);
+    await nextTick();
+
+    expect(document.activeElement).toBe(wrapper.find('input#scan-url').element);
+    wrapper.unmount();
+  });
+
+  it('moves focus to the ref field when the ref is invalid', async () => {
+    const wrapper = await form({}, { attachTo: document.body });
+    await wrapper.find('input#scan-url').setValue('https://github.com/acme/payments-service');
+    await wrapper.find('input#scan-ref').setValue('bad ref');
+    await submit(wrapper);
+    await nextTick();
+
+    const refInput = wrapper.find('input#scan-ref');
+    expect(document.activeElement).toBe(refInput.element);
+    expect(refInput.attributes('aria-invalid')).toBe('true');
+    expect(refInput.attributes('aria-describedby')).toContain('scan-ref-error');
+    expect(wrapper.find('#scan-ref-error').text()).toBe(
+      'Enter a valid branch, tag, or commit SHA.',
+    );
+    wrapper.unmount();
+  });
+
+  it('clears the inline source error when a saved repository is chosen', async () => {
+    const wrapper = await form();
+    await submit(wrapper);
+    expect(wrapper.find('#scan-source-error').exists()).toBe(true);
+
+    await wrapper.find('select#scan-repo').setValue(REPOS[0]!.id);
+    await nextTick();
+
+    expect(wrapper.find('#scan-source-error').exists()).toBe(false);
+    expect(wrapper.find('input#scan-url').attributes('aria-invalid')).toBeUndefined();
+    expect(wrapper.find('select#scan-repo').attributes('aria-invalid')).toBeUndefined();
+
+    await submit(wrapper);
+    expect(wrapper.emitted('submit')?.[0]?.[0]).toMatchObject({
+      repositoryId: REPOS[0]!.id,
+      profile: 'standard',
+    });
+  });
+
+  it('clears the inline source error when a URL is pasted', async () => {
+    const wrapper = await form();
+    await submit(wrapper);
+
+    const url = wrapper.find('input#scan-url');
+    await url.setValue('https://github.com/acme/payments-service');
+    await nextTick();
+
+    expect(wrapper.find('#scan-source-error').exists()).toBe(false);
+    expect(url.attributes('aria-invalid')).toBeUndefined();
+    expect(url.attributes('aria-describedby')).toContain('scan-url-help');
+    expect(url.attributes('aria-describedby')).not.toContain('scan-source-error');
+  });
+
+  it('associates an invalid URL error with the URL field', async () => {
+    const wrapper = await form();
+    await wrapper.find('input#scan-url').setValue('https://gitlab.com/acme/x');
+    await submit(wrapper);
+
+    const url = wrapper.find('input#scan-url');
+    expect(url.attributes('aria-invalid')).toBe('true');
+    expect(url.attributes('aria-describedby')).toContain('scan-url-error');
+    expect(wrapper.find('#scan-url-error').attributes('role')).toBe('alert');
+    expect(wrapper.find('[role="alert"]').text()).toContain('GitHub repository URL');
   });
 });
