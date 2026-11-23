@@ -48,8 +48,9 @@ export const envSchema = z
     SMTP_PORT: z.coerce.number().int().optional(),
     SMTP_USER: z.string().optional(),
     SMTP_PASS: z.string().optional(),
-    // Development-only limit overrides. `0` means no size cap; unset keeps the
-    // per-plan caps from docs/PRD.md §10. Guarded below for production builds.
+    // Development-only limit override. `0` means no size cap; unset keeps the
+    // per-plan caps from docs/PRD.md §10. Any explicit value is rejected in
+    // production so a huge positive cap cannot bypass the plan limits.
     REPO_SIZE_CAP_MB: z.coerce.number().int().min(0).optional(),
     UNLIMITED_PLAN_QUOTA: z
       .enum(['true', 'false'])
@@ -63,11 +64,11 @@ export const envSchema = z
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') return;
-    if (env.REPO_SIZE_CAP_MB === 0) {
+    if (env.REPO_SIZE_CAP_MB !== undefined) {
       ctx.addIssue({
         code: 'custom',
         path: ['REPO_SIZE_CAP_MB'],
-        message: 'REPO_SIZE_CAP_MB=0 (unlimited) is not allowed in production',
+        message: 'REPO_SIZE_CAP_MB is a development-only override and is not allowed in production',
       });
     }
     if (env.UNLIMITED_PLAN_QUOTA) {

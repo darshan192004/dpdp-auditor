@@ -109,6 +109,11 @@ describe('loadEnv', () => {
     expect(() => loadEnv({ ...KEYS, NODE_ENV: 'production', REPO_SIZE_CAP_MB: '0' })).toThrow(
       /REPO_SIZE_CAP_MB/,
     );
+    // A huge positive value is an effective unlimited cap, so no explicit cap
+    // may be set in production.
+    expect(() =>
+      loadEnv({ ...KEYS, NODE_ENV: 'production', REPO_SIZE_CAP_MB: '9007199254740991' }),
+    ).toThrow(/REPO_SIZE_CAP_MB/);
     expect(() =>
       loadEnv({ ...KEYS, NODE_ENV: 'production', UNLIMITED_PLAN_QUOTA: 'true' }),
     ).toThrow(/UNLIMITED_PLAN_QUOTA/);

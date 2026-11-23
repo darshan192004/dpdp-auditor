@@ -514,8 +514,9 @@ Kubernetes is **production infrastructure only** (§11 topology); a developer la
 ### Local development overrides
 
 End-to-end verification of a real repository needs limits that the open-source
-plan intentionally applies. The orchestrator therefore accepts four opt-in
-variables that are rejected at boot when `NODE_ENV=production`:
+plan intentionally applies. The orchestrator therefore accepts two opt-in limit
+overrides that are rejected at boot when `NODE_ENV=production`; the optional
+timeout variables are allowed in every environment:
 
 | Variable | Effect | Default |
 | --- | --- | --- |

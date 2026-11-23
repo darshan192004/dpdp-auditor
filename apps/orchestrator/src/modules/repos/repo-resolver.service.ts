@@ -153,7 +153,7 @@ export class RepoResolverService {
     if (sizeBytes > capBytes) {
       throw new ApiError(
         'REPO_TOO_LARGE',
-        `Repository is ${Math.ceil(sizeBytes / MB)} MB; the plan cap is ${Math.ceil(capBytes / MB)} MB.`,
+        `Repository is ${Math.ceil(sizeBytes / MB)} MB; the configured cap is ${Math.ceil(capBytes / MB)} MB.`,
       );
     }
 
