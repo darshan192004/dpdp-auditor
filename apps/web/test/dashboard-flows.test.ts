@@ -69,7 +69,9 @@ it('scan detail shows score with coverage and a cancel action for running scans'
   });
   expect(wrapper.text()).toContain('acme/repo');
   expect(wrapper.text()).toContain('partial coverage');
-  expect(wrapper.find('button[data-action="cancel"]').exists()).toBe(true);
+  await wrapper.get('button[data-action="request-cancel"]').trigger('click');
+  expect(wrapper.emitted('cancel')).toBeUndefined();
+  expect(wrapper.get('[role="alertdialog"]').isVisible()).toBe(true);
   await wrapper.find('button[data-action="cancel"]').trigger('click');
   expect(wrapper.emitted('cancel')?.[0]?.[0]).toBe('Cancelled from the console');
 });

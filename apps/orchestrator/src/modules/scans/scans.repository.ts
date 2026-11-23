@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, type Scan, type ScanEvent, type ScanStatus } from '@prisma/client';
+import type { Prisma, Scan, ScanEvent, ScanStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import type { FindingsBatch } from './scan.schemas.js';
 
@@ -221,14 +221,11 @@ export class ScansRepository {
     return { accepted: result.count, duplicates: rows.length - result.count };
   }
 
-  /**
-   * usage_events enforces `UNIQUE (org_id, event_id)`; a unique violation means
-   * the event was already metered, which api.md §10 defines as success.
-   */
+  /** ON CONFLICT avoids aborting a caller's PostgreSQL transaction on replay. */
   async recordUsage(record: UsageRecord, tx?: Prisma.TransactionClient): Promise<boolean> {
-    try {
-      await this.client(tx).usageEvent.create({
-        data: {
+    const result = await this.client(tx).usageEvent.createMany({
+      data: [
+        {
           orgId: record.orgId,
           scanId: record.scanId,
           eventType: record.eventType,
@@ -236,19 +233,13 @@ export class ScansRepository {
           quantity: record.quantity,
           metadata: record.metadata,
         },
-      });
-      return true;
-    } catch (error) {
-      if (isUniqueViolation(error)) return false;
-      throw error;
-    }
+      ],
+      skipDuplicates: true,
+    });
+    return result.count > 0;
   }
 
   private client(tx?: Prisma.TransactionClient): Prisma.TransactionClient | PrismaService {
     return tx ?? this.prisma;
   }
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
 }

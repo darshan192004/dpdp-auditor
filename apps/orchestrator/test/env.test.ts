@@ -25,6 +25,26 @@ describe('loadEnv', () => {
     expect(loadEnv({ ...KEYS, RUNNER_DRIVER: 'docker' }).RUNNER_DRIVER).toBe('docker');
   });
 
+  it.each([
+    'wss://browser.internal/devtools/browser/id',
+    'ws://localhost:9222/devtools/browser/id',
+    'ws://127.0.0.1:9222/devtools/browser/id',
+    'ws://[::1]:9222/devtools/browser/id',
+  ])('accepts protected browser transport %s', (endpoint) => {
+    expect(
+      loadEnv({ ...KEYS, REPORTS_BROWSER_WS_ENDPOINT: endpoint }).REPORTS_BROWSER_WS_ENDPOINT,
+    ).toBe(endpoint);
+  });
+
+  it.each(['', 'ws://browser.internal/devtools/browser/id', 'https://browser.internal'])(
+    'rejects an invalid or cleartext remote browser endpoint %s',
+    (endpoint) => {
+      expect(() => loadEnv({ ...KEYS, REPORTS_BROWSER_WS_ENDPOINT: endpoint })).toThrow(
+        /REPORTS_BROWSER_WS_ENDPOINT/,
+      );
+    },
+  );
+
   it('rejects an unknown RUNNER_DRIVER', () => {
     expect(() => loadEnv({ ...KEYS, RUNNER_DRIVER: 'nomad' })).toThrow(/RUNNER_DRIVER/);
   });

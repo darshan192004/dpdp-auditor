@@ -862,7 +862,7 @@ it('NewOverview renders score ring, readiness grid and ranked actions', async ()
         coverage: { semgrep: 'completed', checkov: 'completed', gitleaks: 'completed' },
         repository: { id: 'r1', fullName: 'acme/repo', visibility: 'public' },
       },
-      counts: COUNTS,
+      counts: { critical: 1, high: 2, medium: 3, low: 4, info: 5, total: 15 },
       sections: [{ code: '§6', title: 'Security', state: 'partial', controls: 4 }],
       findings: [FINDING('f1', 'critical')],
       health: 'ok',
@@ -1086,7 +1086,9 @@ it('scan detail shows score with coverage and a cancel action for running scans'
   });
   expect(wrapper.text()).toContain('acme/repo');
   expect(wrapper.text()).toContain('partial coverage');
-  expect(wrapper.find('button[data-action="cancel"]').exists()).toBe(true);
+  await wrapper.get('button[data-action="request-cancel"]').trigger('click');
+  expect(wrapper.emitted('cancel')).toBeUndefined();
+  expect(wrapper.get('[role="alertdialog"]').isVisible()).toBe(true);
   await wrapper.find('button[data-action="cancel"]').trigger('click');
   expect(wrapper.emitted('cancel')?.[0]?.[0]).toBe('Cancelled from the console');
 });
@@ -1140,7 +1142,7 @@ const running = computed(() => props.scan !== null && !isTerminalStatus(props.sc
           <NuxtLink :to="`/report/${scan.id}`" class="rounded-[var(--radius-control)] border border-ink-300 px-3 py-1.5 text-sm">
             Report
           </NuxtLink>
-          <button v-if="running" type="button" data-action="cancel"
+          <button v-if="running" type="button" data-action="request-cancel"
             class="rounded-[var(--radius-control)] border border-risk-critical-border px-3 py-1.5 text-sm text-risk-critical-text"
             @click="confirming = true">Cancel scan</button>
         </template>
@@ -1150,7 +1152,7 @@ const running = computed(() => props.scan !== null && !isTerminalStatus(props.sc
         <p class="text-sm">Cancel this scan? Partial results are kept.</p>
         <div class="mt-3 flex gap-2">
           <button type="button" class="bg-risk-critical-solid text-ink-50 rounded-[var(--radius-control)] px-3 py-1.5 text-sm"
-            @click="emit('cancel', 'Cancelled from the console'); confirming = false">Confirm cancel</button>
+            data-action="cancel" @click="emit('cancel', 'Cancelled from the console'); confirming = false">Confirm cancel</button>
           <button type="button" class="rounded-[var(--radius-control)] border border-ink-300 px-3 py-1.5 text-sm" @click="confirming = false">Keep running</button>
         </div>
       </div>

@@ -2,9 +2,9 @@
 
 | Field             | Value                                                 |
 | ----------------- | ----------------------------------------------------- |
-| Document version  | 1.0                                                   |
+| Document version  | 1.1                                                   |
 | Status            | Draft for legal review                                |
-| Date              | 2026-11-04                                            |
+| Date              | 2026-11-17                                            |
 | Audience          | Legal, DPO, enterprise customers                      |
 | Related documents | `privacy-notice.md`, `security.md`, `architecture.md` |
 
@@ -28,7 +28,7 @@ The Processor processes:
 - Finding data (file paths, line ranges, rule identifiers, code snippets).
 - Account information (name, email, organisation name) necessary for authentication and billing.
 
-The Processor does **not** process customer end-user personal data at scale. It inspects code that may contain PII but does not store or process that PII beyond the scan.
+The Processor does **not** process customer end-user personal data at scale. Clones are ephemeral. Redacted finding evidence and derived PDF reports persist after the scan; redaction reduces exposure but does not guarantee removal of all personal data.
 
 ## 4. Subprocessors
 
@@ -54,6 +54,7 @@ A current subprocessor list is maintained at `docs/subprocessors.md`.
 | Repository metadata | Retained while connected; deleted on disconnect    |
 | Findings            | Retained while scan active; rolled up into reports |
 | Audit logs          | Per audit retention policy                         |
+| PDF reports         | 30 days after upload; expired downloads are blocked |
 
 ## 6. Security measures
 

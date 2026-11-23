@@ -63,6 +63,7 @@ function report(overrides: Partial<Report> = {}): Report {
     storageKey: null,
     sha256: null,
     sizeBytes: null,
+    idempotencyKey: null,
     requestedBy: null,
     errorMessage: null,
     expiresAt: null,
@@ -207,6 +208,20 @@ describe('buildReportViewModel (P4-20)', () => {
 });
 
 describe('brandingFor', () => {
+  it('rejects CSS injection and accepts only hex branding colors', () => {
+    for (const primaryColor of [
+      'red; background-image:url(http://127.0.0.1:3001/)',
+      'var(--color)',
+      '#12',
+      'red',
+    ]) {
+      expect(brandingFor({ branding: { primaryColor } }).primaryColor).toBeNull();
+    }
+    for (const primaryColor of ['#abc', '#123456', '#12345678']) {
+      expect(brandingFor({ branding: { primaryColor } }).primaryColor).toBe(primaryColor);
+    }
+  });
+
   it('reads tenant branding from settings', () => {
     expect(
       brandingFor({

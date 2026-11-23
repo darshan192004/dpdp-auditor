@@ -4,10 +4,37 @@ import { logger } from '../../common/logger.js';
 import { ENV, type Env } from '../../config/env.js';
 import { redisConnectionOptions, WORKER_SETTINGS, type QueueName } from '../../queue/queues.js';
 import { renderReportPdf } from './report-pdf.js';
+import { renderReportHtml } from './report-template.js';
 import { ReportStorageService } from './report-storage.service.js';
 import { ReportsService } from './reports.service.js';
 
 export const REPORT_RENDER_QUEUE: QueueName = 'report.render';
+
+/** Render failures propagate to BullMQ retries; never publish an empty placeholder PDF. */
+export async function renderPdf(
+  html: string,
+  browserWSEndpoint: string | undefined,
+): Promise<Buffer> {
+  if (!browserWSEndpoint)
+    throw new Error('REPORTS_BROWSER_WS_ENDPOINT is required for PDF rendering.');
+  const { default: puppeteer } = await import('puppeteer-core');
+  const browser = await puppeteer.connect({
+    browserWSEndpoint,
+    wsOptions: { handshakeTimeout: 15_000 },
+  });
+  try {
+    const page = await browser.newPage();
+    try {
+      await page.setContent(html, { waitUntil: 'load' });
+      await page.waitForNetworkIdle();
+      return Buffer.from(await page.pdf({ format: 'A4', printBackground: true }));
+    } finally {
+      await page.close();
+    }
+  } finally {
+    browser.disconnect();
+  }
+}
 
 /**
  * P5-17/P5-18: queue consumer that renders the report template for a
@@ -16,7 +43,7 @@ export const REPORT_RENDER_QUEUE: QueueName = 'report.render';
 export function createReportRenderWorker(
   env: Env,
   reports: ReportsService,
-  storage: ReportStorageService,
+  _storage: ReportStorageService,
 ): Worker {
   const worker = new Worker(
     REPORT_RENDER_QUEUE,
@@ -26,23 +53,19 @@ export function createReportRenderWorker(
         orgId: string;
       };
 
-      // Template v1 over the shared view model (docs/api.md 10.6). PDFKit
-      // renders a real multi-page A4 document directly from that model.
-      const viewModel = await reports.viewModel(orgId, reportId);
-      const pdfBuffer = await renderReportPdf(
-        viewModel as unknown as Parameters<typeof renderReportPdf>[0],
-      );
+      if (!(await reports.markRendering(orgId, reportId))) return true;
 
-      // P5-19: upload to storage, compute SHA-256 + size
-      const upload = storage.upload(reportId, pdfBuffer);
+      // Template v1 over the shared view model (docs/api.md 10.6).
+      const viewModel = await reports.viewModel(orgId, reportId);
+      const model = viewModel as unknown as Parameters<typeof renderReportHtml>[0];
+      const pdfBuffer = env.REPORTS_BROWSER_WS_ENDPOINT
+        ? await renderPdf(renderReportHtml(model), env.REPORTS_BROWSER_WS_ENDPOINT)
+        : await renderReportPdf(model);
 
       // Mark report ready
       await reports.complete(orgId, reportId, { buffer: pdfBuffer.toString('base64') });
 
-      logger.info(
-        { reportId, storageKey: upload.storageKey, bytes: pdfBuffer.length },
-        'report rendered',
-      );
+      logger.info({ reportId, bytes: pdfBuffer.length }, 'report rendered');
       return true;
     },
     {
@@ -53,15 +76,17 @@ export function createReportRenderWorker(
 
   worker.on('error', (error: Error) => logger.error({ err: error }, 'report.render worker error'));
 
-  worker.on('failed', async (job: Job | undefined, error: Error) => {
-    if (!job || job.attemptsMade < (job.opts.attempts ?? 1)) return;
-    const { reportId } = (job?.data ?? {}) as { reportId?: string };
-    if (reportId) {
-      try {
+  worker.on('failed', async (job: Job | undefined, _error: Error) => {
+    const reportId = job?.data?.reportId as string | undefined;
+    if (!job || !reportId) return;
+    try {
+      // BullMQ emits failed for both retries and terminal failures. Stalls and
+      // unrecoverable errors can be terminal before attemptsMade reaches its limit.
+      if ((await job.getState()) === 'failed') {
         await reports.markFailed(reportId, 'Rendering failed.');
-      } catch {
-        logger.error({ err: error, reportId }, 'failed to mark report as failed');
       }
+    } catch (error) {
+      logger.error({ err: error, reportId }, 'failed to finalize report failure');
     }
   });
 
@@ -73,6 +98,8 @@ export function createReportRenderWorker(
 export class ReportRenderRunner implements OnApplicationShutdown {
   private worker?: Worker;
   private started = false;
+  private recoveryTimer?: ReturnType<typeof setInterval>;
+  private recovering = false;
 
   constructor(
     @Inject(ENV) private readonly env: Env,
@@ -84,9 +111,26 @@ export class ReportRenderRunner implements OnApplicationShutdown {
     if (this.started) return;
     this.started = true;
     this.worker = createReportRenderWorker(this.env, this.reports, this.storage);
+    const recover = async () => {
+      if (this.recovering) return;
+      this.recovering = true;
+      try {
+        await this.reports.recoverQueued();
+      } catch (err) {
+        logger.error({ err }, 'report queue recovery failed');
+      } finally {
+        this.recovering = false;
+      }
+    };
+    this.recoveryTimer = setInterval(() => {
+      void recover();
+    }, 30_000);
+    this.recoveryTimer.unref();
+    await recover();
   }
 
   async onApplicationShutdown(): Promise<void> {
+    clearInterval(this.recoveryTimer);
     await this.worker?.close();
   }
 }
