@@ -63,6 +63,12 @@ function confirmCancel(): void {
             Coverage
           </NuxtLink>
           <NuxtLink
+            :to="`/app/scans/${scan.id}/remediation`"
+            class="border-ink-300 rounded-[var(--radius-control)] border px-3 py-1.5 text-sm"
+          >
+            Remediation
+          </NuxtLink>
+          <NuxtLink
             :to="`/report/${scan.id}`"
             class="border-ink-300 rounded-[var(--radius-control)] border px-3 py-1.5 text-sm"
           >

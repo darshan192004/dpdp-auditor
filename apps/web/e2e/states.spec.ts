@@ -48,7 +48,7 @@ test.describe('five states (P5-13)', () => {
     await navTo(page, 'Scans');
 
     await expect(page).toHaveURL(/\/app\/scans$/);
-    await expect(page.locator('main')).toContainText('No scans found.');
+    await expect(page.locator('main')).toContainText('No scans yet.');
   });
 
   test('empty: audit trail offers a clear empty state', async ({ page }) => {
@@ -90,7 +90,7 @@ test.describe('five states (P5-13)', () => {
     await page.goto('/app/scans/0f000000-0000-4000-8000-000000000011');
 
     await expect(page.locator('main')).toContainText('Coverage incomplete: Gitleaks timed out.');
-    await expect(page.locator('main')).toContainText('coverage: partial');
+    await expect(page.locator('main')).toContainText('partial coverage');
   });
 
   test('permission: the fixture auditor sees the organisation read-only', async ({ page }) => {

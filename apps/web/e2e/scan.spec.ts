@@ -13,13 +13,13 @@ test('scorecard: score, coverage and drill-down links', async ({ page }) => {
   const main = page.locator('main');
   await expect(main.getByRole('heading', { level: 1 })).toHaveText('acme/payments-service');
   await expect(main).toContainText('82.6');
-  await expect(main).toContainText('coverage: full');
+  await expect(main).toContainText('full coverage');
   await expect(main).toContainText('B');
-  await expect(main.getByRole('link', { name: 'How was this score computed?' })).toBeVisible();
-  await expect(main.getByRole('link', { name: 'Score and coverage breakdown' })).toBeVisible();
-  await expect(main.getByRole('link', { name: 'Remediation workspace' })).toBeVisible();
+  await expect(main.getByRole('link', { name: 'Findings', exact: true })).toBeVisible();
+  await expect(main.getByRole('link', { name: 'Coverage', exact: true })).toBeVisible();
+  await expect(main.getByRole('link', { name: 'Remediation', exact: true })).toBeVisible();
 
-  await main.getByRole('link', { name: 'How was this score computed?' }).click();
+  await main.getByRole('link', { name: 'Findings', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/app/scans/${SCAN_ID}/findings$`));
 });
 
@@ -28,7 +28,7 @@ test('partial coverage names the timed-out scanner and withholds the grade', asy
 
   const main = page.locator('main');
   await expect(main).toContainText('74.1');
-  await expect(main).toContainText('coverage: partial');
+  await expect(main).toContainText('partial coverage');
   await expect(main).toContainText('Coverage incomplete: Gitleaks timed out.');
 });
 
