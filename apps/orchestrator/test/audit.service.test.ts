@@ -144,6 +144,19 @@ describe('AuditService', () => {
       );
     });
 
+    it('escapes LIKE wildcards and counts only matching actions within the organization', async () => {
+      const { service, findMany, count } = makeListService();
+      findMany.mockResolvedValue([]);
+      count.mockResolvedValue(0);
+      await service.list({ orgId: ORG_ID, actionContains: 'KEY_%' }, 1, 10);
+      const where = {
+        orgId: ORG_ID,
+        AND: [{ action: { contains: 'KEY\\_\\%', mode: 'insensitive' } }],
+      };
+      expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ where }));
+      expect(count).toHaveBeenCalledWith({ where });
+    });
+
     it('filters by date range', async () => {
       const { service, findMany, count } = makeListService();
       findMany.mockResolvedValue([]);

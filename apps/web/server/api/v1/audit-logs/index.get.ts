@@ -33,6 +33,7 @@ export default defineEventHandler(async (event) => {
 
   const searchParams = new URLSearchParams();
   if (query.action) searchParams.set('action', query.action);
+  if (query.actionContains) searchParams.set('actionContains', query.actionContains);
   if (query.actorUserId) searchParams.set('actorUserId', query.actorUserId);
   if (query.from) searchParams.set('from', query.from);
   if (query.to) searchParams.set('to', query.to);
