@@ -11,6 +11,8 @@ import {
 } from '../server/utils/fixtures/findings';
 import { DEFAULT_FINDINGS_FILTERS } from '../shared/findings';
 
+import { FIXTURE_PARTIAL_SCAN_ID, FIXTURE_RUNNING_SCAN_ID } from '../shared/fixtures';
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function filters(overrides: Partial<typeof DEFAULT_FINDINGS_FILTERS> = {}) {
@@ -20,6 +22,13 @@ function filters(overrides: Partial<typeof DEFAULT_FINDINGS_FILTERS> = {}) {
 beforeEach(() => resetFixtureState());
 
 describe('fixture findings', () => {
+  it('keeps each scan’s findings scoped to that scan', () => {
+    const { data } = listFixtureFindings(filters(), FIXTURE_PARTIAL_SCAN_ID);
+    expect(data).toHaveLength(7);
+    expect(data.every((finding) => finding.scanId === FIXTURE_PARTIAL_SCAN_ID)).toBe(true);
+    expect(listFixtureFindings(filters(), FIXTURE_RUNNING_SCAN_ID).data).toEqual([]);
+  });
+
   it('are contract-shaped and cover every severity, scanner and status', () => {
     expect(FIXTURE_FINDINGS.length).toBeGreaterThanOrEqual(12);
 
