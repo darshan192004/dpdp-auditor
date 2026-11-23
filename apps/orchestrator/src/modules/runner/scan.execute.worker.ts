@@ -12,6 +12,23 @@ import { ScansRepository } from '../scans/scans.repository.js';
 export const SCAN_EXECUTE_QUEUE: QueueName = 'scan.execute';
 export const SCAN_EXECUTE_WATCHER_QUEUE: QueueName = 'scan.execute.watcher';
 
+const TIMEOUT_KEYS = [
+  'TIMEOUT_CLONE',
+  'TIMEOUT_SEMGREP',
+  'TIMEOUT_CHECKOV',
+  'TIMEOUT_GITLEAKS',
+] as const;
+
+/** Pass through only the timeouts explicitly configured for this environment. */
+function runnerTimeoutEnv(env: Env): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const key of TIMEOUT_KEYS) {
+    const value = env[key];
+    if (value !== undefined) result[key] = String(value);
+  }
+  return result;
+}
+
 export interface ScanExecutePayload {
   scanId: string;
   orgId: string;
@@ -49,6 +66,7 @@ export function createScanExecuteWorker(
         REPO_REF: ref,
         WORKSPACE: '/workspace',
         PROFILE: profile,
+        ...runnerTimeoutEnv(env),
       };
       const name = await executor.run(jobName, scanId, orgId, secretData);
       logger.info({ scanId, jobName: name }, 'scan job created');

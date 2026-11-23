@@ -139,6 +139,38 @@ describe('createScanExecuteWorker', () => {
     });
   });
 
+  it('forwards configured scanner timeouts to the runner secret only when set', async () => {
+    const executor = fakeExecutor();
+    createScanExecuteWorker(
+      {
+        ...ENV,
+        TIMEOUT_CLONE: 900,
+        TIMEOUT_SEMGREP: 600,
+        TIMEOUT_CHECKOV: undefined,
+        TIMEOUT_GITLEAKS: undefined,
+      },
+      executor,
+      fakeQueues(),
+      fakeScansRepository(),
+    );
+
+    await lastWorker().processor({
+      data: {
+        scanId: 's2',
+        orgId: 'o1',
+        repoUrl: 'https://github.com/org/repo',
+        ref: 'main',
+        profile: 'standard',
+      },
+    } as never);
+
+    const secretData = executor.run.mock.calls[0]?.[3] as Record<string, string>;
+    expect(secretData.TIMEOUT_CLONE).toBe('900');
+    expect(secretData.TIMEOUT_SEMGREP).toBe('600');
+    expect(secretData).not.toHaveProperty('TIMEOUT_CHECKOV');
+    expect(secretData).not.toHaveProperty('TIMEOUT_GITLEAKS');
+  });
+
   it('does not enqueue a Kubernetes watcher when the Docker driver is selected', async () => {
     const queues = fakeQueues();
     const scans = fakeScansRepository();
