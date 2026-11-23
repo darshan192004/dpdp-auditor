@@ -6,6 +6,7 @@ import ScoreRing from '~/components/dashboard/ScoreRing.vue';
 import SeverityBar from '~/components/dashboard/SeverityBar.vue';
 import StatusChip from '~/components/dashboard/StatusChip.vue';
 import DsSkeleton from '~/components/ds/DsSkeleton.vue';
+import DownloadButton from '~/components/report/DownloadButton.vue';
 import CoverageBanner from '~/components/scan/CoverageBanner.vue';
 import ScanProgress from '~/components/scan/ScanProgress.vue';
 import ScoreCard from '~/components/scan/ScoreCard.vue';
@@ -68,12 +69,7 @@ function confirmCancel(): void {
           >
             Remediation
           </NuxtLink>
-          <NuxtLink
-            :to="`/report/${scan.id}`"
-            class="border-ink-300 rounded-[var(--radius-control)] border px-3 py-1.5 text-sm"
-          >
-            Report
-          </NuxtLink>
+          <DownloadButton :scan-id="scan.id" :can-export="scan.status === 'completed'" />
           <button
             v-if="running && !confirming"
             type="button"
