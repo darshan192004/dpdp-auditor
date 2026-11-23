@@ -31,7 +31,7 @@
     "@axe-core/playwright": "^4.14.0",
     "@nuxt/test-utils": "4.3.4",
     "@playwright/test": "1.65.0",
-    "@vue/test-utils": "^2.4.6",
+    "@vue/test-utils": "^2.6.0",
     "happy-dom": "^21.0.4",
     "vue-tsc": "^3.3.14"
   }
