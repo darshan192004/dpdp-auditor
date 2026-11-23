@@ -79,7 +79,7 @@ test.describe('responsive layout (P5-15)', () => {
 
     await page.getByRole('button', { name: 'Open navigation' }).click();
     await expect(dialog).toBeVisible();
-    await page.getByRole('button', { name: 'Close navigation' }).last().click();
+    await dialog.getByRole('button', { name: 'Close navigation menu', exact: true }).click();
     await expect(dialog).toBeHidden();
   });
 
