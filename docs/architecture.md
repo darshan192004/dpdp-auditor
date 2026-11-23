@@ -511,6 +511,25 @@ Kubernetes is **production infrastructure only** (§11 topology); a developer la
 - Idle scanner nodes scale to zero outside business hours where latency allows.
 - Raw SARIF storage is opt-in and TTL-bound at 24 hours.
 
+### Local development overrides
+
+End-to-end verification of a real repository needs limits that the open-source
+plan intentionally applies. The orchestrator therefore accepts four opt-in
+variables that are rejected at boot when `NODE_ENV=production`:
+
+| Variable | Effect | Default |
+| --- | --- | --- |
+| `REPO_SIZE_CAP_MB=0` | Skip the plan repository-size cap during repository resolution | Plan cap from `docs/PRD.md` §10 |
+| `UNLIMITED_PLAN_QUOTA=true` | Bypass monthly scan/report quotas via `effectivePlanLimits()` | Plan quota from `docs/PRD.md` §10 |
+| `TIMEOUT_CLONE` / `TIMEOUT_SEMGREP` / `TIMEOUT_CHECKOV` / `TIMEOUT_GITLEAKS` | Forward the value (seconds) into the scan Secret when set | Scanner defaults in the runner image |
+
+Only explicitly set timeout variables are forwarded; the runner keeps its own
+defaults for everything else. These are developer conveniences, not a product
+tier: production builds fail fast if the two limit overrides are enabled. On
+Kubernetes, `activeDeadlineSeconds: 900` still bounds total Job duration, so
+raise it in the Job template as well when increasing scanner timeouts. See
+`.env.example` for a copyable local configuration.
+
 ---
 
 ## 13. Observability

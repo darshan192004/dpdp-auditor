@@ -62,6 +62,14 @@ pnpm --filter @dpdpa/web dev
 pnpm dev
 ```
 
+To scan a real GitHub repository end to end without hitting the open-source
+plan's size and monthly limits, copy the development-only variables from
+`.env.example` (`REPO_SIZE_CAP_MB=0`, `UNLIMITED_PLAN_QUOTA=true`) into the
+orchestrator environment. Boot will refuse these values when `NODE_ENV=production`;
+the plan caps remain in force in every deployed environment. Optional
+`TIMEOUT_*` variables can be set to give slow scanners more time locally (see
+`docs/architecture.md` §12).
+
 ## Making Changes
 
 ### Branch Convention
