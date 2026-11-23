@@ -28,17 +28,19 @@ const loadError = computed(() => {
 </script>
 
 <template>
-  <NewAudit
-    :events="entries"
-    :loading="loading"
-    :error="loadError"
-    @update:action="action = $event"
-  />
-  <nav v-if="(data?.pagination.totalPages ?? 0) > 1" aria-label="Pagination">
-    <button :disabled="page <= 1 || loading" @click="page--">Previous</button>
-    <span>Page {{ page }} of {{ data?.pagination.totalPages }}</span>
-    <button :disabled="page >= (data?.pagination.totalPages ?? 1) || loading" @click="page++">
-      Next
-    </button>
-  </nav>
+  <div>
+    <NewAudit
+      :events="entries"
+      :loading="loading"
+      :error="loadError"
+      @update:action="action = $event"
+    />
+    <nav v-if="(data?.pagination.totalPages ?? 0) > 1" aria-label="Pagination">
+      <button :disabled="page <= 1 || loading" @click="page--">Previous</button>
+      <span>Page {{ page }} of {{ data?.pagination.totalPages }}</span>
+      <button :disabled="page >= (data?.pagination.totalPages ?? 1) || loading" @click="page++">
+        Next
+      </button>
+    </nav>
+  </div>
 </template>
