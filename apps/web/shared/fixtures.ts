@@ -1,3 +1,11 @@
 /** Deterministic identities for the dev/CI fixture session (never production). */
 export const FIXTURE_ORG_ID = '0f000000-0000-4000-8000-000000000001';
 export const FIXTURE_USER_ID = '0f000000-0000-4000-8000-000000000002';
+
+/** A completed scan where one scanner timed out: the grade is withheld. */
+export const FIXTURE_PARTIAL_SCAN_ID = '0f000000-0000-4000-8000-000000000011';
+
+/** A scan still in flight, so the progress view and polling have a subject. */
+export const FIXTURE_RUNNING_SCAN_ID = '0f000000-0000-4000-8000-000000000012';
+
+export const PARTIAL_FINDING_COUNTS = { critical: 1, high: 2, medium: 3, low: 1, info: 0 } as const;
