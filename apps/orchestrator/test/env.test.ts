@@ -82,4 +82,36 @@ describe('loadEnv', () => {
       /ORCHESTRATOR_HMAC_KEY/,
     );
   });
+
+  it('accepts a zero repository size cap for unlimited development scans', () => {
+    expect(loadEnv({ ...KEYS, REPO_SIZE_CAP_MB: '0' }).REPO_SIZE_CAP_MB).toBe(0);
+  });
+
+  it('rejects a negative repository size cap', () => {
+    expect(() => loadEnv({ ...KEYS, REPO_SIZE_CAP_MB: '-1' })).toThrow(/REPO_SIZE_CAP_MB/);
+  });
+
+  it('parses UNLIMITED_PLAN_QUOTA as a boolean', () => {
+    expect(loadEnv({ ...KEYS, UNLIMITED_PLAN_QUOTA: 'true' }).UNLIMITED_PLAN_QUOTA).toBe(true);
+    expect(loadEnv({ ...KEYS, UNLIMITED_PLAN_QUOTA: 'false' }).UNLIMITED_PLAN_QUOTA).toBe(false);
+    expect(() => loadEnv({ ...KEYS, UNLIMITED_PLAN_QUOTA: 'yes' })).toThrow(/UNLIMITED_PLAN_QUOTA/);
+  });
+
+  it.each(['TIMEOUT_CLONE', 'TIMEOUT_SEMGREP', 'TIMEOUT_CHECKOV', 'TIMEOUT_GITLEAKS'])(
+    'coerces %s into a positive timeout',
+    (key) => {
+      expect(loadEnv({ ...KEYS, [key]: '600' })[key as keyof ReturnType<typeof loadEnv>]).toBe(600);
+      expect(() => loadEnv({ ...KEYS, [key]: '0' })).toThrow(new RegExp(key));
+    },
+  );
+
+  it('refuses development-only limit overrides in production', () => {
+    expect(() => loadEnv({ ...KEYS, NODE_ENV: 'production', REPO_SIZE_CAP_MB: '0' })).toThrow(
+      /REPO_SIZE_CAP_MB/,
+    );
+    expect(() =>
+      loadEnv({ ...KEYS, NODE_ENV: 'production', UNLIMITED_PLAN_QUOTA: 'true' }),
+    ).toThrow(/UNLIMITED_PLAN_QUOTA/);
+    expect(loadEnv({ ...KEYS, NODE_ENV: 'production' })).toMatchObject({ NODE_ENV: 'production' });
+  });
 });
