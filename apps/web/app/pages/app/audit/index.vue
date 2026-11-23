@@ -11,7 +11,7 @@ watch(action, () => {
 });
 const { data, status, error } = await useFetch<AuditLogListResponse>(
   () =>
-    `/api/v1/audit-logs?page=${page.value}&pageSize=50&action=${encodeURIComponent(action.value.trim())}`,
+    `/api/v1/audit-logs?page=${page.value}&pageSize=50&actionContains=${encodeURIComponent(action.value.trim())}`,
 );
 
 const entries = computed(() => data.value?.data ?? []);

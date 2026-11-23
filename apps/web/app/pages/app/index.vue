@@ -51,7 +51,7 @@ const detailRequest = await useAsyncData<ScanDetail | null>(
 );
 const findingsRequest = await useAsyncData<FindingsPage['data']>(
   'overview-findings',
-  async () => {
+  async (_app, { signal }) => {
     const id = scanId.value;
     const rows: FindingsPage['data'] = [];
     if (!id) return rows;
@@ -59,6 +59,7 @@ const findingsRequest = await useAsyncData<FindingsPage['data']>(
     for (;;) {
       const result = await requestFetch<FindingsPage>(
         `/api/v1/scan/${id}/findings?status=open&pageSize=100&page=${page}`,
+        { signal },
       );
       rows.push(...result.data);
       if (page >= result.pagination.totalPages) return rows;
@@ -85,7 +86,7 @@ onMounted(() => {
     if (document.visibilityState !== 'visible') return;
     void latestRequest.refresh();
     void detailRequest.refresh();
-    void findingsRequest.refresh();
+    void findingsRequest.refresh({ dedupe: 'defer' });
     void healthRequest.refresh();
   }, 5000);
 });

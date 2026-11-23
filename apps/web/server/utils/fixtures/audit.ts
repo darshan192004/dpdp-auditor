@@ -11,6 +11,7 @@ import type { AuditLogEntry, AuditLogListResponse } from '~~/shared/audit';
 
 interface AuditQueryLike {
   action?: string | string[];
+  actionContains?: string | string[];
   actorUserId?: string | string[];
   from?: string | string[];
   to?: string | string[];
@@ -132,6 +133,8 @@ export function fixtureAuditLogList(query: AuditQueryLike): AuditLogListResponse
 
   let rows = [...FIXTURE_AUDIT_ENTRIES].sort((a, b) => b.id - a.id);
   if (action) rows = rows.filter((row) => row.action === action);
+  const needle = first(query.actionContains)?.toLowerCase();
+  if (needle) rows = rows.filter((row) => row.action.toLowerCase().includes(needle));
   if (actorUserId) rows = rows.filter((row) => row.actor.id === actorUserId);
   if (from) rows = rows.filter((row) => Date.parse(row.createdAt) >= Date.parse(from));
   if (to) rows = rows.filter((row) => Date.parse(row.createdAt) <= Date.parse(to));
