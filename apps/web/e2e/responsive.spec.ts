@@ -1,22 +1,20 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { waitForHydration } from './hydration';
+
 /**
- * P5-15: responsive pass at 320 / 768 / 1024 / 1440 px (design.md 10).
- *
- * The primary workspace is desktop; mobile supports review and triage, not
- * bulk operations. The contract we test:
- *   - no page forces a horizontal document scrollbar at any width
- *   - the sidebar is a drawer below 1024 px and pinned above it
- *   - the drawer opens and closes without leaving the page in a bad state
+ * P5-15 (design.md §10): no page forces a horizontal document scrollbar at
+ * 320 / 768 / 1024 / 1440px. The console sidebar pins above `lg` and becomes
+ * a drawer below it; the drawer opens and closes without a bad page state.
  */
 
 const WIDTHS = [320, 768, 1024, 1440] as const;
 
 const PAGES = [
-  { name: 'overview', path: '/app', heading: 'Overview' },
-  { name: 'scans', path: '/app/scans', heading: 'Scans' },
-  { name: 'audit', path: '/app/audit', heading: 'Audit' },
-  { name: 'settings', path: '/app/settings/org', heading: 'Organisation' },
+  { name: 'overview', path: '/app' },
+  { name: 'scans', path: '/app/scans' },
+  { name: 'audit', path: '/app/audit' },
+  { name: 'settings', path: '/app/settings/org' },
 ] as const;
 
 async function horizontalOverflow(page: Page): Promise<number> {
@@ -27,8 +25,8 @@ async function horizontalOverflow(page: Page): Promise<number> {
 }
 
 test.describe('responsive layout (P5-15)', () => {
-  // Every test overrides the viewport. Reset to desktop after each so that
-  // subsequent specs (which do not set a viewport) still run at 1280 × 720.
+  // Every test overrides the viewport. Reset to desktop afterwards so that
+  // subsequent specs still run at 1280 × 720.
   test.afterEach(async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
   });
@@ -41,8 +39,6 @@ test.describe('responsive layout (P5-15)', () => {
           await page.goto(target.path);
 
           await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-
-          // 1px tolerance for sub-pixel rounding.
           expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
         });
       }
@@ -54,8 +50,7 @@ test.describe('responsive layout (P5-15)', () => {
       await page.setViewportSize({ width, height: 900 });
       await page.goto('/app');
 
-      const toggle = page.getByRole('button', { name: 'Open navigation' });
-      await expect(toggle).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Open navigation' })).toBeVisible();
       await expect(page.locator('#app-sidebar')).toBeHidden();
     }
 
@@ -71,37 +66,34 @@ test.describe('responsive layout (P5-15)', () => {
   test('mobile drawer opens, navigates and closes', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 900 });
     await page.goto('/app');
+    await waitForHydration(page);
 
     await page.getByRole('button', { name: 'Open navigation' }).click();
-    const sidebar = page.locator('#app-sidebar');
-    await expect(sidebar).toBeVisible();
+    const dialog = page.getByRole('dialog', { name: 'Navigation' });
+    await expect(dialog).toBeVisible();
 
-    // Navigate from inside the drawer; it must close behind us.
-    await sidebar.getByRole('link', { name: 'Scans', exact: true }).click();
+    await dialog.getByRole('link', { name: 'Scans', exact: true }).click();
     await expect(page).toHaveURL(/\/app\/scans$/);
-    await expect(sidebar).toBeHidden();
+    await expect(dialog).toBeHidden();
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
 
-    // And the explicit close control works too.
     await page.getByRole('button', { name: 'Open navigation' }).click();
-    await expect(sidebar).toBeVisible();
-    await sidebar.getByRole('button', { name: 'Close navigation' }).click();
-    await expect(sidebar).toBeHidden();
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole('button', { name: 'Close navigation menu', exact: true }).click();
+    await expect(dialog).toBeHidden();
   });
 
-  test('findings table scrolls inside its card instead of the page', async ({ page }) => {
+  test('findings rows fit inside the viewport at 320px', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 900 });
     await page.goto('/app/scans/0f000000-0000-4000-8000-000000000010/findings');
 
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(
+      page
+        .locator('main')
+        .getByRole('button', { name: /^Open finding:/ })
+        .first(),
+    ).toBeVisible();
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
-
-    const table = page.locator('table');
-    await expect(table).toBeVisible();
-    // The table itself may be wider than the viewport, but the page must not be.
-    const wrapper = table.locator(
-      'xpath=ancestor::div[contains(concat(" ", normalize-space(@class), " "), " overflow-x-auto ")][1]',
-    );
-    await expect(wrapper).toBeVisible();
   });
 });

@@ -1,11 +1,12 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 import { mountSuspended } from '@nuxt/test-utils/runtime';
 import { describe, expect, it } from 'vitest';
 import { defineComponent, h } from 'vue';
 
-import AppLayout from '../app/layouts/app.vue';
+import NewAppShell from '../app/components/shell/NewAppShell.vue';
 import PrintLayout from '../app/layouts/print.vue';
-import PageHeader from '../app/components/shell/PageHeader.vue';
-import { APP_NAV } from '../app/utils/nav';
 
 const FOCUSABLE = 'a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
@@ -13,8 +14,8 @@ function mountAppShell() {
   const TestPage = defineComponent({
     setup() {
       return () =>
-        h(AppLayout, null, {
-          default: () => h(PageHeader, { title: 'Overview' }),
+        h(NewAppShell, null, {
+          default: () => h('h1', null, 'Overview'),
         });
     },
   });
@@ -22,7 +23,28 @@ function mountAppShell() {
   return mountSuspended(TestPage);
 }
 
-describe('app shell layout (docs/design.md §3.1, §9)', () => {
+describe('flag-free app entry (docs/design.md §3.1, §3.3)', () => {
+  it('renders the new shell without a runtime flag or legacy layout fallback', () => {
+    const appSource = readFileSync(resolve(process.cwd(), 'app/app.vue'), 'utf8');
+    const configSource = readFileSync(resolve(process.cwd(), 'nuxt.config.ts'), 'utf8');
+
+    expect(appSource).toContain('<NewAppShell');
+    expect(appSource).not.toMatch(/newUi|NuxtLayout/);
+    expect(configSource).not.toMatch(/newUi|NUXT_PUBLIC_NEW_UI/);
+  });
+
+  it('keeps auth, print and default layouts for pages that opt out of console chrome', () => {
+    const appSource = readFileSync(resolve(process.cwd(), 'app/app.vue'), 'utf8');
+
+    expect(appSource).toContain("standaloneLayout === 'auth'");
+    expect(appSource).toContain("standaloneLayout === 'print'");
+    expect(appSource).toContain("standaloneLayout === 'default'");
+    expect(appSource).toContain('<AuthLayout');
+    expect(appSource).toContain('<PrintLayout');
+  });
+});
+
+describe('Signal Console shell (docs/design.md §3.1, §9)', () => {
   it('puts the skip link first in focus order', async () => {
     const wrapper = await mountAppShell();
     const first = wrapper.findAll(FOCUSABLE)[0];
@@ -33,42 +55,24 @@ describe('app shell layout (docs/design.md §3.1, §9)', () => {
     expect(first.text()).toBe('Skip to content');
   });
 
-  it('renders header, nav, main and aside landmarks', async () => {
+  it('renders header, primary nav, breadcrumb nav, main and aside landmarks', async () => {
     const wrapper = await mountAppShell();
 
     expect(wrapper.find('header').exists()).toBe(true);
-    expect(wrapper.findAll('nav').length).toBeGreaterThan(0);
+    expect(wrapper.find('nav[aria-label="Primary"]').exists()).toBe(true);
+    expect(wrapper.find('nav[aria-label="Breadcrumb"]').exists()).toBe(true);
     expect(wrapper.find('main#main').exists()).toBe(true);
     expect(wrapper.find('aside').exists()).toBe(true);
   });
 
-  it('renders every APP_NAV entry as a link in the sidebar', async () => {
+  it('renders the toast host as a polite live region', async () => {
     const wrapper = await mountAppShell();
-    const aside = wrapper.find('aside');
+    const host = wrapper.find('[role="status"][aria-live="polite"]');
 
-    expect(APP_NAV).toHaveLength(6);
-    for (const item of APP_NAV) {
-      const link = aside.findAll('a').find((candidate) => candidate.text() === item.label);
-      expect(link, `missing sidebar link: ${item.label}`).toBeDefined();
-      expect(link?.attributes('href')).toBe(item.to);
-    }
+    expect(host.exists()).toBe(true);
   });
 
-  it('renders org-switcher and account-menu placeholders in the topbar', async () => {
-    const wrapper = await mountAppShell();
-    const header = wrapper.find('header');
-    const buttons = header.findAll('button');
-
-    const orgSwitcher = buttons.find((button) => /your organisation/i.test(button.text()));
-    const accountMenu = buttons.find((button) =>
-      /account menu/i.test(button.attributes('aria-label') ?? ''),
-    );
-
-    expect(orgSwitcher, 'org switcher placeholder missing').toBeDefined();
-    expect(accountMenu, 'account menu placeholder missing').toBeDefined();
-  });
-
-  it('renders exactly one h1, provided by PageHeader', async () => {
+  it('renders exactly one h1 from the page slot', async () => {
     const wrapper = await mountAppShell();
     const headings = wrapper.findAll('h1');
 

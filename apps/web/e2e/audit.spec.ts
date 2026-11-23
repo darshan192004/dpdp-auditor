@@ -1,30 +1,41 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+
+import { waitForHydration } from './hydration';
 
 /**
- * Audit trail (P5-05/P5-31): fixture-backed list, filters, and export.
- * Guards the fixtures branch in `audit-logs/index.get.ts` - without it the
- * route 401s and the page renders "Sign in to continue".
+ * Audit trail (P5-05/P5-31) on the rebuilt Signal Console. The legacy
+ * filter/export controls were removed with the old workbench, so verification
+ * covers the real fixture-backed list and its empty state.
  */
 test.describe('Audit log', () => {
   test('lists the fixture audit trail', async ({ page }) => {
     await page.goto('/app/audit');
 
-    await expect(page.getByRole('heading', { level: 1, name: 'Audit' })).toBeVisible();
-    await expect(page.getByText('9 entries')).toBeVisible();
-    await expect(page.getByText('finding.triaged').first()).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Export NDJSON' })).toBeVisible();
-    // No auth error surfaced for a fixture session.
-    await expect(page.getByText('Sign in to continue')).toHaveCount(0);
+    const main = page.locator('main');
+    await expect(main.getByRole('heading', { level: 1 })).toHaveText('Audit');
+    await expect(main).toContainText('finding.triaged');
+    await expect(main).toContainText('org.created');
+    await expect(main.getByText('No audit events')).toHaveCount(0);
   });
 
-  test('filters the trail by action', async ({ page }) => {
-    await page.goto('/app/audit');
+  test('shows an explanatory empty state when the trail is empty', async ({ page }) => {
+    await page.goto('/app');
+    await waitForHydration(page);
+    await page.route('**/api/v1/audit-logs*', (route) =>
+      route.fulfill({
+        json: {
+          data: [],
+          pagination: { page: 1, pageSize: 50, totalItems: 0, totalPages: 1 },
+        },
+      }),
+    );
 
-    await page.getByLabel('Action').fill('scan.rescored');
-    await page.getByRole('button', { name: 'Apply filters' }).click();
+    await page
+      .getByRole('navigation', { name: 'Primary' })
+      .getByRole('link', { name: 'Audit', exact: true })
+      .click();
 
-    await expect(page.getByText('1 entry')).toBeVisible();
-    await expect(page.getByText('scan.rescored').first()).toBeVisible();
-    await expect(page.getByText('repo.connected')).toHaveCount(0);
+    await expect(page).toHaveURL(/\/app\/audit$/);
+    await expect(page.locator('main')).toContainText('No audit events');
   });
 });

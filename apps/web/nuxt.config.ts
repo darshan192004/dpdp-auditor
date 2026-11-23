@@ -17,6 +17,9 @@ export default defineNuxtConfig({
       htmlAttrs: { lang: 'en' },
       title: 'DPDPA Auditor',
     },
+    // Quiet crossfade between console views; the global reduced-motion rule in
+    // main.css collapses this to an instant swap for users who ask for it.
+    pageTransition: { name: 'page', mode: 'out-in' },
   },
 
   typescript: {

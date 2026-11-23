@@ -1,0 +1,108 @@
+import { mountSuspended } from '@nuxt/test-utils/runtime';
+import { describe, expect, it } from 'vitest';
+
+import DashboardPageHeader from '../app/components/dashboard/DashboardPageHeader.vue';
+import FixFirstList from '../app/components/dashboard/FixFirstList.vue';
+import SectionCoverageGrid from '../app/components/dashboard/SectionCoverageGrid.vue';
+import TrendSparkline from '../app/components/dashboard/TrendSparkline.vue';
+import type { FindingView } from '../shared/findings';
+
+const FINDING = (id: string, severity: 'critical' | 'high' | 'medium') =>
+  ({
+    id,
+    scanId: 'scn_1',
+    scanner: 'gitleaks',
+    scannerRuleId: 'rule-1',
+    severity,
+    confidence: 'direct',
+    status: 'open',
+    isNew: true,
+    filePath: 'src/config.ts',
+    lineStart: 10,
+    lineEnd: 10,
+    message: `Secret ${id}`,
+    evidence: { hash: 'sha256:abc' },
+    dpdpa: { code: 'S6.3', section: '§6', title: 'Security', severity, rationale: null },
+    remediation: { summary: 'Rotate the key', steps: ['Rotate'] },
+  }) as FindingView;
+
+describe('overview building blocks', () => {
+  it('renders section readiness states', async () => {
+    const wrapper = await mountSuspended(SectionCoverageGrid, {
+      props: {
+        sections: [
+          { code: '§3', title: 'Notice', state: 'ready', controls: 1 },
+          { code: '§8', title: 'Retention', state: 'at_risk', controls: 2 },
+        ],
+      },
+    });
+    expect(wrapper.text()).toContain('READY');
+    expect(wrapper.text()).toContain('AT RISK');
+    expect(wrapper.text()).toContain('1 control');
+    expect(wrapper.text()).not.toContain('1 controls');
+    expect(wrapper.text()).toContain('2 controls');
+  });
+
+  it('ranks the highest severity findings first and caps the list', async () => {
+    const wrapper = await mountSuspended(FixFirstList, {
+      props: {
+        findings: [FINDING('low', 'medium'), FINDING('high', 'high'), FINDING('crit', 'critical')],
+        limit: 2,
+      },
+    });
+    expect(wrapper.text()).toContain('Secret crit');
+    expect(wrapper.text()).toContain('Secret high');
+    expect(wrapper.text()).not.toContain('Secret low');
+    await wrapper.findAll('button')[0]!.trigger('click');
+    expect(wrapper.emitted('select')?.[0]?.[0]).toMatchObject({ id: 'crit' });
+  });
+
+  it('header exposes actions slot and subtitle', async () => {
+    const wrapper = await mountSuspended(DashboardPageHeader, {
+      props: { title: 'Overview', subtitle: 'DPDP posture' },
+      slots: { actions: '<button>New scan</button>' },
+    });
+    expect(wrapper.text()).toContain('Overview');
+    expect(wrapper.text()).toContain('DPDP posture');
+    expect(wrapper.text()).toContain('New scan');
+  });
+
+  it('sparkline renders nothing without enough history', async () => {
+    const empty = await mountSuspended(TrendSparkline, { props: { values: [42] } });
+    expect(empty.find('svg').exists()).toBe(false);
+    const full = await mountSuspended(TrendSparkline, { props: { values: [40, 50, 60] } });
+    expect(full.find('svg').exists()).toBe(true);
+  });
+});
+
+const COUNTS = { critical: 1, high: 0, medium: 0, low: 0, info: 0, total: 1 };
+
+it('NewOverview renders score ring, readiness grid and ranked actions', async () => {
+  const NewOverview = (await import('../app/components/new/NewOverview.vue')).default;
+  const wrapper = await mountSuspended(NewOverview, {
+    props: {
+      stats: [
+        { label: 'Scored controls', value: 11 },
+        { label: 'Sections covered', value: 7 },
+      ],
+      latestScan: {
+        id: 'scn_1',
+        status: 'completed',
+        score: 82.6,
+        grade: 'B',
+        coverage: { semgrep: 'completed', checkov: 'completed', gitleaks: 'completed' },
+        repository: { id: 'r1', fullName: 'acme/repo', visibility: 'public' },
+      },
+      counts: COUNTS,
+      sections: [{ code: '§6', title: 'Security', state: 'partial', controls: 4 }],
+      findings: [FINDING('f1', 'critical')],
+      health: 'ok',
+    },
+  });
+  expect(wrapper.text()).toContain('82.6');
+  expect(wrapper.text()).toContain('grade B');
+  expect(wrapper.text()).toContain('PARTIAL');
+  expect(wrapper.text()).toContain('Secret f1');
+  expect(wrapper.text()).toContain('ok');
+  expect(wrapper.find('a[href="/app/scans?new=1"]').exists()).toBe(true);
+});

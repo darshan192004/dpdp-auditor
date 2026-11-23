@@ -11,7 +11,7 @@ export class DockerRunner {
 
   constructor(env: Env) {
     this.env = env;
-    this.docker = new Docker({ socketPath: '/var/run/docker.sock' });
+    this.docker = new Docker({ socketPath: env.DOCKER_SOCKET_PATH ?? '/var/run/docker.sock' });
   }
 
   /** Start a container for the scan. Returns the container id. */

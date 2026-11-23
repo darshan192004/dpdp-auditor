@@ -14,8 +14,6 @@ import {
 } from '~~/shared/repo';
 import { formatTimestamp } from '~~/shared/scan';
 
-definePageMeta({ layout: 'app' });
-
 const { org } = useAppContext();
 const canManage = computed(() => ['owner', 'admin'].includes(org.value?.role ?? ''));
 
@@ -258,7 +256,7 @@ function formatSize(bytes: number): string {
         </span>
       </div>
       <div class="overflow-x-auto">
-        <table class="w-full text-left text-sm">
+        <table class="w-full table-fixed text-left text-sm">
           <caption class="sr-only">
             Connected repositories, their default branch, visibility, and connection date
           </caption>

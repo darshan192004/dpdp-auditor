@@ -276,6 +276,8 @@ describe('ScansService.create', () => {
     expect(queue.enqueue).toHaveBeenCalledWith('scan.execute', 'execute', {
       scanId: SCAN_ID,
       orgId: ORG_ID,
+      repoUrl: URL,
+      ref: 'main',
       profile: 'standard',
     });
   });

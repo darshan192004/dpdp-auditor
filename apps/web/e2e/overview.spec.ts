@@ -1,111 +1,39 @@
 import AxeBuilder from '@axe-core/playwright';
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 /**
- * P5-01: Overview dashboard visual and accessibility tests.
- * Verifies the glass-morphism OpsPulse-style design renders correctly.
+ * P5-01: the rebuilt overview renders the catalog counts as KPI cards. The
+ * legacy glass-morphism/usage-meter/table markup was removed by the rebuild;
+ * accessibility is covered here and in a11y.spec.ts.
  */
-test.describe('Overview Dashboard', () => {
+test.describe('Overview', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/app');
   });
 
-  test('overview page renders with glass-morphism design', async ({ page }) => {
-    // The app layout renders the page title as an h1 inside the main content
-    // region; scope to the main landmark to avoid matching the sidebar header.
-    await expect(page.locator('main h1, #main h1').first()).toHaveText('Overview');
-
-    // Verify main section headings exist. Scope to the main content region so
-    // the sidebar's "Recent scans" usage widget doesn't collide with the main
-    // "Recent scans" section heading.
-    const main = page.locator('main, #main').first();
-    await expect(main.getByRole('heading', { level: 2, name: 'Control catalog' })).toBeVisible();
-    // "Plan" is a small uppercase label inside the usage meter, not an h2.
-    await expect(main.getByText('PLAN')).toBeVisible();
-    await expect(
-      main.getByRole('heading', { level: 2, name: 'Controls by section' }),
-    ).toBeVisible();
-    await expect(main.getByRole('heading', { level: 2, name: 'Signal sources' })).toBeVisible();
-    await expect(main.getByRole('heading', { level: 2, name: 'Recent scans' })).toBeVisible();
-  });
-
-  test('displays catalog statistics', async ({ page }) => {
-    // KPI labels render uppercase inside <dt>; scope to the KPI grid so the
-    // "Scanner mappings" prose label doesn't collide.
-    const kpiGrid = page.locator('dl.grid').first();
-    await expect(kpiGrid.getByText('SCORED CONTROLS')).toBeVisible();
-    await expect(kpiGrid.getByText('NOT YET SCORED')).toBeVisible();
-    await expect(kpiGrid.getByText('SECTIONS COVERED')).toBeVisible();
-    await expect(kpiGrid.getByText('SCANNER MAPPINGS')).toBeVisible();
-  });
-
-  test('displays usage meter with plan information', async ({ page }) => {
-    // Fixture plan is "starter" → UsageMeter renders "Starter". Scope to the
-    // main landmark: the sidebar plan badge also reads "Starter" and would
-    // trip strict mode.
-    const main = page.locator('main, #main').first();
-    await expect(main.getByText('Starter')).toBeVisible();
-
-    // Verify usage labels
-    await expect(page.getByText('Scans this month')).toBeVisible();
-    await expect(page.getByText('Reports this month')).toBeVisible();
-
-    // Verify progress bars exist (role="progressbar")
-    const progressBars = page.locator('[role="progressbar"]');
-    await expect(progressBars).toHaveCount(2);
-  });
-
-  test('displays sections table with controls', async ({ page }) => {
-    const table = page.locator('table').first();
-    await expect(table).toBeVisible();
-
-    // Check table headers (uppercase in markup)
-    await expect(page.getByRole('columnheader', { name: 'Section' })).toBeVisible();
-    await expect(page.getByRole('columnheader', { name: 'Controls' })).toBeVisible();
-
-    // Check table has section rows
-    const rows = table.locator('tbody tr');
-    await expect(rows.first()).toBeVisible();
-  });
-
-  test('displays signal sources with progress bars', async ({ page }) => {
-    const scannersSection = page.locator('section').filter({ hasText: 'Signal sources' });
-    await expect(scannersSection).toBeVisible();
-  });
-
-  test('displays quick links', async ({ page }) => {
-    // Quick links are the bottom grid of cards. Scope by the visible description
-    // text to avoid colliding with sidebar nav links of the same name.
-    await expect(page.getByRole('link', { name: /Connect a GitHub repository/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /See what each control asks for/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /Every score, triage decision/i })).toBeVisible();
+  test('renders the catalog KPI cards', async ({ page }) => {
+    const main = page.locator('main');
+    await expect(main.getByRole('heading', { level: 1 })).toHaveText('Overview');
+    await expect(main).toContainText('Scored controls');
+    await expect(main).toContainText('Open findings');
+    await expect(main).toContainText('Sections covered');
+    await expect(main).toContainText('Scanner mappings');
+    await expect(main.getByRole('heading', { name: 'Finding severity' })).toBeVisible();
   });
 
   test('has no serious or critical accessibility violations', async ({ page }) => {
-    const accessibilityScanResults = await new AxeBuilder({ page })
-      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
-      .analyze();
-
-    const seriousViolations = accessibilityScanResults.violations.filter(
-      (v: { impact: string }) => v.impact === 'serious' || v.impact === 'critical',
+    const results = await new AxeBuilder({ page }).analyze();
+    const blocking = results.violations.filter(
+      (violation) => violation.impact === 'serious' || violation.impact === 'critical',
     );
-
-    if (seriousViolations.length > 0) {
-      console.log('Accessibility violations:', JSON.stringify(seriousViolations, null, 2));
-    }
-
-    expect(seriousViolations).toHaveLength(0);
+    expect(blocking).toHaveLength(0);
   });
 
-  test('responsive layout on mobile viewport', async ({ page }) => {
-    // Set mobile viewport
+  test('stays readable at a mobile viewport', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 });
 
-    // Verify page still renders
-    await expect(page.getByRole('heading', { level: 1, name: 'Overview' })).toBeVisible();
-
-    // On mobile, sections should stack vertically
-    const catalogSection = page.locator('section').filter({ hasText: 'Control catalog' });
-    await expect(catalogSection).toBeVisible();
+    const main = page.locator('main');
+    await expect(main.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(main).toContainText('Scored controls');
   });
 });

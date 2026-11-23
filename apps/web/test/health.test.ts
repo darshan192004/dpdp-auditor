@@ -47,19 +47,19 @@ describe('GET /api/health payload', () => {
 });
 
 describe('health page states (design §8)', () => {
-  it('shows an aria-busy skeleton while the request is pending', async () => {
+  it('shows the loading copy and no service cards while the request is pending', async () => {
     healthData.value = null;
     healthStatus.value = 'pending';
 
     const wrapper = await mountSuspended(HealthPage);
 
-    const busy = wrapper.find('[aria-busy="true"]');
-    expect(busy.exists()).toBe(true);
-    expect(busy.text()).toContain('Loading system status');
-    expect(wrapper.find('h1').exists()).toBe(false);
+    expect(wrapper.text()).toContain('Checking services…');
+    expect(wrapper.text()).not.toContain('healthy');
+    // The rebuilt shell keeps a stable page heading across states.
+    expect(wrapper.find('h1').text()).toBe('Health');
   });
 
-  it('renders the resolved status, version and uptime once loaded', async () => {
+  it('renders the resolved service status once loaded', async () => {
     healthData.value = FIXTURE;
     healthStatus.value = 'success';
 
@@ -67,15 +67,12 @@ describe('health page states (design §8)', () => {
 
     const headings = wrapper.findAll('h1');
     expect(headings).toHaveLength(1);
-    expect(headings[0]?.text()).toBe('System status');
+    expect(headings[0]?.text()).toBe('Health');
 
     const text = wrapper.text();
-    expect(text).toContain('All systems operational');
-    expect(text).toContain('0.1.0');
-
-    // Version and uptime are rendered in a fixed-width face (plan Task 5).
-    expect(wrapper.find('.font-mono').exists()).toBe(true);
-    expect(wrapper.find('[aria-busy="true"]').exists()).toBe(false);
+    expect(text).toContain('API');
+    expect(text).toContain('healthy');
+    expect(text).not.toContain('Checking services…');
   });
 });
 

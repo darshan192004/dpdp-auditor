@@ -3,6 +3,7 @@ import { Worker, type Job } from 'bullmq';
 import { logger } from '../../common/logger.js';
 import { ENV, type Env } from '../../config/env.js';
 import { redisConnectionOptions, WORKER_SETTINGS, type QueueName } from '../../queue/queues.js';
+import { renderReportPdf } from './report-pdf.js';
 import { renderReportHtml } from './report-template.js';
 import { ReportStorageService } from './report-storage.service.js';
 import { ReportsService } from './reports.service.js';
@@ -56,8 +57,10 @@ export function createReportRenderWorker(
 
       // Template v1 over the shared view model (docs/api.md 10.6).
       const viewModel = await reports.viewModel(orgId, reportId);
-      const html = renderReportHtml(viewModel as unknown as Parameters<typeof renderReportHtml>[0]);
-      const pdfBuffer = await renderPdf(html, env.REPORTS_BROWSER_WS_ENDPOINT);
+      const model = viewModel as unknown as Parameters<typeof renderReportHtml>[0];
+      const pdfBuffer = env.REPORTS_BROWSER_WS_ENDPOINT
+        ? await renderPdf(renderReportHtml(model), env.REPORTS_BROWSER_WS_ENDPOINT)
+        : await renderReportPdf(model);
 
       // Mark report ready
       await reports.complete(orgId, reportId, { buffer: pdfBuffer.toString('base64') });

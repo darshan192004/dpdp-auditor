@@ -3,6 +3,7 @@ pnpm-lock.yaml
 .superpowers/
 .playwright-mcp/
 coverage/
+dist/
 .turbo/
 .husky/_/
 \?/
@@ -11,3 +12,6 @@ coverage/
 .output/
 playwright-report/
 test-results/
+.agents/
+.tmp/
+**/.pytest_cache/

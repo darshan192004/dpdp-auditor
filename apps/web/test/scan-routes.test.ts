@@ -44,7 +44,19 @@ describe('scan BFF request contracts', () => {
     expect(response.status).toBe(202);
     expect(response.headers.get('location')).toBe('/api/v1/scan/scan_1');
     expect(await response.json()).toEqual({
-      data: { id: 'scan_1', status: 'queued', createdAt: '2026-11-17T00:00:00Z', replayed: false },
+      data: {
+        id: 'scan_1',
+        status: 'queued',
+        createdAt: '2026-11-17T00:00:00Z',
+        replayed: false,
+        githubUrl: 'https://github.com/acme/example',
+        profile: 'standard',
+        links: {
+          self: '/api/v1/scan/scan_1',
+          findings: '/api/v1/scan/scan_1/findings',
+          events: '/api/v1/scan/scan_1/events',
+        },
+      },
     });
     expect(upstream).toHaveBeenCalledWith(
       expect.anything(),

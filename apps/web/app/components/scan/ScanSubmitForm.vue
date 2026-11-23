@@ -55,9 +55,12 @@ const idempotencyKey = createIdempotencyKey();
 const exhausted = computed(() => quotaExhausted(props.quota));
 const submitting = ref(false);
 const disabled = computed(() => exhausted.value || !props.canSubmit || submitting.value);
-const quotaLabel = computed(() =>
-  props.quota === null ? null : `${props.quota.used} of ${props.quota.limit} scans used this month`,
-);
+const quotaLabel = computed(() => {
+  if (props.quota === null) return null;
+  return props.quota.limit > 0
+    ? `${props.quota.used} of ${props.quota.limit} scans used this month`
+    : `${props.quota.used} scans used this month`;
+});
 
 const selectedRepo = computed(
   () => props.repos.find((repo) => repo.id === form.repositoryId) ?? null,
@@ -99,13 +102,12 @@ async function submit(): Promise<void> {
 
 <template>
   <section
-    aria-labelledby="scan-submit-heading"
+    aria-label="Scan submission"
     class="bg-surface rounded-[var(--radius-card)] p-5 shadow-[var(--shadow-card)]"
   >
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h2 id="scan-submit-heading" class="text-ink-900 text-sm font-semibold">Start a scan</h2>
-        <p class="text-ink-500 mt-1 text-xs">
+        <p class="text-ink-500 text-xs">
           Scans read the default branch. No repository credentials are stored.
         </p>
       </div>
@@ -113,10 +115,10 @@ async function submit(): Promise<void> {
         {{ quotaLabel }}
         <a
           v-if="exhausted"
-          href="/app/settings/billing"
+          href="/app/settings/org"
           class="text-brand-700 focus-visible:ring-brand-500 rounded-[var(--radius-control)] font-medium underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:outline-none"
         >
-          Upgrade plan
+          Review scan limits
         </a>
       </p>
     </div>

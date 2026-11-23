@@ -14,6 +14,8 @@ module.exports = [
       '**/.output/**',
       '.superpowers/**',
       '.playwright-mcp/**',
+      '.agents/**',
+      '.tmp/**',
     ],
   },
   js.configs.recommended,

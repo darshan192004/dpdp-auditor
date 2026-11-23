@@ -1,38 +1,21 @@
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue';
+import { computed, ref } from 'vue';
 
-import FindingDrawer from '~/components/findings/FindingDrawer.vue';
-import FindingsFilterBar from '~/components/findings/FindingsFilterBar.vue';
-import FindingsTable from '~/components/findings/FindingsTable.vue';
-import PageHeader from '~/components/shell/PageHeader.vue';
-import ErrorState from '~/components/ui/ErrorState.vue';
+import DsErrorState from '~/components/ds/DsErrorState.vue';
+import NewFindings from '~/components/new/NewFindings.vue';
 import { useAppContext } from '~/composables/useAppContext';
 import { useFindingsQuery } from '~/composables/useFindingsQuery';
-import {
-  type FindingSort,
-  type FindingStatus,
-  type FindingView,
-  type FindingsPage,
-  type FindingsPagination,
-} from '~~/shared/findings';
+import { useToasts } from '~/composables/useToasts';
+import { apiErrorMessage } from '~~/shared/api-error';
+import type { FindingStatus, FindingsPage } from '~~/shared/findings';
 import { serialiseFindingsQuery } from '~~/shared/findings-query';
-
-definePageMeta({ layout: 'app' });
-
-const STATUS_LABELS: Record<FindingStatus, string> = {
-  open: 'open',
-  false_positive: 'false positive',
-  accepted_risk: 'accepted risk',
-  fixed: 'fixed',
-  reopened: 'reopened',
-};
 
 const route = useRoute();
 const scanId = computed(() => String(route.params.scanId));
-const shortId = computed(() => scanId.value.slice(0, 8));
 
-const { filters, update, clear } = useFindingsQuery();
 const { org } = useAppContext();
+const { push } = useToasts();
+const { filters, update, clear } = useFindingsQuery();
 const role = computed(() => org.value?.role ?? 'viewer');
 
 const requestUrl = computed(() => {
@@ -47,8 +30,8 @@ const requestUrl = computed(() => {
 
 const { data, status, error, refresh } = await useFetch<FindingsPage>(requestUrl);
 
-const findings = computed<FindingView[]>(() => data.value?.data ?? []);
-const pagination = computed<FindingsPagination>(
+const findings = computed(() => data.value?.data ?? []);
+const pagination = computed(
   () =>
     data.value?.pagination ?? {
       page: filters.value.page,
@@ -57,7 +40,6 @@ const pagination = computed<FindingsPagination>(
       totalPages: 1,
     },
 );
-const loading = computed(() => status.value === 'pending');
 
 const loadError = computed(() => {
   if (!error.value) return null;
@@ -72,131 +54,60 @@ const loadError = computed(() => {
 });
 
 const selectedId = ref<string | null>(null);
-const selected = computed(
-  () => findings.value.find((finding) => finding.id === selectedId.value) ?? null,
-);
-
+const selected = computed(() => findings.value.find((f) => f.id === selectedId.value) ?? null);
 const triaging = ref(false);
-const notice = ref('');
-const triageError = ref<string | null>(null);
-
-function openFinding(finding: FindingView): void {
-  selectedId.value = finding.id;
-  triageError.value = null;
-}
-
-function onDrawerOpen(open: boolean): void {
-  if (open) return;
-  const id = selectedId.value;
-  selectedId.value = null;
-  void nextTick(() => {
-    if (id === null) return;
-    document.getElementById(`finding-row-${id}`)?.focus();
-  });
-}
 
 async function onTriage(draft: {
   status: FindingStatus;
   note?: string;
   externalUrl?: string;
 }): Promise<void> {
-  if (selectedId.value === null) return;
+  const id = selectedId.value;
+  if (id === null) return;
 
   triaging.value = true;
-  triageError.value = null;
   try {
-    await $fetch(`/api/v1/findings/${selectedId.value}`, { method: 'PATCH', body: draft });
-    notice.value = `Disposition saved: ${STATUS_LABELS[draft.status]}.`;
+    await $fetch(`/api/v1/findings/${id}`, { method: 'PATCH', body: draft });
+    push('success', 'Disposition saved', `Status: ${draft.status}.`);
+    if (selectedId.value === id) selectedId.value = null;
     await refresh();
-  } catch (failure) {
-    const payload = failure as { data?: { error?: { message?: string } } };
-    triageError.value = payload.data?.error?.message ?? 'The disposition could not be saved.';
+  } catch (cause) {
+    push(
+      'error',
+      'Disposition not saved',
+      apiErrorMessage(cause, 'The finding could not be updated. Try again.'),
+    );
   } finally {
     triaging.value = false;
   }
 }
-
-function setSort(sort: FindingSort): void {
-  void update({ sort });
-}
-
-function setPage(page: number): void {
-  void update({ page });
-}
-
-function setPageSize(pageSize: number): void {
-  void update({ pageSize });
-}
-
-function clearFilters(): void {
-  void clear();
-}
 </script>
 
 <template>
-  <div class="space-y-4">
-    <PageHeader
-      title="Findings"
-      :breadcrumbs="[
-        { label: 'Scans', to: '/app/scans' },
-        { label: shortId, to: `/app/scans/${scanId}` },
-        { label: 'Findings' },
-      ]"
-    />
-
-    <div
-      class="bg-surface max-w-full overflow-x-auto rounded-[var(--radius-card)] px-4 py-3 shadow-[var(--shadow-card)]"
-    >
-      <FindingsFilterBar
-        :filters="filters"
-        :total-items="pagination.totalItems"
-        @update="update"
-        @clear="clearFilters"
-      />
-    </div>
-
-    <p
-      v-if="notice"
-      role="status"
-      class="border-brand-500 bg-brand-50 text-brand-900 rounded-[var(--radius-card)] border px-3 py-2 text-sm"
-    >
-      {{ notice }}
-    </p>
-    <p
-      v-if="triageError"
-      role="alert"
-      class="border-risk-critical-border bg-risk-critical-bg text-risk-critical-text rounded-[var(--radius-card)] border px-3 py-2 text-sm"
-    >
-      {{ triageError }}
-    </p>
-
-    <ErrorState
+  <div>
+    <DsErrorState
       v-if="loadError"
       :message="loadError.message"
-      :request-id="loadError.requestId ?? null"
+      :request-id="loadError.requestId ?? ''"
       @retry="refresh"
     />
-
-    <FindingsTable
+    <NewFindings
       v-else
       :findings="findings"
       :pagination="pagination"
+      :filters="filters"
       :sort="filters.sort"
-      :loading="loading"
-      :selected-id="selectedId"
-      @select="openFinding"
-      @update:sort="setSort"
-      @update:page="setPage"
-      @update:page-size="setPageSize"
-      @clear="clearFilters"
-    />
-
-    <FindingDrawer
-      :open="selectedId !== null"
-      :finding="selected"
       :role="role"
-      :submitting="triaging"
-      @update:open="onDrawerOpen"
+      :selected="selected"
+      :loading="status === 'pending'"
+      :triaging="triaging"
+      @select="selectedId = $event.id"
+      @close="selectedId = null"
+      @update:filters="update"
+      @clear="clear"
+      @update:sort="update({ sort: $event })"
+      @update:page="update({ page: $event })"
+      @update:page-size="update({ pageSize: $event })"
       @triage="onTriage"
     />
   </div>

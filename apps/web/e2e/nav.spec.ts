@@ -1,20 +1,20 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 /**
- * Every dashboard sidebar option reaches its page with content rendered -
- * guards against a nav entry pointing at a missing route or a page that
- * dies on its data fetch.
+ * Every console sidebar entry reaches its page with a rendered h1, and the
+ * breadcrumb names the active section.
  */
 const SIDEBAR_LINKS = [
   { name: 'Overview', path: '/app' },
-  { name: 'Repositories', path: '/app/repos' },
   { name: 'Scans', path: '/app/scans' },
+  { name: 'Remediation', path: '/app/remediation' },
   { name: 'Rules', path: '/app/rules' },
   { name: 'Audit', path: '/app/audit' },
   { name: 'Settings', path: '/app/settings/org' },
+  { name: 'Health', path: '/health' },
 ] as const;
 
-test.describe('Dashboard sidebar', () => {
+test.describe('Console navigation', () => {
   for (const link of SIDEBAR_LINKS) {
     test(`${link.name} is reachable from the sidebar`, async ({ page }) => {
       await page.goto('/app');
@@ -30,11 +30,9 @@ test.describe('Dashboard sidebar', () => {
     });
   }
 
-  test('plan badge matches the plan shown on the overview card', async ({ page }) => {
-    await page.goto('/app');
+  test('breadcrumb names the active section', async ({ page }) => {
+    await page.goto('/app/scans');
 
-    const sidebar = page.locator('#app-sidebar');
-    await expect(sidebar.getByText('Starter')).toBeVisible();
-    await expect(page.getByText('Starter').first()).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Breadcrumb' })).toContainText('Scans');
   });
 });

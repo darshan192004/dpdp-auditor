@@ -1,39 +1,30 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
-import ScanSubmitForm from '~/components/scan/ScanSubmitForm.vue';
+import ScanTable from '~/components/dashboard/ScanTable.vue';
+import StartScanDrawer from '~/components/dashboard/StartScanDrawer.vue';
+import DsErrorState from '~/components/ds/DsErrorState.vue';
+import DashboardPageHeader from '~/components/dashboard/DashboardPageHeader.vue';
 import { useAppContext } from '~/composables/useAppContext';
-import { canManageScans, scanSubmitPath, type ScanQuota } from '~~/shared/scan';
+import { useToasts } from '~/composables/useToasts';
+import { apiErrorMessage } from '~~/shared/api-error';
 import type { SavedRepoView } from '~~/shared/repo';
 import type { OrgSummary } from '~~/shared/org';
-
-import PageHeader from '~/components/shell/PageHeader.vue';
-import EmptyState from '~/components/ui/EmptyState.vue';
-import ErrorState from '~/components/ui/ErrorState.vue';
 import {
   SCAN_STATUSES,
-  SCAN_STATUS_LABELS,
-  formatScore,
-  formatTimestamp,
-  type ScanListPage,
+  type ScanQuota,
+  canManageScans,
+  scanSubmitPath,
+  type ScanProfile,
   type ScanStatus,
 } from '~~/shared/scan';
 
-definePageMeta({ layout: 'app' });
-
-const { org } = useAppContext();
-const canSubmit = computed(() => canManageScans(org.value?.role ?? null));
-
-const reposRequest = await useFetch<{ data: { items: SavedRepoView[] } }>('/api/v1/repos');
-const repos = computed(() => reposRequest.data.value?.data.items ?? []);
-const summaryRequest = await useFetch<{ data: OrgSummary }>('/api/v1/org/summary');
-const quota = computed<ScanQuota | null>(() => {
-  const summary = summaryRequest.data.value?.data;
-  return summary ? { used: summary.scansUsedThisMonth, limit: summary.scansPerMonth ?? 0 } : null;
-});
-
 const route = useRoute();
 const router = useRouter();
+const { org } = useAppContext();
+const { push } = useToasts();
+const canSubmit = computed(() => canManageScans(org.value?.role ?? null));
+
 const status = computed<'' | ScanStatus>(() => {
   const value = route.query.status;
   return typeof value === 'string' && SCAN_STATUSES.includes(value as ScanStatus)
@@ -46,33 +37,44 @@ const page = computed(() => {
   return Number.isSafeInteger(value) ? value : 1;
 });
 
-function selectStatus(value: '' | ScanStatus): void {
-  void router.push({ query: { ...route.query, status: value || undefined, page: undefined } });
-}
+const drawerOpen = ref(false);
+const submitting = ref(false);
 
-/**
- * Reactive query string: useFetch re-requests automatically when a filter
- * or page changes, and the URL stays shareable/bookmarkable.
- */
-const qs = computed(() => {
-  const params = new URLSearchParams();
-  if (status.value !== '') params.set('status', status.value);
-  if (page.value > 1) params.set('page', String(page.value));
-  const serialized = params.toString();
-  return serialized === '' ? '' : `?${serialized}`;
+const query = computed(() => {
+  const params = new URLSearchParams({ page: String(page.value), pageSize: '25' });
+  if (status.value) params.set('status', status.value);
+  return `/api/v1/scans?${params.toString()}`;
 });
 
-const scansRequest = await useFetch<{ data: ScanListPage }>(() => `/api/v1/scans${qs.value}`);
-
+const scansRequest = await useFetch<{ data: import('~~/shared/scan').ScanListPage }>(
+  () => query.value,
+);
+const reposRequest = await useFetch<{ data: { items: SavedRepoView[] } }>('/api/v1/repos');
 const items = computed(() => scansRequest.data.value?.data.items ?? []);
-const pagination = computed(() => scansRequest.data.value?.data.pagination);
-const loading = computed(() => scansRequest.status.value === 'pending');
-const loadingPage = computed(() => loading.value && items.value.length === 0);
+const pagination = computed(
+  () =>
+    scansRequest.data.value?.data.pagination ?? {
+      page: 1,
+      pageSize: 25,
+      totalItems: 0,
+      totalPages: 1,
+    },
+);
+const repos = computed(() => reposRequest.data.value?.data.items ?? []);
+const summaryRequest = await useFetch<{ data: OrgSummary }>('/api/v1/org/summary');
+const quota = computed<ScanQuota | null>(() => {
+  const summary = summaryRequest.data.value?.data;
+  return summary ? { used: summary.scansUsedThisMonth, limit: summary.scansPerMonth ?? 0 } : null;
+});
 
 // Bookmarked pages can become empty after scans expire or a filter changes.
 // Reconcile only successful metadata so a failed request cannot change the URL.
 watch(
-  [page, pagination, loading],
+  [
+    page,
+    () => scansRequest.data.value?.data.pagination,
+    () => scansRequest.status.value === 'pending',
+  ],
   ([currentPage, metadata, isLoading]) => {
     if (isLoading || scansRequest.error.value || metadata === undefined) return;
     const lastPage = Math.max(1, metadata.totalPages);
@@ -85,227 +87,105 @@ watch(
   { immediate: true },
 );
 
-const loadError = computed(() => {
-  const failure = scansRequest.error.value as {
-    data?: { error?: { message?: string; requestId?: string } };
-  } | null;
-  if (!failure) return null;
-  return {
-    message: failure.data?.error?.message ?? 'Scans could not be loaded.',
-    requestId: failure.data?.error?.requestId,
-  };
+// Status chips and scores must move as scans progress, so re-fetch the current
+// page while the tab is visible; the timer is cleared on route change.
+let refreshTimer: ReturnType<typeof setInterval> | undefined;
+onMounted(() => {
+  // Overview's "+ New scan" links here with ?new=1; open the drawer once, then
+  // drop the marker so a refresh does not reopen it.
+  if (route.query.new === '1') {
+    drawerOpen.value = true;
+    const { new: _marker, ...rest } = route.query;
+    void router.replace({ query: rest });
+  }
+  refreshTimer = setInterval(() => {
+    if (document.visibilityState !== 'visible') return;
+    void scansRequest.refresh();
+  }, 5000);
+});
+onBeforeUnmount(() => {
+  if (refreshTimer !== undefined) clearInterval(refreshTimer);
 });
 
-function statusDot(scan: { status: ScanStatus }): string {
-  if (scan.status === 'completed') return 'bg-status-compliant-text';
-  if (scan.status === 'failed' || scan.status === 'expired') return 'bg-risk-critical-text';
-  if (scan.status === 'cancelled') return 'bg-ink-400';
-  return 'bg-status-partial-text';
+function setStatus(value: ScanStatus | ''): void {
+  void router.push({ query: { ...route.query, status: value || undefined, page: undefined } });
 }
 
-function changePage(next: number): void {
-  if (next < 1) return;
-  const totalPages = pagination.value?.totalPages ?? 1;
-  if (next > totalPages) return;
-  void router.push({ query: { ...route.query, page: next === 1 ? undefined : String(next) } });
-}
-function messageFrom(cause: unknown): string {
-  const message = (cause as { data?: { error?: { message?: unknown } } }).data?.error?.message;
-  return typeof message === 'string' ? message : 'Something went wrong. Try again.';
-}
-
-async function submitScan(payload: {
+async function startScan(payload: {
   repositoryId?: string;
   githubUrl?: string;
   ref?: string;
-  profile: 'standard' | 'secrets-only';
+  profile: ScanProfile;
   idempotencyKey: string;
 }): Promise<void> {
-  const { idempotencyKey, ...body } = payload;
+  submitting.value = true;
   try {
+    const { idempotencyKey, ...body } = payload;
     const response = await $fetch<{ data: { id: string } }>(scanSubmitPath(), {
       method: 'POST',
       body,
       headers: { 'idempotency-key': idempotencyKey },
     });
+    drawerOpen.value = false;
+    push('success', 'Scan queued', 'The scan is now running.');
     await navigateTo(`/app/scans/${response.data.id}`);
   } catch (cause) {
-    throw new Error(messageFrom(cause), { cause });
+    push(
+      'error',
+      'Scan could not be started',
+      apiErrorMessage(cause, 'Check the repository URL and try again.'),
+    );
+  } finally {
+    submitting.value = false;
   }
 }
 </script>
 
 <template>
-  <div class="max-w-full min-w-0 space-y-5 overflow-x-auto">
-    <PageHeader title="Scans" :breadcrumbs="[{ label: 'Scans' }]" />
-
-    <ScanSubmitForm v-if="canSubmit" :repos="repos" :quota="quota" :submit-request="submitScan" />
-
-    <ErrorState
-      v-if="reposRequest.error.value"
-      message="Repositories could not be loaded."
-      @retry="reposRequest.refresh"
-    />
-
-    <div
-      class="bg-surface flex min-w-0 flex-wrap items-center gap-x-5 gap-y-3 rounded-[var(--radius-card)] px-4 py-3 shadow-[var(--shadow-card)]"
-      role="group"
-      aria-label="Filter scans by status"
+  <div class="min-w-0">
+    <DashboardPageHeader
+      title="Scans"
+      subtitle="Run a scan, then trace every finding back to evidence."
     >
-      <span class="text-ink-400 flex-shrink-0 font-mono text-xs tracking-widest uppercase"
-        >Status</span
-      >
-      <div
-        class="min-w-0 flex-[1_1_0%] overflow-x-auto"
-        role="radiogroup"
-        aria-label="Status filter"
-      >
-        <label
-          v-for="option in [
-            { value: '' as const, label: 'All' },
-            ...SCAN_STATUSES.map((s) => ({ value: s, label: SCAN_STATUS_LABELS[s] })),
-          ]"
-          :key="option.value"
-          class="inline-flex cursor-pointer items-center gap-1.5 rounded-[var(--radius-pill)] px-2.5 py-1 text-xs font-medium"
-          :class="status === option.value ? 'bg-brand-500 text-ink-50' : 'bg-ink-100 text-ink-700'"
+      <template #actions>
+        <button
+          v-if="canSubmit"
+          type="button"
+          data-action="open-new-scan"
+          class="bg-brand-500 text-ink-50 rounded-[var(--radius-control)] px-4 py-2 text-sm font-medium"
+          @click="drawerOpen = true"
         >
-          <input
-            type="radio"
-            name="scan-status"
-            :value="option.value"
-            :checked="status === option.value"
-            :disabled="loading"
-            class="focus-visible:ring-brand-500 focus-visible:ring-2"
-            @change="selectStatus(option.value)"
-          />
-          {{ option.label }}
-        </label>
-      </div>
-    </div>
+          + New scan
+        </button>
+      </template>
+    </DashboardPageHeader>
 
-    <ErrorState
-      v-if="loadError"
-      :message="loadError.message"
-      :request-id="loadError.requestId ?? null"
+    <DsErrorState
+      v-if="scansRequest.error.value"
+      message="Scans could not be loaded."
       @retry="scansRequest.refresh"
     />
 
-    <p v-else-if="loadingPage" role="status" class="text-ink-500 text-sm">Loading scans.</p>
-
-    <EmptyState
-      v-else-if="items.length === 0"
-      title="No scans yet"
-      description="Scans run against the default branch and record the evidence behind each finding. Connect a repository and start a scan to see it here."
-      icon="search"
+    <ScanTable
+      :can-submit="canSubmit"
+      :scans="items"
+      :pagination="pagination"
+      :status="status"
+      :loading="scansRequest.status.value === 'pending'"
+      @update:status="setStatus"
+      @update:page="
+        router.push({ query: { ...route.query, page: $event === 1 ? undefined : String($event) } })
+      "
+      @new-scan="drawerOpen = true"
     />
 
-    <template v-else>
-      <section
-        aria-labelledby="scan-list-heading"
-        class="bg-surface min-w-0 overflow-x-auto rounded-[var(--radius-card)] shadow-[var(--shadow-card)]"
-      >
-        <div
-          class="border-ink-200 flex min-w-0 flex-wrap items-baseline justify-between gap-2 border-b px-4 py-3"
-        >
-          <h2 id="scan-list-heading" class="text-ink-900 text-sm font-semibold">Recent scans</h2>
-          <span class="text-ink-500 text-xs tabular-nums">
-            {{ pagination?.totalItems ?? items.length }} total
-          </span>
-        </div>
-        <div class="relative max-w-full min-w-0 overflow-x-auto">
-          <table class="w-full text-left text-sm">
-            <caption class="sr-only">
-              Scan history with repository, status, score, grade, and completion time
-            </caption>
-            <thead
-              class="text-ink-400 border-ink-200 border-b font-mono text-xs tracking-widest uppercase"
-            >
-              <tr>
-                <th scope="col" class="px-4 py-2 font-medium">Repository</th>
-                <th scope="col" class="px-4 py-2 font-medium">Status</th>
-                <th scope="col" class="px-4 py-2 text-right font-medium">Score</th>
-                <th scope="col" class="px-4 py-2 text-right font-medium">Grade</th>
-                <th scope="col" class="px-4 py-2 text-right font-medium">Findings</th>
-                <th scope="col" class="px-4 py-2 text-right font-medium">Completed</th>
-                <th scope="col" class="px-4 py-2 text-right font-medium">
-                  <span class="sr-only">Details</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody class="divide-ink-200 divide-y">
-              <tr v-for="scan in items" :key="scan.id">
-                <td class="px-4 py-3">
-                  <NuxtLink
-                    :to="`/app/scans/${encodeURIComponent(scan.id)}`"
-                    class="text-ink-900 hover:text-brand-600 focus-visible:ring-brand-500 rounded-[var(--radius-control)] font-mono text-xs font-medium underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-                  >
-                    {{ scan.repositoryFullName }}
-                  </NuxtLink>
-                </td>
-                <td class="text-ink-700 px-4 py-3 text-xs">
-                  <span class="inline-flex items-center gap-1.5">
-                    <span
-                      :class="statusDot(scan)"
-                      class="h-1.5 w-1.5 rounded-full"
-                      aria-hidden="true"
-                    />
-                    {{ SCAN_STATUS_LABELS[scan.status] }}
-                  </span>
-                </td>
-                <td class="text-ink-900 px-4 py-3 text-right text-sm tabular-nums">
-                  {{ formatScore(scan.score) }}
-                </td>
-                <td class="px-4 py-3 text-right">
-                  <span
-                    v-if="scan.grade !== null"
-                    class="border-brand-700/60 bg-brand-50 text-brand-900 inline-flex items-center rounded-[var(--radius-pill)] border px-2 py-0.5 text-xs font-semibold"
-                    >{{ scan.grade }}</span
-                  >
-                  <span v-else class="text-ink-500 text-xs">withheld</span>
-                </td>
-                <td class="text-ink-700 px-4 py-3 text-right text-xs tabular-nums">
-                  {{ scan.counts.total }}
-                </td>
-                <td class="text-ink-600 px-4 py-3 text-right text-xs tabular-nums">
-                  {{ formatTimestamp(scan.completedAt) }}
-                </td>
-                <td class="px-4 py-3 text-right">
-                  <NuxtLink
-                    :to="`/app/scans/${encodeURIComponent(scan.id)}`"
-                    class="text-ink-600 hover:text-ink-900 focus-visible:ring-brand-500 rounded-[var(--radius-control)] px-2 py-1 text-xs font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-                  >
-                    View
-                  </NuxtLink>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div
-          v-if="pagination !== undefined && pagination.totalPages > 1"
-          class="border-ink-200 flex items-center justify-between border-t px-4 py-2.5"
-        >
-          <button
-            type="button"
-            :disabled="page <= 1 || loading"
-            class="text-ink-600 hover:text-ink-900 focus-visible:ring-brand-500 rounded-[var(--radius-control)] px-2.5 py-1 text-xs font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
-            @click="changePage(page - 1)"
-          >
-            Previous
-          </button>
-          <span class="text-ink-500 text-xs tabular-nums">
-            Page {{ pagination.page }} of {{ pagination.totalPages }}
-          </span>
-          <button
-            type="button"
-            :disabled="page >= pagination.totalPages || loading"
-            class="text-ink-600 hover:text-ink-900 focus-visible:ring-brand-500 rounded-[var(--radius-control)] px-2.5 py-1 text-xs font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40"
-            @click="changePage(page + 1)"
-          >
-            Next
-          </button>
-        </div>
-      </section>
-    </template>
+    <StartScanDrawer
+      :open="drawerOpen"
+      :repos="repos"
+      :quota="quota"
+      :submitting="submitting"
+      @close="drawerOpen = false"
+      @submit="startScan"
+    />
   </div>
 </template>

@@ -138,6 +138,8 @@ export class ScansService {
       await this.queue.enqueue('scan.execute', 'execute', {
         scanId: scan.id,
         orgId: organization.id,
+        repoUrl: `https://github.com/${repository.fullName}`,
+        ref,
         profile: input.profile,
       });
     } catch (error) {

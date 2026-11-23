@@ -15,8 +15,6 @@ import {
 } from '~~/shared/api-key';
 import { formatTimestamp } from '~~/shared/scan';
 
-definePageMeta({ layout: 'app' });
-
 const keysRequest = await useFetch<{ data: ApiKeyView[] }>('/api/v1/api-keys');
 
 const keys = computed(() => keysRequest.data.value?.data ?? []);
@@ -313,7 +311,7 @@ function scopeList(scopes: string[]): string {
 
       <p class="text-ink-500 text-xs">
         Revoked keys stop working within 30 seconds. API keys inherit the organisation's rate limits
-        and plan quotas.
+        and scan limits.
       </p>
     </template>
 

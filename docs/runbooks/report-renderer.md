@@ -9,11 +9,10 @@
 
 ## Runtime and impact
 
-The orchestrator consumes BullMQ's `report.render` queue, builds the HTML with
-`apps/orchestrator/src/modules/reports/report-template.ts`, and connects to a
-separately operated Chromium browser. The distroless API image does not launch a
-local browser. Render failures propagate to BullMQ; an empty placeholder is never
-published as a ready PDF.
+The orchestrator consumes BullMQ's `report.render` queue. By default it renders
+the report view model directly with PDFKit. When `REPORTS_BROWSER_WS_ENDPOINT`
+is configured, it renders the HTML template through the configured Chromium
+browser. Failures in either renderer propagate to BullMQ for retry.
 
 PDF bytes are stored on a filesystem, not in S3. `REPORTS_STORAGE_DIR` defaults to
 `/tmp/dpdpa-reports`; production must use a durable volume shared by every API and
@@ -40,16 +39,16 @@ PostgreSQL, but lost PDF files must be regenerated.
    kubectl top pod -n <namespace> <orchestrator-pod>
    ```
 
-   Check pod restarts, `OOMKilled`, volume mounts, and the separately operated
+   Check pod restarts, `OOMKilled`, volume mounts, and, when configured, the remote
    browser's health/logs. Orchestrator `/health` and `/ready` endpoints do not prove
    that Chromium or report storage is healthy. Look for `report.render worker
    error`, `queued report recovery failed`, and queue connection errors; inspect
    the BullMQ job's `failedReason`, `attemptsMade`, and state using approved queue
-   tooling. Rendering errors include missing browser configuration, failed
+   tooling. Rendering errors include PDF generation failures, failed
    WebSocket handshakes, and page/PDF errors. Filesystem errors such as `EACCES`,
    `ENOENT`, `EROFS`, or `ENOSPC` indicate a storage problem.
 
-3. **Verify the browser connection.** `REPORTS_BROWSER_WS_ENDPOINT` must be a
+3. **For Chromium deployments, verify the browser connection.** `REPORTS_BROWSER_WS_ENDPOINT` must be a
    reachable DevTools **browser** WebSocket URL. Remote connections require
    `wss://` through a bridge that explicitly authenticates and authorizes each
    worker. Chromium DevTools has no built-in client authentication; network

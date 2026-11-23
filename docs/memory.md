@@ -433,7 +433,7 @@ The following are review blockers. Do not write them.
 # install and run
 pnpm install
 pnpm dev                      # all workspaces
-docker compose up -d          # local Postgres, Redis, MinIO, Mailpit
+docker compose up -d          # local Postgres, Redis, Mailpit
 # scans run locally with RUNNER_DRIVER=docker (one container per scan) —
 # no local Kubernetes required. Optional Job-spec parity check only:
 #   kind create cluster --config infra/k8s/kind.yaml

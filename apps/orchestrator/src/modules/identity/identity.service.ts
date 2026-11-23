@@ -112,11 +112,11 @@ export class IdentityService {
    * GitHub id first; an existing email links the GitHub id instead of
    * creating a duplicate account.
    */
-  async upsertGithubUser(raw: GithubProfileInput): Promise<User> {
+  async upsertGithubUser(raw: GithubProfileInput): Promise<UserView> {
     const profile = githubProfileSchema.parse(raw);
     const lastLoginAt = new Date();
 
-    return this.prisma.$transaction(async (tx) => {
+    const user = await this.prisma.$transaction(async (tx) => {
       const byGithubId = await this.users.findByGithubId(profile.githubUserId, tx);
       if (byGithubId) {
         const user = await this.users.updateProfile(
@@ -163,6 +163,9 @@ export class IdentityService {
       await this.recordLogin(user, tx);
       return user;
     });
+    // The stored Github id is a BigInt; only the JSON-safe wire view may leave
+    // the service (Fastify cannot serialize BigInts).
+    return toUserView(user);
   }
 
   /** P2-06 onboarding: the creator becomes the active owner (database.md §4.3). */

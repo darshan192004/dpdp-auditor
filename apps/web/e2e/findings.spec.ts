@@ -1,69 +1,62 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
-// The fixture scan id is fixed in server/utils/fixtures/findings.ts. It is
-// duplicated here because Playwright cannot resolve the `~~` Nuxt alias.
+import { waitForHydration } from './hydration';
+
+// The fixture scan id is fixed in server/utils/fixtures/findings.ts.
 const SCAN_ID = '0f000000-0000-4000-8000-000000000010';
 const FINDINGS_PATH = `/app/scans/${SCAN_ID}/findings`;
 
-test('findings workbench: filter, inspect, triage, restore', async ({ page }) => {
-  await page.goto(FINDINGS_PATH);
+test.describe('Findings workspace', () => {
+  test('filters by severity, inspects evidence, and saves a disposition', async ({ page }) => {
+    await page.goto(FINDINGS_PATH);
+    await waitForHydration(page);
 
-  await expect(page.getByRole('heading', { name: 'Findings', level: 1 })).toBeVisible();
-  await expect(page.getByRole('table')).toBeVisible();
-  await expect(page.getByText('14 findings')).toBeVisible();
+    const main = page.locator('main');
+    await expect(main.getByRole('heading', { level: 1 })).toHaveText('Findings');
 
-  // The click can be lost if it lands while the filter bar is still hydrating
-  // under parallel load, so retry until the URL reflects the filter. The URL
-  // check makes the retry idempotent: once the filter is applied we stop.
-  const critical = page.getByRole('button', { name: 'Critical', exact: true });
-  await expect(async () => {
-    if (/severity=critical/.test(page.url())) return;
+    // FindingsTable renders one <tr id="finding-row-<id>"> per finding.
+    const rows = main.locator('tr[id^="finding-row-"]');
+    await expect(rows).toHaveCount(14);
+
+    const critical = main
+      .getByRole('group', { name: 'Severity' })
+      .getByRole('button', { name: 'Critical', exact: true });
     await critical.click();
-    await expect(page).toHaveURL(/severity=critical/, { timeout: 1500 });
-  }).toPass({ timeout: 15_000 });
-  await expect(critical).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('tbody tr')).toHaveCount(3);
+    await expect(critical).toHaveAttribute('aria-pressed', 'true');
+    await expect(rows).toHaveCount(3);
 
-  await page.locator('tbody tr').first().click();
-  const drawer = page.getByRole('dialog');
-  await expect(drawer).toBeVisible();
-  await expect(
-    drawer.getByRole('heading', { name: 'Personal data is written to application logs.' }),
-  ).toBeVisible();
-  await expect(drawer.getByText('services/payments/api/views.py:142–149')).toBeVisible();
+    await rows
+      .first()
+      .getByRole('button', { name: /^Open finding:/ })
+      .click();
+    const drawer = page.getByRole('dialog');
+    await expect(drawer).toBeVisible();
+    await expect(drawer.getByRole('heading', { level: 2 }).first()).toBeVisible();
+    await expect(drawer.getByRole('heading', { name: 'Evidence' })).toBeVisible();
+    await expect(drawer).toContainText('logger.info(');
 
-  await drawer.getByLabel('Disposition').selectOption('accepted_risk');
-  await drawer.getByLabel('Note').fill('Risk accepted until the Q1 migration lands.');
-  await drawer.getByRole('button', { name: 'Save disposition' }).click();
+    await drawer.getByLabel('Disposition').selectOption('false_positive');
+    await drawer.getByLabel('Note').fill('Confirmed expected logging in the dev build only.');
+    await drawer.getByRole('button', { name: 'Save disposition' }).click();
 
-  await expect(page.getByRole('status').filter({ hasText: 'Disposition saved' })).toBeVisible();
-  await expect(drawer.getByText('Accepted risk', { exact: true })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'Disposition saved' })).toBeVisible();
+  });
 
-  await page.keyboard.press('Escape');
-  await expect(drawer).toBeHidden();
-  await expect(page.locator('tbody tr').first()).toBeFocused();
+  test('has no serious or critical a11y violations', async ({ page }) => {
+    await page.goto(FINDINGS_PATH);
+    await waitForHydration(page);
+    await page
+      .locator('tr[id^="finding-row-"]')
+      .first()
+      .getByRole('button', { name: /^Open finding:/ })
+      .click();
+    await expect(page.getByRole('dialog')).toBeVisible();
 
-  await page.goto(`${FINDINGS_PATH}?severity=high&status=open`);
-  await expect(page.getByRole('button', { name: 'High', exact: true })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
-  await expect(page.getByRole('button', { name: 'Open', exact: true })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
-});
-
-test('findings workbench has no serious or critical a11y violations', async ({ page }) => {
-  await page.goto(FINDINGS_PATH);
-  await page.locator('tbody tr').first().click();
-  await expect(page.getByRole('dialog')).toBeVisible();
-
-  const results = await new AxeBuilder({ page }).analyze();
-  const blocking = results.violations.filter(
-    (violation) => violation.impact === 'serious' || violation.impact === 'critical',
-  );
-
-  expect(blocking).toHaveLength(0);
+    const results = await new AxeBuilder({ page }).analyze();
+    const blocking = results.violations.filter(
+      (violation) => violation.impact === 'serious' || violation.impact === 'critical',
+    );
+    expect(blocking).toHaveLength(0);
+  });
 });

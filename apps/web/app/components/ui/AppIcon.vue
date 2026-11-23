@@ -45,6 +45,7 @@ const PATHS: Record<string, string[]> = {
   filter: ['M22 3H2l8 9.46V19l4 2v-8.54z'],
   'chevron-left': ['m15 18-6-6 6-6'],
   'chevron-right': ['m9 18 6-6-6-6'],
+  menu: ['M4 6h16', 'M4 12h16', 'M4 18h16'],
   'external-link': [
     'M15 3h6v6',
     'M10 14 21 3',

@@ -2,6 +2,7 @@ import { defineEventHandler, getHeader, readBody, setHeader, setResponseStatus }
 import { callOrchestrator } from '../../utils/orchestrator';
 import { apiError } from '../../utils/api-error';
 import { fixturesAnswer } from '../../utils/org-request';
+import { shapeCreatedScan, type UpstreamScanCreated } from '../../utils/scan-response';
 import { requireRole } from '../../utils/session';
 import { SCAN_WRITE_ROLES, ScanInputError, validateScanSubmit } from '~~/shared/scan';
 
@@ -41,16 +42,16 @@ export default defineEventHandler(async (event) => {
     );
   }
 
-  const response = await callOrchestrator<{
-    data: { scanId: string; status: string; createdAt: string; replayed: boolean };
-  }>(event, {
+  const created = await callOrchestrator<{ data: UpstreamScanCreated }>(event, {
     method: 'POST',
     path: '/internal/v1/scans',
     body: { ...body, ...(idempotencyKey ? { idempotencyKey } : {}) },
     ...(idempotencyKey ? { idempotencyKey } : {}),
   });
-  const { scanId, ...data } = response.data;
+
+  const response = shapeCreatedScan(created.data, body);
   setResponseStatus(event, 202);
-  setHeader(event, 'Location', `/api/v1/scan/${encodeURIComponent(scanId)}`);
-  return { ...response, data: { ...data, id: scanId } };
+  setHeader(event, 'Location', response.data.links.self);
+  setHeader(event, 'Retry-After', 3);
+  return response;
 });

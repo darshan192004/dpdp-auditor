@@ -264,34 +264,42 @@ export class ScanScoringService {
    * section. Idempotent, and cached per process after the first success.
    */
   private ensureRules(loaded: LoadedRulePack): Promise<Map<string, string>> {
-    this.persisted ??= this.prisma.$transaction(async (tx) => {
-      const ids = new Map<string, string>();
-      for (const control of loaded.controls) {
-        const rule = await tx.dpdpaRule.upsert({
-          where: { code: control.code },
-          create: { code: control.code, ...ruleRow(control, loaded.pack) },
-          update: ruleRow(control, loaded.pack),
-        });
-        ids.set(control.code, rule.id);
-      }
-      for (const mapping of loaded.mappings) {
-        const dpdpaRuleId = ids.get(mapping.controlCode);
-        if (!dpdpaRuleId) continue;
-        await tx.ruleMapping.upsert({
-          where: {
-            scanner_scannerRuleId_scannerRuleVersion_dpdpaRuleId: {
-              scanner: mapping.scanner,
-              scannerRuleId: mapping.ruleId,
-              scannerRuleVersion: mapping.scannerRuleVersion,
-              dpdpaRuleId,
+    if (!this.persisted) {
+      const pending = this.prisma.$transaction(async (tx) => {
+        const ids = new Map<string, string>();
+        for (const control of loaded.controls) {
+          const rule = await tx.dpdpaRule.upsert({
+            where: { code: control.code },
+            create: { code: control.code, ...ruleRow(control, loaded.pack) },
+            update: ruleRow(control, loaded.pack),
+          });
+          ids.set(control.code, rule.id);
+        }
+        for (const mapping of loaded.mappings) {
+          const dpdpaRuleId = ids.get(mapping.controlCode);
+          if (!dpdpaRuleId) continue;
+          await tx.ruleMapping.upsert({
+            where: {
+              scanner_scannerRuleId_scannerRuleVersion_dpdpaRuleId: {
+                scanner: mapping.scanner,
+                scannerRuleId: mapping.ruleId,
+                scannerRuleVersion: mapping.scannerRuleVersion,
+                dpdpaRuleId,
+              },
             },
-          },
-          create: { ...mappingRow(mapping, dpdpaRuleId) },
-          update: mappingRow(mapping, dpdpaRuleId),
-        });
-      }
-      return ids;
-    });
+            create: { ...mappingRow(mapping, dpdpaRuleId) },
+            update: mappingRow(mapping, dpdpaRuleId),
+          });
+        }
+        return ids;
+      });
+      // Only cache a successful materialisation. A transient DB error must not
+      // poison the cache and break every later scan until the process restarts.
+      pending.catch(() => {
+        if (this.persisted === pending) this.persisted = undefined;
+      });
+      this.persisted = pending;
+    }
     return this.persisted;
   }
 

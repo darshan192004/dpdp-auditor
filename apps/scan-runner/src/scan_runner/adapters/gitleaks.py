@@ -1,7 +1,9 @@
 """Adapter for Gitleaks scanner."""
+
 import json
 import subprocess
 from pathlib import Path
+from typing import Any
 
 
 class GitleaksAdapter:
@@ -10,7 +12,7 @@ class GitleaksAdapter:
     def __init__(self) -> None:
         self.bin: str = "gitleaks"
 
-    def run(self, repo_path: Path) -> list[dict]:
+    def run(self, repo_path: Path) -> list[dict[str, Any]]:
         """Execute Gitleaks on *repo_path* and return raw findings."""
         try:
             result = subprocess.run(
@@ -31,12 +33,15 @@ class GitleaksAdapter:
         except subprocess.TimeoutExpired as exc:
             raise TimeoutError("Gitleaks execution timed out") from exc
         if result.returncode in (0, 1) and result.stdout:
-            data = json.loads(result.stdout)
+            data: object = json.loads(result.stdout)
             if isinstance(data, list):
-                return data
-            return data.get("findings", [])
+                return [item for item in data if isinstance(item, dict)]
+            if isinstance(data, dict):
+                findings = data.get("findings", [])
+                if isinstance(findings, list):
+                    return [item for item in findings if isinstance(item, dict)]
         return []
 
-    def normalize(self, raw: list[dict]) -> list[dict]:
+    def normalize(self, raw: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Convert Gitleaks raw output to internal finding format."""
         return raw

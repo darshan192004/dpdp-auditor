@@ -86,10 +86,23 @@ This checklist tracks readiness for launching DPDPA GitHub Code Auditor as an op
 
 ### Local Development
 
-- [x] Docker Compose for local services (Postgres, Redis, MinIO, Mailpit)
+- [x] Docker Compose for local services (Postgres, Redis, Mailpit)
 - [x] `.nvmrc` for Node version management
 - [x] pnpm workspaces and Turborepo for monorepo management
 - [ ] Scan-runner local execution guide (documented in `docker-compose.yml`)
+
+### Verified end-to-end evidence (2026-11-18)
+
+A real self-hosted run was completed locally with no managed infrastructure. All IDs and hashes below come from the live APIs and downloaded file, not fixtures:
+
+- Real target: `666ghj/MiroFish` at commit `7657031ac01184afe2cb220f5ee3545573b5e843`.
+- Scan `32e29296-d9a7-4b08-9d4d-44f6478f8e7e`: `completed`, score `100`, grade `A`, 12 findings (2 high / 10 medium). Scanners: checkov `3.2.0`, semgrep `1.95.0`, gitleaks `8.21.0`. Rule pack `dpdpa-2026.10.1`, scoring `1.0.0`.
+- Timeline verified: `queued` → `findings_batch` (`accepted: 12`, `duplicates: 0`) → per-scanner completions → mapping → `score_computed`. Findings carry `sha256:` evidence hashes only; no raw evidence is sent in callbacks.
+- Report `ade5a67e-d3fd-4e63-8605-04aacfca1feb`: `ready`, 17,485 bytes, SHA-256 `48923417436141b8822b6850a352af9001f91889db6c8555a4fa8a9a1d27c1ee`. Decoded PDF text contains the repository, commit prefix, `SCORE 100.0`, `GRADE A`, `FINDINGS 12`, and the rule-pack version.
+- Download endpoint verified in local mode with a fresh authenticated session: `200 application/pdf`, `attachment` disposition, 17,485 bytes, matching SHA-256, no external redirect. Evidence: `.playwright-mcp/download-verification.txt`, `.playwright-mcp/pdf-verification.txt`, `.playwright-mcp/runner-final.log`.
+- Fresh regression on this branch: orchestrator 654/654 tests (70 files), web suite, scan-runner pytest + ruff check + ruff format + mypy, and Docker smoke (daemon 29.6.2, Postgres/Redis/Mailpit healthy, runner image present) all exit 0.
+
+Deferred (not claimed as verified): managed infrastructure rollout, real OAuth signup, canary/rollback drills, and status-page degradation drill.
 
 ### Community Readiness
 

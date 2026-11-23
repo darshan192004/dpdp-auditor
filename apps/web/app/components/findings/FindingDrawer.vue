@@ -35,7 +35,8 @@ function focusHeading(): void {
 <template>
   <USlideover
     :open="open"
-    :title="finding?.message ?? 'Finding'"
+    title="Finding"
+    description="Review the evidence and record a disposition."
     :ui="{ content: 'w-full sm:max-w-[560px]' }"
     @update:open="emit('update:open', $event)"
     @after:enter="focusHeading"
