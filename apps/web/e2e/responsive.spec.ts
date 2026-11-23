@@ -88,7 +88,12 @@ test.describe('responsive layout (P5-15)', () => {
     await page.goto('/app/scans/0f000000-0000-4000-8000-000000000010/findings');
 
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-    await expect(page.locator('main button').filter({ hasText: 'sha256:' }).first()).toBeVisible();
+    await expect(
+      page
+        .locator('main')
+        .getByRole('button', { name: /^Open finding:/ })
+        .first(),
+    ).toBeVisible();
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
   });
 });
