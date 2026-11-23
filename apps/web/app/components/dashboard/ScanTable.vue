@@ -18,8 +18,10 @@ const props = withDefaults(
     pagination: ScanListPage['pagination'];
     status: ScanStatus | '';
     loading?: boolean;
+    canSubmit?: boolean;
+    showFilters?: boolean;
   }>(),
-  { loading: false },
+  { loading: false, canSubmit: true, showFilters: true },
 );
 
 const emit = defineEmits<{
@@ -32,7 +34,12 @@ const options = [
   { value: '' as const, label: 'All' },
   ...SCAN_STATUSES.map((s) => ({ value: s, label: SCAN_STATUS_LABELS[s] })),
 ];
-const pages = computed(() => Array.from({ length: props.pagination.totalPages }, (_, i) => i + 1));
+const pages = computed(() =>
+  Array.from(
+    { length: Math.min(5, props.pagination.totalPages) },
+    (_, i) => Math.max(1, Math.min(props.pagination.page - 2, props.pagination.totalPages - 4)) + i,
+  ),
+);
 // Deterministic UTC string: toLocaleDateString differs between server and
 // browser locales and caused a hydration mismatch on first paint.
 const when = (iso: string) => formatTimestamp(iso);
@@ -45,6 +52,7 @@ const when = (iso: string) => formatTimestamp(iso);
         Scan history
       </h2>
       <button
+        v-if="canSubmit"
         type="button"
         data-action="new-scan"
         class="bg-brand-500 text-ink-50 rounded-[var(--radius-control)] px-3 py-1.5 text-sm font-medium"
@@ -54,7 +62,12 @@ const when = (iso: string) => formatTimestamp(iso);
       </button>
     </div>
 
-    <div class="flex flex-wrap gap-2" role="group" aria-label="Filter scans by status">
+    <div
+      v-if="showFilters"
+      class="flex flex-wrap gap-2"
+      role="group"
+      aria-label="Filter scans by status"
+    >
       <button
         v-for="option in options"
         :key="option.value"
@@ -99,7 +112,7 @@ const when = (iso: string) => formatTimestamp(iso);
       </table>
     </div>
 
-    <nav v-if="pages.length > 1" class="mt-4 flex gap-2" aria-label="Scan pages">
+    <nav v-if="pages.length > 1" class="mt-4 flex flex-wrap gap-2" aria-label="Scan pages">
       <button
         v-for="page in pages"
         :key="page"

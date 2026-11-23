@@ -5,6 +5,7 @@ import { defineConfig, devices } from '@playwright/test';
 // /api/auth/dev-session route used to seed a fixture session.
 export default defineConfig({
   testDir: './e2e',
+  globalSetup: './e2e/global-setup.ts',
   webServer: {
     command: 'pnpm dev',
     port: 3000,

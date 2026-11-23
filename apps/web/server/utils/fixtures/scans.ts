@@ -1,4 +1,10 @@
-import type { ScanDetail, ScanEvent, ScanListPage } from '~~/shared/scan';
+import {
+  SCAN_STATUSES,
+  ScanInputError,
+  type ScanDetail,
+  type ScanEvent,
+  type ScanListPage,
+} from '~~/shared/scan';
 import { FIXTURE_SCAN_ID, FixtureNotFoundError } from './findings';
 
 /**
@@ -241,16 +247,83 @@ export function getFixtureScanEvents(scanId: string): ScanEvent[] {
   return structuredClone([...events]);
 }
 
-export function fixtureScanList(status?: string | string[]): ScanListPage {
-  const statuses = status === undefined ? [] : Array.isArray(status) ? status : [status];
-  const matched = FIXTURE_SCANS.filter(
-    (scan) => statuses.length === 0 || statuses.includes(scan.status),
+/** Apply the live list contract before pagination, including chronological date bounds. */
+export function fixtureScanList(
+  query: Record<string, unknown> | string | string[] = {},
+  source: readonly ScanDetail[] = FIXTURE_SCANS,
+): ScanListPage {
+  const input = typeof query === 'string' || Array.isArray(query) ? { status: query } : query;
+  function scalar(key: string): string | undefined {
+    const value = input[key];
+    if (value === undefined) return undefined;
+    if (typeof value !== 'string') throw new ScanInputError('Enter a single query value.', key);
+    return value;
+  }
+  function positive(key: string, fallback: number, max = Number.MAX_SAFE_INTEGER): number {
+    const value = scalar(key);
+    if (value === undefined) return fallback;
+    const number = Number(value);
+    if (!/^[1-9]\d*$/.test(value) || !Number.isSafeInteger(number) || number > max) {
+      throw new ScanInputError('Enter a valid page or page size.', key);
+    }
+    return number;
+  }
+  function timestamp(key: string): number | undefined {
+    const value = scalar(key);
+    if (value === undefined) return undefined;
+    const number = Date.parse(value);
+    if (!Number.isFinite(number)) throw new ScanInputError('Enter a valid date.', key);
+    return number;
+  }
+  const rawStatus = input.status;
+  const statuses =
+    rawStatus === undefined ? [] : Array.isArray(rawStatus) ? rawStatus : [rawStatus];
+  if (
+    statuses.length > 8 ||
+    statuses.some(
+      (value) => typeof value !== 'string' || !(SCAN_STATUSES as readonly string[]).includes(value),
+    )
+  ) {
+    throw new ScanInputError('Choose a valid scan status.', 'status');
+  }
+  const repositoryId = scalar('repositoryId');
+  if (
+    repositoryId !== undefined &&
+    !/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(repositoryId)
+  ) {
+    throw new ScanInputError('Enter a valid repository ID.', 'repositoryId');
+  }
+  const from = timestamp('from');
+  const to = timestamp('to');
+  const page = positive('page', 1);
+  const pageSize = positive('pageSize', 20, 100);
+  const sort = scalar('sort') ?? '-createdAt';
+  if (!['createdAt', '-createdAt', 'score', '-score'].includes(sort)) {
+    throw new ScanInputError('Choose a valid sort order.', 'sort');
+  }
+  const matched = source.filter(
+    (scan) =>
+      (statuses.length === 0 || statuses.includes(scan.status)) &&
+      (repositoryId === undefined ||
+        scan.repository.id.toLowerCase() === repositoryId.toLowerCase()) &&
+      (from === undefined || Date.parse(scan.timestamps.queuedAt) >= from) &&
+      (to === undefined || Date.parse(scan.timestamps.queuedAt) <= to),
   );
+  matched.sort((a, b) => {
+    let comparison: number;
+    if (sort.endsWith('score')) {
+      comparison =
+        a.score === b.score ? 0 : a.score === null ? 1 : b.score === null ? -1 : a.score - b.score;
+    } else {
+      comparison = Date.parse(a.timestamps.queuedAt) - Date.parse(b.timestamps.queuedAt);
+    }
+    return (sort.startsWith('-') ? -comparison : comparison) || a.id.localeCompare(b.id);
+  });
   return {
-    items: matched.map((scan) => ({
+    items: matched.slice((page - 1) * pageSize, page * pageSize).map((scan) => ({
       id: scan.id,
-      repositoryId: REPOSITORY.id,
-      repositoryFullName: REPOSITORY.fullName,
+      repositoryId: scan.repository.id,
+      repositoryFullName: scan.repository.fullName,
       status: scan.status,
       score: scan.score,
       grade: scan.grade,
@@ -259,10 +332,10 @@ export function fixtureScanList(status?: string | string[]): ScanListPage {
       completedAt: scan.timestamps.completedAt,
     })),
     pagination: {
-      page: 1,
-      pageSize: 20,
+      page,
+      pageSize,
       totalItems: matched.length,
-      totalPages: matched.length === 0 ? 0 : 1,
+      totalPages: Math.ceil(matched.length / pageSize),
     },
   };
 }

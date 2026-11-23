@@ -1,3 +1,5 @@
+import { defineEventHandler, getRouterParam, readBody, setResponseStatus } from 'h3';
+import { callOrchestrator } from '../../../../utils/orchestrator';
 import { apiError } from '../../../../utils/api-error';
 import { fixturesAnswer } from '../../../../utils/org-request';
 import { requireRole } from '../../../../utils/session';
@@ -16,7 +18,7 @@ export default defineEventHandler(async (event) => {
   requireRole(event, SCAN_WRITE_ROLES);
 
   const scanId = getRouterParam(event, 'scanId') ?? '';
-  const raw = await readBody(event).catch(() => undefined);
+  const raw = await readBody(event);
 
   let body;
   try {

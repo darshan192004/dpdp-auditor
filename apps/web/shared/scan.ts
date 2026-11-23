@@ -541,9 +541,17 @@ function parseProfile(value: unknown): ScanProfile {
   return value as ScanProfile;
 }
 
+function rejectUnknownFields(body: Record<string, unknown>, allowed: readonly string[]): void {
+  for (const key of Object.keys(body)) {
+    if (!allowed.includes(key)) throw new ScanInputError(`Unknown field: ${key}.`, key);
+  }
+}
+
 export function validateScanSubmit(raw: unknown): ScanSubmitInput {
   const body = asRecord(raw);
   if (body === null) throw new ScanInputError('The request body must be a JSON object.');
+
+  rejectUnknownFields(body, ['repositoryId', 'githubUrl', 'ref', 'profile']);
 
   const repositoryId = optionalString(body.repositoryId, 'repositoryId');
   const githubUrl = optionalString(body.githubUrl, 'githubUrl');
@@ -574,6 +582,7 @@ export function validateScanCancel(raw: unknown): ScanCancelInput {
     throw new ScanInputError('The request body must be a JSON object.');
   }
 
+  rejectUnknownFields(raw as Record<string, unknown>, ['reason']);
   const reason = (raw as Record<string, unknown>).reason;
   if (reason === undefined || reason === null) return {};
   if (typeof reason !== 'string') {
