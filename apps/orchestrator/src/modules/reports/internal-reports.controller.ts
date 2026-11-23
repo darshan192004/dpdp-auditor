@@ -1,4 +1,3 @@
-import { Readable } from 'node:stream';
 import {
   Body,
   Controller,
@@ -7,7 +6,7 @@ import {
   HttpCode,
   Param,
   Post,
-  StreamableFile,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiError } from '../../common/api-error.js';
@@ -29,11 +28,16 @@ export class InternalReportsController {
   /** POST /internal/v1/reports — request a PDF for a completed scan (api.md §6.1). */
   @Post()
   @HttpCode(202)
-  async create(@Headers('x-org-id') orgHeader: string | undefined, @Body() body: unknown) {
+  async create(
+    @Headers('x-org-id') orgHeader: string | undefined,
+    @Body() body: unknown,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ) {
     const input = createReportSchema.parse({
       ...(typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {}),
       // Tenant scope comes from the trusted BFF header, never the caller's body.
       orgId: orgIdFrom(orgHeader),
+      idempotencyKey,
     });
     return { data: await this.reports.request(input) };
   }
@@ -57,17 +61,16 @@ export class InternalReportsController {
     return { data: await this.reports.downloadUrl(orgId, reportId) };
   }
 
-  /** GET /internal/v1/reports/:reportId/file — local-disk PDF bytes (self-hosted mode). */
-  @Get(':reportId/file')
-  async file(
+  /** JSON transport preserves PDF bytes across the authenticated BFF proxy. */
+  @Get(':reportId/content')
+  async content(
     @Headers('x-org-id') orgHeader: string | undefined,
     @Param('reportId') reportId: string,
+    @Query('token') token: string | undefined,
+    @Query('expires') expires: string | undefined,
   ) {
-    const { content, filename } = await this.reports.downloadFile(orgIdFrom(orgHeader), reportId);
-    return new StreamableFile(Readable.from(content), {
-      type: 'application/pdf',
-      disposition: `attachment; filename="${filename}"`,
-    });
+    const buffer = await this.reports.content(orgIdFrom(orgHeader), reportId, token, expires);
+    return { data: { buffer: buffer.toString('base64') } };
   }
 
   /** GET /internal/v1/reports/:reportId/view-model — renderer data (api.md §10.6). */

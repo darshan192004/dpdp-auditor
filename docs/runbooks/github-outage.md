@@ -109,7 +109,7 @@ The system has a degraded mode for GitHub unavailability (`operations.md` §6):
    ```bash
    # Re-enqueue failed scans via BullMQ
    # In the orchestrator queue processor, call the re-enqueue endpoint
-   curl -X POST http://orchestrator.internal/internal/admin/queue/retry \
+   curl -X POST https://orchestrator.internal/internal/admin/queue/retry \
      -H "X-Internal-Key: <key>" \
      -H "X-Signature: <hmac>" \
      -d '{"reason": "GITHUB_RATE_LIMITED"}'

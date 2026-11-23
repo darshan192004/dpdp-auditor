@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import DashboardPageHeader from '~/components/dashboard/DashboardPageHeader.vue';
 import DsEmptyState from '~/components/ds/DsEmptyState.vue';
@@ -15,7 +15,9 @@ const props = withDefaults(
   { loading: false, error: null },
 );
 
+const emit = defineEmits<{ 'update:action': [action: string] }>();
 const action = ref('');
+watch(action, (value) => emit('update:action', value));
 const visible = computed(() => {
   const needle = action.value.trim().toLowerCase();
   return needle === ''

@@ -62,13 +62,14 @@ async function onTriage(draft: {
   note?: string;
   externalUrl?: string;
 }): Promise<void> {
-  if (selectedId.value === null) return;
+  const id = selectedId.value;
+  if (id === null) return;
 
   triaging.value = true;
   try {
-    await $fetch(`/api/v1/findings/${selectedId.value}`, { method: 'PATCH', body: draft });
+    await $fetch(`/api/v1/findings/${id}`, { method: 'PATCH', body: draft });
     push('success', 'Disposition saved', `Status: ${draft.status}.`);
-    selectedId.value = null;
+    if (selectedId.value === id) selectedId.value = null;
     await refresh();
   } catch (cause) {
     push(

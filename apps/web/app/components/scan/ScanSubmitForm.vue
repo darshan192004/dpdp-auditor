@@ -6,8 +6,8 @@ import {
   createIdempotencyKey,
   quotaExhausted,
   validateScanSubmit,
-  ScanInputError,
   type ScanProfile,
+  type ScanSubmitInput,
   type ScanQuota,
 } from '~~/shared/scan';
 
@@ -21,8 +21,10 @@ const props = withDefaults(
     repos: SavedRepoView[];
     quota?: ScanQuota | null;
     canSubmit?: boolean;
+    submitRequest?:
+      ((payload: ScanSubmitInput & { idempotencyKey: string }) => Promise<void>) | null;
   }>(),
-  { quota: null, canSubmit: true },
+  { quota: null, canSubmit: true, submitRequest: null },
 );
 
 const emit = defineEmits<{
@@ -51,7 +53,8 @@ const error = ref<string | null>(null);
 const idempotencyKey = createIdempotencyKey();
 
 const exhausted = computed(() => quotaExhausted(props.quota));
-const disabled = computed(() => exhausted.value || !props.canSubmit);
+const submitting = ref(false);
+const disabled = computed(() => exhausted.value || !props.canSubmit || submitting.value);
 const quotaLabel = computed(() => {
   if (props.quota === null) return null;
   return props.quota.limit > 0
@@ -64,11 +67,21 @@ const selectedRepo = computed(
 );
 
 watch(selectedRepo, (repo) => {
-  if (repo !== null) form.ref = repo.defaultBranch;
+  form.ref = repo?.defaultBranch ?? '';
+  if (repo !== null) form.githubUrl = '';
 });
 
-function submit(): void {
+watch(
+  () => form.githubUrl,
+  (url) => {
+    if (url.trim() !== '') form.repositoryId = '';
+  },
+);
+
+async function submit(): Promise<void> {
+  if (disabled.value) return;
   error.value = null;
+  submitting.value = true;
   const raw =
     form.repositoryId === ''
       ? { githubUrl: form.githubUrl, ref: form.ref, profile: form.profile }
@@ -76,10 +89,13 @@ function submit(): void {
 
   try {
     const input = validateScanSubmit(raw);
-    emit('submit', { ...input, idempotencyKey });
+    const payload = { ...input, idempotencyKey };
+    if (props.submitRequest) await props.submitRequest(payload);
+    else emit('submit', payload);
   } catch (cause) {
-    error.value =
-      cause instanceof ScanInputError ? cause.message : 'The scan could not be started.';
+    error.value = cause instanceof Error ? cause.message : 'The scan could not be started.';
+  } finally {
+    submitting.value = false;
   }
 }
 </script>

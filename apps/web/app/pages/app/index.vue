@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted } from 'vue';
 
+import DsErrorState from '~/components/ds/DsErrorState.vue';
 import NewOverview from '~/components/new/NewOverview.vue';
 import { ruleSections, type RuleSectionOption, type RulesPage } from '~~/shared/rules';
 import type { ScanDetail, ScanSummary, ScanListPage } from '~~/shared/scan';
@@ -50,12 +51,20 @@ const detailRequest = await useAsyncData<ScanDetail | null>(
 );
 const findingsRequest = await useAsyncData<FindingsPage['data']>(
   'overview-findings',
-  () =>
-    scanId.value
-      ? requestFetch<FindingsPage>(`/api/v1/scan/${scanId.value}/findings?pageSize=100`).then(
-          (r) => r.data,
-        )
-      : Promise.resolve([]),
+  async () => {
+    const id = scanId.value;
+    const rows: FindingsPage['data'] = [];
+    if (!id) return rows;
+    let page = 1;
+    for (;;) {
+      const result = await requestFetch<FindingsPage>(
+        `/api/v1/scan/${id}/findings?status=open&pageSize=100&page=${page}`,
+      );
+      rows.push(...result.data);
+      if (page >= result.pagination.totalPages) return rows;
+      page++;
+    }
+  },
   { watch: [scanId] },
 );
 const healthRequest = await useAsyncData<string>('overview-health', async () => {
@@ -90,6 +99,14 @@ const openFindings = computed(() =>
   (findingsRequest.data.value ?? []).filter((finding) => finding.status === 'open'),
 );
 
+const failed = computed(() =>
+  [
+    { label: 'Rules catalog', request: catalogRequest },
+    { label: 'Latest scan', request: latestRequest },
+    { label: 'Scan detail', request: detailRequest },
+    { label: 'Findings', request: findingsRequest },
+  ].find(({ request }) => request.error.value),
+);
 const stats = computed(() => [
   { label: 'Scored controls', value: catalogRequest.data.value?.scored ?? 0 },
   { label: 'Sections covered', value: catalogRequest.data.value?.sections.length ?? 0 },
@@ -107,7 +124,13 @@ const sections = computed(() =>
 </script>
 
 <template>
+  <DsErrorState
+    v-if="failed"
+    :message="failed.label + ' could not be loaded.'"
+    @retry="failed.request.refresh()"
+  />
   <NewOverview
+    v-else
     :stats="stats"
     :latest-scan="detailRequest.data.value ?? null"
     :counts="
