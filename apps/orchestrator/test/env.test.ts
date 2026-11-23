@@ -91,6 +91,15 @@ describe('loadEnv', () => {
     expect(() => loadEnv({ ...KEYS, REPO_SIZE_CAP_MB: '-1' })).toThrow(/REPO_SIZE_CAP_MB/);
   });
 
+  it('treats an empty numeric override as unset, not zero', () => {
+    expect(loadEnv({ ...KEYS, REPO_SIZE_CAP_MB: '' }).REPO_SIZE_CAP_MB).toBeUndefined();
+    expect(loadEnv({ ...KEYS, TIMEOUT_CLONE: '' }).TIMEOUT_CLONE).toBeUndefined();
+    // An empty value must not trip the production cap guard either.
+    expect(loadEnv({ ...KEYS, NODE_ENV: 'production', REPO_SIZE_CAP_MB: '' })).toMatchObject({
+      NODE_ENV: 'production',
+    });
+  });
+
   it('parses UNLIMITED_PLAN_QUOTA as a boolean', () => {
     expect(loadEnv({ ...KEYS, UNLIMITED_PLAN_QUOTA: 'true' }).UNLIMITED_PLAN_QUOTA).toBe(true);
     expect(loadEnv({ ...KEYS, UNLIMITED_PLAN_QUOTA: 'false' }).UNLIMITED_PLAN_QUOTA).toBe(false);

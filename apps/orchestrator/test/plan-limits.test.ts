@@ -14,4 +14,10 @@ describe('effectivePlanLimits', () => {
       reportsPerMonth: null,
     });
   });
+
+  it('does not let a caller mutate the shared unlimited preset', () => {
+    const first = effectivePlanLimits('free', true);
+    first.repositories = 1;
+    expect(effectivePlanLimits('free', true).repositories).toBeNull();
+  });
 });

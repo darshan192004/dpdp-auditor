@@ -30,7 +30,8 @@ const UNLIMITED: PlanLimits = {
  * checks. Production boot refuses this flag (see config/env.ts).
  */
 export function effectivePlanLimits(plan: OrgPlan, unlimited = false): PlanLimits {
-  return unlimited ? UNLIMITED : PLAN_LIMITS[plan];
+  // Callers must not be able to mutate the shared unlimited preset.
+  return unlimited ? { ...UNLIMITED } : PLAN_LIMITS[plan];
 }
 
 /** First instant of the UTC month containing `now`; quotas reset monthly. */

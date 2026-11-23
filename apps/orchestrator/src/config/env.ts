@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+/** An empty environment variable means "unset", never a coerced zero. */
+function optionalNumber<T extends z.ZodType>(schema: T) {
+  return z.preprocess((value) => (value === '' ? undefined : value), schema.optional());
+}
+
 export const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -51,16 +56,18 @@ export const envSchema = z
     // Development-only limit override. `0` means no size cap; unset keeps the
     // per-plan caps from docs/PRD.md §10. Any explicit value is rejected in
     // production so a huge positive cap cannot bypass the plan limits.
-    REPO_SIZE_CAP_MB: z.coerce.number().int().min(0).optional(),
+    // Empty strings are treated as unset: `z.coerce.number()` maps '' to 0,
+    // which would silently remove the cap.
+    REPO_SIZE_CAP_MB: optionalNumber(z.coerce.number().int().min(0)),
     UNLIMITED_PLAN_QUOTA: z
       .enum(['true', 'false'])
       .transform((value) => value === 'true')
       .optional(),
     // Optional per-scanner timeouts forwarded to the runner only when present.
-    TIMEOUT_CLONE: z.coerce.number().int().positive().optional(),
-    TIMEOUT_SEMGREP: z.coerce.number().int().positive().optional(),
-    TIMEOUT_CHECKOV: z.coerce.number().int().positive().optional(),
-    TIMEOUT_GITLEAKS: z.coerce.number().int().positive().optional(),
+    TIMEOUT_CLONE: optionalNumber(z.coerce.number().int().positive()),
+    TIMEOUT_SEMGREP: optionalNumber(z.coerce.number().int().positive()),
+    TIMEOUT_CHECKOV: optionalNumber(z.coerce.number().int().positive()),
+    TIMEOUT_GITLEAKS: optionalNumber(z.coerce.number().int().positive()),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') return;
