@@ -25,6 +25,7 @@ function userIdFrom(header: string | undefined): string {
 
 interface AuditLogQueryParams {
   action?: string;
+  actionContains?: string;
   actorUserId?: string;
   from?: string;
   to?: string;
@@ -73,6 +74,7 @@ export class InternalAuditController {
     const filters: AuditListFilters = {
       orgId,
       ...(query.action ? { action: query.action } : {}),
+      ...(query.actionContains ? { actionContains: query.actionContains } : {}),
       ...(query.actorUserId ? { actorUserId: query.actorUserId } : {}),
       ...(query.from ? { from: new Date(query.from) } : {}),
       ...(query.to ? { to: new Date(query.to) } : {}),

@@ -6,6 +6,7 @@ import { auditEntrySchema, type AuditEntry, type AuditEntryInput } from './audit
 export interface AuditListFilters {
   orgId: string;
   action?: string;
+  actionContains?: string;
   actorUserId?: string;
   from?: Date;
   to?: Date;
@@ -68,6 +69,18 @@ export class AuditService {
     const where: Prisma.AuditLogWhereInput = {
       orgId: filters.orgId,
       ...(filters.action ? { action: filters.action } : {}),
+      ...(filters.actionContains
+        ? {
+            AND: [
+              {
+                action: {
+                  contains: filters.actionContains.replace(/[\\%_]/g, '\\$&'),
+                  mode: 'insensitive',
+                },
+              },
+            ],
+          }
+        : {}),
       ...(filters.actorUserId ? { actorUserId: filters.actorUserId } : {}),
       ...(filters.from || filters.to
         ? {
