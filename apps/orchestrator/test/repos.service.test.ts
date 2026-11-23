@@ -50,7 +50,7 @@ function repo(overrides: Partial<Repository> = {}): Repository {
   } as Repository;
 }
 
-function make() {
+function make(unlimited = false) {
   const tx = { marker: 'tx' } as unknown as Prisma.TransactionClient;
   const prisma = {
     $transaction: vi.fn(async (fn: (client: Prisma.TransactionClient) => unknown) => fn(tx)),
@@ -82,6 +82,9 @@ function make() {
     repos as unknown as RepositoriesRepository,
     resolver as unknown as RepoResolverService,
     audit as unknown as AuditService,
+    unlimited
+      ? ({ UNLIMITED_PLAN_QUOTA: true } as ConstructorParameters<typeof ReposService>[5])
+      : undefined,
   );
   return { service, tx, organizations, repos, resolver, audit };
 }
@@ -153,6 +156,14 @@ describe('ReposService.save', () => {
     });
     expect(repos.countActiveForOrg).toHaveBeenCalledWith(ORG_ID, tx);
     expect(repos.create).not.toHaveBeenCalled();
+  });
+
+  it('allows saves past the plan repository limit with the development override', async () => {
+    const { service, repos } = make(true);
+    repos.countActiveForOrg.mockResolvedValue(50);
+
+    await expect(service.save({ orgId: ORG_ID, githubUrl: URL })).resolves.toBeDefined();
+    expect(repos.countActiveForOrg).not.toHaveBeenCalled();
   });
 
   it('allows saves at the limit boundary and for unlimited plans', async () => {

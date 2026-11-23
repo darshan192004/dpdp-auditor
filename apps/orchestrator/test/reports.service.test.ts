@@ -80,7 +80,7 @@ function report(overrides: Partial<Report> = {}): Report & {
   };
 }
 
-function make(found: ReturnType<typeof report> | null = report()) {
+function make(found: ReturnType<typeof report> | null = report(), unlimited = false) {
   const tx = { transaction: true };
   const reports = {
     transaction: vi.fn(async (work) => work(tx)),
@@ -125,6 +125,9 @@ function make(found: ReturnType<typeof report> | null = report()) {
     storage as unknown as ConstructorParameters<typeof ReportsService>[5],
     organizations as unknown as ConstructorParameters<typeof ReportsService>[6],
     email as unknown as ConstructorParameters<typeof ReportsService>[7],
+    unlimited
+      ? ({ UNLIMITED_PLAN_QUOTA: true } as ConstructorParameters<typeof ReportsService>[8])
+      : undefined,
   );
   return {
     service,
@@ -199,6 +202,15 @@ describe('report lifecycle', () => {
     await m.service.request(input);
     expect(m.reports.reserve).toHaveBeenCalledWith(input, 3, expect.any(Date));
   });
+  it('passes an unlimited report quota to atomic reservation with the development override', async () => {
+    const m = make(report(), true);
+    m.scans.findById.mockResolvedValue({ status: 'completed' });
+    m.organizations.findById.mockResolvedValue({ plan: 'free' });
+
+    await m.service.request(input);
+    expect(m.reports.reserve).toHaveBeenCalledWith(input, null, expect.any(Date));
+  });
+
   it('keeps a recoverable reservation on an ambiguous enqueue error and reuses its job ID', async () => {
     const m = make();
     const queued = report({ status: 'queued', templateVersion: 'standard' });

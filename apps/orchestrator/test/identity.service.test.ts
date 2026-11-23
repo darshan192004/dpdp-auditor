@@ -39,7 +39,7 @@ const MEMBERSHIP = {
   status: 'active',
 };
 
-function makeService() {
+function makeService(unlimited = false) {
   const tx = { marker: 'tx' } as unknown as Prisma.TransactionClient;
   const prisma = {
     $transaction: vi.fn(async (fn: (client: Prisma.TransactionClient) => unknown) => fn(tx)),
@@ -80,6 +80,9 @@ function makeService() {
     audit as unknown as AuditService,
     reports as unknown as ReportsRepository,
     scans as unknown as ScansRepository,
+    unlimited
+      ? ({ UNLIMITED_PLAN_QUOTA: true } as ConstructorParameters<typeof IdentityService>[7])
+      : undefined,
   );
   return { service, tx, users, organizations, memberships, audit, reports, scans };
 }
@@ -777,6 +780,22 @@ describe('IdentityService', () => {
         reportsPerMonth: PLAN_LIMITS.starter.reportsPerMonth,
         reportsUsedThisMonth: 3,
       });
+    });
+
+    it('reports unlimited quotas with the development override', async () => {
+      const { service, organizations, memberships } = makeService(true);
+      organizations.findById.mockResolvedValue({
+        id: ORG_ID,
+        name: 'Acme',
+        slug: 'acme',
+        plan: 'free',
+      });
+      memberships.find.mockResolvedValue(MEMBERSHIP);
+
+      const summary = await service.getOrgSummary(ORG_ID, USER_ID);
+
+      expect(summary.scansPerMonth).toBeNull();
+      expect(summary.reportsPerMonth).toBeNull();
     });
 
     it('rejects when the org does not exist', async () => {

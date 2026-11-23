@@ -84,7 +84,12 @@ function scan(overrides: Partial<Scan> = {}): Scan {
   };
 }
 
-function make(options?: { scan?: Scan | null; repo?: Repository | null; org?: typeof ORG | null }) {
+function make(options?: {
+  scan?: Scan | null;
+  repo?: Repository | null;
+  org?: typeof ORG | null;
+  unlimited?: boolean;
+}) {
   const tx = { marker: 'tx' } as unknown as Prisma.TransactionClient;
   const prisma = {
     $transaction: vi.fn(async (fn: (client: Prisma.TransactionClient) => unknown) => fn(tx)),
@@ -174,6 +179,9 @@ function make(options?: { scan?: Scan | null; repo?: Repository | null; org?: ty
     audit as unknown as AuditService,
     scoring as unknown as ScanScoringService,
     email as unknown as ConstructorParameters<typeof ScansService>[8],
+    options?.unlimited
+      ? ({ UNLIMITED_PLAN_QUOTA: true } as ConstructorParameters<typeof ScansService>[9])
+      : undefined,
   );
   return {
     service,
@@ -344,6 +352,14 @@ describe('ScansService.create', () => {
       code: 'PLAN_LIMIT_EXCEEDED',
     });
     expect(scans.countCreatedSince).toHaveBeenCalledWith(ORG_ID, expect.any(Date));
+  });
+
+  it('bypasses the monthly plan quota when the development override is set', async () => {
+    const { service, scans } = make({ unlimited: true });
+    scans.countCreatedSince.mockResolvedValue(50);
+
+    await expect(service.create({ orgId: ORG_ID, repositoryId: REPO_ID })).resolves.toBeDefined();
+    expect(scans.countCreatedSince).not.toHaveBeenCalled();
   });
 
   it('does not count scans for unlimited plans', async () => {

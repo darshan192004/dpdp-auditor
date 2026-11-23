@@ -1,8 +1,9 @@
 import { createHash } from 'node:crypto';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { logger } from '../../common/logger.js';
 import { ApiError } from '../../common/api-error.js';
-import { monthStart, PLAN_LIMITS } from '../../common/plan-limits.js';
+import { effectivePlanLimits, monthStart } from '../../common/plan-limits.js';
+import { ENV, type Env } from '../../config/env.js';
 import { AuditService } from '../audit/audit.service.js';
 import { FindingsRepository } from '../findings/findings.repository.js';
 import { OrganizationsRepository } from '../identity/organizations.repository.js';
@@ -26,6 +27,7 @@ export class ReportsService {
     private readonly storage: ReportStorageService,
     private readonly organizations: OrganizationsRepository,
     private readonly email: EmailService,
+    @Inject(ENV) private readonly env?: Env,
   ) {}
 
   /** P5-20: Request a PDF report for a completed scan (api.md §6.1). */
@@ -43,7 +45,7 @@ export class ReportsService {
     if (!org) throw new ApiError('NOT_FOUND', 'The organisation does not exist.');
     const report = await this.reports.reserve(
       input,
-      PLAN_LIMITS[org.plan].reportsPerMonth,
+      effectivePlanLimits(org.plan, this.env?.UNLIMITED_PLAN_QUOTA).reportsPerMonth,
       monthStart(new Date()),
     );
     if (report.status === 'queued') await this.enqueueReport(report);

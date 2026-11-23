@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import {
   Prisma,
   type Organization,
@@ -8,7 +8,8 @@ import {
 } from '@prisma/client';
 import { createHash } from 'node:crypto';
 import { ApiError } from '../../common/api-error.js';
-import { monthStart, PLAN_LIMITS } from '../../common/plan-limits.js';
+import { effectivePlanLimits, monthStart } from '../../common/plan-limits.js';
+import { ENV, type Env } from '../../config/env.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { QueueService } from '../../queue/queue.service.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -74,6 +75,7 @@ export class ScansService {
     private readonly audit: AuditService,
     private readonly scoring: ScanScoringService,
     private readonly email: EmailService,
+    @Inject(ENV) private readonly env?: Env,
   ) {}
 
   async create(raw: CreateScanInput): Promise<CreateScanResult> {
@@ -474,7 +476,10 @@ export class ScansService {
   }
 
   private async assertQuota(organization: Organization): Promise<void> {
-    const limit = PLAN_LIMITS[organization.plan].scansPerMonth;
+    const limit = effectivePlanLimits(
+      organization.plan,
+      this.env?.UNLIMITED_PLAN_QUOTA,
+    ).scansPerMonth;
     if (limit === null) return;
 
     const used = await this.scans.countCreatedSince(organization.id, monthStart(new Date()));

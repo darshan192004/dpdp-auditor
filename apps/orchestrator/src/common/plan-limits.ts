@@ -19,6 +19,20 @@ export const PLAN_LIMITS: Record<OrgPlan, PlanLimits> = {
   enterprise: { repositories: null, scansPerMonth: null, reportsPerMonth: null },
 };
 
+const UNLIMITED: PlanLimits = {
+  repositories: null,
+  scansPerMonth: null,
+  reportsPerMonth: null,
+};
+
+/**
+ * Development-only override: `UNLIMITED_PLAN_QUOTA=true` removes all quota
+ * checks. Production boot refuses this flag (see config/env.ts).
+ */
+export function effectivePlanLimits(plan: OrgPlan, unlimited = false): PlanLimits {
+  return unlimited ? UNLIMITED : PLAN_LIMITS[plan];
+}
+
 /** First instant of the UTC month containing `now`; quotas reset monthly. */
 export function monthStart(now: Date): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));

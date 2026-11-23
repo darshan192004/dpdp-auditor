@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { Organization, Repository } from '@prisma/client';
 import { ApiError } from '../../common/api-error.js';
-import { PLAN_LIMITS } from '../../common/plan-limits.js';
+import { effectivePlanLimits } from '../../common/plan-limits.js';
+import { ENV, type Env } from '../../config/env.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { OrganizationsRepository } from '../identity/organizations.repository.js';
@@ -49,6 +50,7 @@ export class ReposService {
     private readonly repos: RepositoriesRepository,
     private readonly resolver: RepoResolverService,
     private readonly audit: AuditService,
+    @Inject(ENV) private readonly env?: Env,
   ) {}
 
   async resolve(raw: ResolveRepoInput): Promise<ResolvedRepoView> {
@@ -74,7 +76,10 @@ export class ReposService {
       }
 
       // Enforce plan limit (P2-C): count active repos inside the transaction.
-      const planLimit = PLAN_LIMITS[organization.plan].repositories;
+      const planLimit = effectivePlanLimits(
+        organization.plan,
+        this.env?.UNLIMITED_PLAN_QUOTA,
+      ).repositories;
       if (planLimit !== null) {
         const activeCount = await this.repos.countActiveForOrg(organization.id, tx);
         if (activeCount >= planLimit) {

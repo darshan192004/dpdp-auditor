@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { Membership, Organization, User } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { ApiError } from '../../common/api-error.js';
@@ -23,7 +23,8 @@ import {
 import { MembershipsRepository } from './memberships.repository.js';
 import { OrganizationsRepository } from './organizations.repository.js';
 import { UsersRepository } from './users.repository.js';
-import { monthStart, PLAN_LIMITS } from '../../common/plan-limits.js';
+import { effectivePlanLimits, monthStart } from '../../common/plan-limits.js';
+import { ENV, type Env } from '../../config/env.js';
 import { ReportsRepository } from '../reports/reports.repository.js';
 import { ScansRepository } from '../scans/scans.repository.js';
 
@@ -104,6 +105,7 @@ export class IdentityService {
     private readonly audit: AuditService,
     private readonly reports: ReportsRepository,
     private readonly scans: ScansRepository,
+    @Inject(ENV) private readonly env?: Env,
   ) {}
 
   /**
@@ -254,7 +256,7 @@ export class IdentityService {
     const organization = await this.organizations.findById(orgId);
     if (!organization) throw new ApiError('NOT_FOUND', 'The organisation does not exist.');
 
-    const limits = PLAN_LIMITS[organization.plan];
+    const limits = effectivePlanLimits(organization.plan, this.env?.UNLIMITED_PLAN_QUOTA);
     const month = monthStart(new Date());
     const scansThisMonth = await this.scans.countCreatedSince(orgId, month);
     const reportsThisMonth = await this.reports.countCreatedSince(orgId, month);
