@@ -97,7 +97,7 @@ def _severity(value: object) -> str:
 def normalize_findings(
     scanner: str,
     raw_list: list[dict[str, Any]],
-    repo_path: Path,  # noqa: ARG001 - reserved for relative-path computation
+    repo_path: Path,
     *,
     salt: str = "",
 ) -> list[dict[str, Any]]:
@@ -114,6 +114,14 @@ def normalize_findings(
     for raw in raw_list:
         rule_id = str(_first(raw, fields["rule_id"]) or "unknown")
         filepath = str(_first(raw, fields["file"]) or "")
+        # Report paths relative to the repository root, never the container's
+        # workspace mount (`/workspace/...`), so the user sees where the file
+        # actually lives in their repo.
+        if filepath:
+            try:
+                filepath = str(Path(filepath).resolve().relative_to(repo_path.resolve()))
+            except (OSError, ValueError):
+                filepath = filepath.removeprefix(str(repo_path)).lstrip("/")
         line = _non_negative_int(_first(raw, fields["line"]))
         severity = _severity(_first(raw, fields["severity"]))
         description = str(_first(raw, fields["description"]) or "")

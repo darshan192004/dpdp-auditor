@@ -38,6 +38,15 @@ RUN --mount=type=bind,from=wheels,source=/wheels,target=/wheels \
       setuptools==80.9.0 semgrep checkov dpdpa-scan-runner
 
 COPY --from=gitleaks-build /out/gitleaks /usr/local/bin/gitleaks
+# The DPDPA Semgrep rules must travel with the runner. Every rule id is mapped
+# to a control in packages/rule-packs/mappings/semgrep.yaml. Keep the config at
+# the filesystem root: Semgrep namespaces rule ids with the config's parent
+# directory name, which would stop `dpdpa.*` ids from matching the mappings.
+COPY packages/rule-packs/semgrep/dpdpa.yaml /dpdpa.yaml
+# Semgrep's built-in template excludes every `tests/` directory, so test and
+# load-test code silently drops out of the audit. Point Semgrep at our narrower
+# ignore list (dependencies and build output only) so coverage stays full.
+COPY docker/dpdpa.semgrepignore /dpdpa.semgrepignore
 COPY docker/scan-runner-smoke.sh /usr/local/bin/smoke-scan-runner
 RUN chmod 0755 /usr/local/bin/smoke-scan-runner
 
@@ -52,6 +61,8 @@ USER 10001:10001
 WORKDIR /workspace
 ENV HOME=/home/runner \
     WORKSPACE=/workspace \
-    PROFILE=standard
+    PROFILE=standard \
+    SEMGREP_RULES=/dpdpa.yaml \
+    SEMGREP_R2C_INTERNAL_EXPLICIT_SEMGREPIGNORE=/dpdpa.semgrepignore
 
 CMD ["run-scan"]

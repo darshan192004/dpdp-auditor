@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
+import { parse } from 'yaml';
 import {
   buildManifest,
   loadRulePack,
@@ -47,6 +48,21 @@ describe('loadRulePack (P4-01, P4-02)', () => {
     expect(pack.grades.map((grade) => grade.grade)).toEqual(['A', 'B', 'C', 'D', 'F']);
     expect(pack.controlsByCode.get('DPDPA-8.4-ENC-01')?.weight).toBe(5);
     expect(pack.controlsByCode.get('DPDPA-12-ACCESS-01')?.scored).toBe(false);
+  });
+
+  it('maps every bundled DPDPA Semgrep rule to a control', async () => {
+    const pack = await loadRulePack(PACK_DIR);
+    const rulesFile = parse(await readFile(join(PACK_DIR, 'semgrep', 'dpdpa.yaml'), 'utf8')) as {
+      rules: Array<{ id: string }>;
+    };
+    const ruleIds = rulesFile.rules.map((rule) => rule.id).sort();
+    const mappedIds = pack.mappings
+      .filter((mapping) => mapping.scanner === 'semgrep' && mapping.ruleId.startsWith('dpdpa.'))
+      .map((mapping) => mapping.ruleId)
+      .sort();
+
+    expect(ruleIds.length).toBeGreaterThan(0);
+    expect(mappedIds).toEqual(ruleIds);
   });
 
   it('fails closed when a pack file is tampered with', async () => {

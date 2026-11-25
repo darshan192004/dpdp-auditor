@@ -12,6 +12,23 @@ import { ScansRepository } from '../scans/scans.repository.js';
 export const SCAN_EXECUTE_QUEUE: QueueName = 'scan.execute';
 export const SCAN_EXECUTE_WATCHER_QUEUE: QueueName = 'scan.execute.watcher';
 
+const TIMEOUT_KEYS = [
+  'TIMEOUT_CLONE',
+  'TIMEOUT_SEMGREP',
+  'TIMEOUT_CHECKOV',
+  'TIMEOUT_GITLEAKS',
+] as const;
+
+/** Pass through only the timeouts explicitly configured for this environment. */
+function runnerTimeoutEnv(env: Env): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const key of TIMEOUT_KEYS) {
+    const value = env[key];
+    if (value !== undefined) result[key] = String(value);
+  }
+  return result;
+}
+
 export interface ScanExecutePayload {
   scanId: string;
   orgId: string;
@@ -36,6 +53,8 @@ export function createScanExecuteWorker(
     async (job: Job<ScanExecutePayload>) => {
       const { scanId, orgId, repoUrl, ref, profile } = job.data;
       logger.info({ scanId, repoUrl, ref }, 'starting scan execution');
+      // Move scan from queued → cloning so the UI shows the correct phase.
+      await scans.startCloning(scanId);
       const jobName = `scan-${scanId}`;
       // The runner is an untrusted workload: it receives only the secrets it
       // needs to sign callbacks, never database or queue credentials.
@@ -49,6 +68,10 @@ export function createScanExecuteWorker(
         REPO_REF: ref,
         WORKSPACE: '/workspace',
         PROFILE: profile,
+        // The image bundles the DPDPA rule pack here. Pass it explicitly so the
+        // container does not fall back to Semgrep's unmapped registry rules.
+        SEMGREP_RULES: env.SEMGREP_RULES ?? '/dpdpa.yaml',
+        ...runnerTimeoutEnv(env),
       };
       const name = await executor.run(jobName, scanId, orgId, secretData);
       logger.info({ scanId, jobName: name }, 'scan job created');

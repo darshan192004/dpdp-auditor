@@ -14,12 +14,8 @@ const TONE_CLASS: Record<ToastTone, string> = {
 </script>
 
 <template>
-  <div
-    class="fixed right-4 bottom-4 z-50 flex w-80 flex-col gap-2"
-    role="status"
-    aria-live="polite"
-  >
-    <TransitionGroup name="toast">
+  <div class="fixed top-4 right-4 z-50 flex w-80 flex-col gap-2" role="status" aria-live="polite">
+    <TransitionGroup name="toast" tag="div">
       <div
         v-for="toast in toasts"
         :key="toast.id"
@@ -51,6 +47,13 @@ const TONE_CLASS: Record<ToastTone, string> = {
 .toast-enter-from,
 .toast-leave-to {
   opacity: 0;
-  transform: translateY(8px);
+  transform: translateX(100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-enter-active,
+  .toast-leave-active {
+    transition: none;
+  }
 }
 </style>

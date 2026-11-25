@@ -44,7 +44,8 @@ interface CreatedSession {
 }
 
 export default defineEventHandler(async (event) => {
-  if (process.env.NODE_ENV === 'production') {
+  // Use import.meta.env.PROD for runtime check to prevent build-time dead code elimination
+  if (import.meta.env.PROD) {
     throw createError({ statusCode: 404, statusMessage: 'Not Found' });
   }
 

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { logger } from '../../common/logger.js';
 import { ApiError } from '../../common/api-error.js';
-import { monthStart, PLAN_LIMITS } from '../../common/plan-limits.js';
+import { monthStart, planLimits } from '../../common/plan-limits.js';
 import { AuditService } from '../audit/audit.service.js';
 import { FindingsRepository } from '../findings/findings.repository.js';
 import { OrganizationsRepository } from '../identity/organizations.repository.js';
@@ -43,7 +43,7 @@ export class ReportsService {
     if (!org) throw new ApiError('NOT_FOUND', 'The organisation does not exist.');
     const report = await this.reports.reserve(
       input,
-      PLAN_LIMITS[org.plan].reportsPerMonth,
+      planLimits(org.plan).reportsPerMonth,
       monthStart(new Date()),
     );
     if (report.status === 'queued') await this.enqueueReport(report);

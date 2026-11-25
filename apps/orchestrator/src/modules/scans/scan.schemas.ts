@@ -79,6 +79,18 @@ export const cancelScanSchema = z.strictObject({
 });
 export type CancelScanInput = z.input<typeof cancelScanSchema>;
 
+/**
+ * api.md §10.4: the runner reports the phase it can actually observe. The
+ * orchestrator owns `mapping`; the runner only says "clone finished, scanners
+ * are running" so the UI leaves `cloning` as soon as that is true.
+ */
+export const scanProgressSchema = z.strictObject({
+  orgId: z.uuid(),
+  scanId: z.uuid(),
+  status: z.literal('scanning'),
+});
+export type ScanProgressInput = z.input<typeof scanProgressSchema>;
+
 /** api.md §10.4: one runner batch. */
 export const findingInputSchema = z.strictObject({
   scannerRuleId: z.string().min(1).max(512),

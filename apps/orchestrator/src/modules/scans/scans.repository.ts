@@ -142,6 +142,28 @@ export class ScansRepository {
   }
 
   /**
+   * Move a queued scan to `cloning` exactly once. A guarded update keeps a
+   * late worker (or a retried job) from regressing a scan that already moved
+   * on or finished.
+   */
+  async startCloning(id: string, tx?: Prisma.TransactionClient): Promise<boolean> {
+    const { count } = await this.client(tx).scan.updateMany({
+      where: { id, status: 'queued' },
+      data: { status: 'cloning', startedAt: new Date() },
+    });
+    return count === 1;
+  }
+
+  /** Move a scan that is cloning (or still queued) to `scanning` once. */
+  async startScanning(id: string, tx?: Prisma.TransactionClient): Promise<boolean> {
+    const { count } = await this.client(tx).scan.updateMany({
+      where: { id, status: { in: ['queued', 'cloning'] } },
+      data: { status: 'scanning', startedAt: new Date() },
+    });
+    return count === 1;
+  }
+
+  /**
    * P3-16: persist the K8s Job/Secret names created by the scan.execute worker
    * so the watcher can later locate them and the scan row carries the
    * correlation id for operations.

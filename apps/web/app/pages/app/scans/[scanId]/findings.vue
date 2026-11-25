@@ -99,7 +99,7 @@ async function onTriage(draft: {
       :sort="filters.sort"
       :role="role"
       :selected="selected"
-      :loading="status === 'pending'"
+      :loading="status === 'pending' && data === null"
       :triaging="triaging"
       @select="selectedId = $event.id"
       @close="selectedId = null"

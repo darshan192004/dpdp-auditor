@@ -34,12 +34,21 @@ export class SessionsRepository {
     return this.client(tx).session.findUnique({ where: { id } });
   }
 
-  touch(id: string, lastSeenAt: Date, tx?: Prisma.TransactionClient): Promise<Session> {
-    return this.client(tx).session.update({ where: { id }, data: { lastSeenAt } });
+  touch(id: string, _lastSeenAt: Date, tx?: Prisma.TransactionClient): Promise<Session> {
+    // Use Date.now() to ensure UTC epoch milliseconds are stored.
+    // Prisma's pg adapter may interpret JavaScript Date() as local time,
+    // but Date.now() is always UTC epoch ms, avoiding the 5:30 IST offset skew.
+    return this.client(tx).session.update({
+      where: { id },
+      data: { lastSeenAt: new Date(Date.now()) },
+    });
   }
 
   revoke(id: string, revokedAt: Date, tx?: Prisma.TransactionClient): Promise<Session> {
-    return this.client(tx).session.update({ where: { id }, data: { revokedAt } });
+    return this.client(tx).session.update({
+      where: { id },
+      data: { revokedAt: new Date(revokedAt.toISOString()) },
+    });
   }
 
   private client(tx?: Prisma.TransactionClient): Prisma.TransactionClient | PrismaService {

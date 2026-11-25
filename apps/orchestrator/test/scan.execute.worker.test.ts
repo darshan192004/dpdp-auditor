@@ -44,6 +44,7 @@ const ENV: Env = {
   RUNNER_DRIVER: 'kubernetes',
   SCANNERS_NAMESPACE: 'scanners',
   RUNNER_IMAGE: 'registry.example.com/dpdpa/scan-runner@sha256:test',
+  SEMGREP_RULES: '/dpdpa.yaml',
 };
 
 interface FakeWorker {
@@ -73,7 +74,11 @@ function fakeQueues() {
 function fakeScansRepository() {
   return {
     setJobInfo: vi.fn().mockResolvedValue(undefined),
-  } as unknown as ScansRepository & { setJobInfo: ReturnType<typeof vi.fn> };
+    startCloning: vi.fn().mockResolvedValue(true),
+  } as unknown as ScansRepository & {
+    setJobInfo: ReturnType<typeof vi.fn>;
+    startCloning: ReturnType<typeof vi.fn>;
+  };
 }
 
 function lastWorker(): FakeWorker {
@@ -128,6 +133,7 @@ describe('createScanExecuteWorker', () => {
       REPO_REF: 'main',
       WORKSPACE: '/workspace',
       PROFILE: 'standard',
+      SEMGREP_RULES: '/dpdpa.yaml',
     });
     // P3-16: persist Job/Secret correlation, then hand off to the watcher queue.
     expect(scans.setJobInfo).toHaveBeenCalledWith('s1', 'scan-s1', 'scan-s1');
@@ -137,6 +143,41 @@ describe('createScanExecuteWorker', () => {
       jobName: 'scan-s1',
       secretName: 'scan-s1',
     });
+  });
+
+  it('forwards configured scanner timeouts to the runner secret only when set', async () => {
+    const executor = fakeExecutor();
+    createScanExecuteWorker(
+      {
+        ...ENV,
+        TIMEOUT_CLONE: 900,
+        TIMEOUT_SEMGREP: 600,
+        TIMEOUT_CHECKOV: undefined,
+        TIMEOUT_GITLEAKS: undefined,
+      },
+      executor,
+      fakeQueues(),
+      fakeScansRepository(),
+    );
+
+    await lastWorker().processor({
+      data: {
+        scanId: 's2',
+        orgId: 'o1',
+        repoUrl: 'https://github.com/org/repo',
+        ref: 'main',
+        profile: 'standard',
+      },
+    } as never);
+
+    const secretData = executor.run.mock.calls[0]?.[3] as Record<string, string>;
+    expect(secretData.SEMGREP_RULES).toBe('/dpdpa.yaml');
+    expect(secretData.TIMEOUT_CLONE).toBe('900');
+    expect(secretData.TIMEOUT_SEMGREP).toBe('600');
+    expect(secretData).not.toHaveProperty('TIMEOUT_CHECKOV');
+    expect(secretData).not.toHaveProperty('TIMEOUT_GITLEAKS');
+    expect(secretData).not.toHaveProperty('DATABASE_URL');
+    expect(secretData).not.toHaveProperty('REPORTS_STORAGE_DIR');
   });
 
   it('does not enqueue a Kubernetes watcher when the Docker driver is selected', async () => {

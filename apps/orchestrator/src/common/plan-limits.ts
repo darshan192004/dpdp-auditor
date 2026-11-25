@@ -23,3 +23,17 @@ export const PLAN_LIMITS: Record<OrgPlan, PlanLimits> = {
 export function monthStart(now: Date): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 }
+
+/**
+ * Effective limits for a plan.
+ *
+ * Development runs with every quota removed (null = unlimited) so local and
+ * E2E work never blocks on the per-plan caps; `NODE_ENV=production` keeps the
+ * PRD §10 limits enforced. Tests (`NODE_ENV=test`) exercise the real caps.
+ */
+export function planLimits(plan: OrgPlan): PlanLimits {
+  if (process.env.NODE_ENV === 'development') {
+    return { repositories: null, scansPerMonth: null, reportsPerMonth: null };
+  }
+  return PLAN_LIMITS[plan];
+}

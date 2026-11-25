@@ -1,6 +1,7 @@
 """Adapter for Semgrep scanner."""
 
 import json
+import os
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -12,14 +13,22 @@ class SemgrepAdapter:
     def __init__(self) -> None:
         self.bin: str = "semgrep"
 
-    def run(self, repo_path: Path) -> list[dict[str, Any]]:
+    def run(self, repo_path: Path, timeout: int = 300) -> list[dict[str, Any]]:
         """Execute Semgrep on *repo_path* and return raw findings."""
+        command = [self.bin, "--json"]
+        # The runner image bundles the signed DPDPA rule pack. Without an
+        # explicit --config Semgrep falls back to its registry "auto" rules,
+        # which mainly flag CI/Docker files and never map to a DPDPA control.
+        rules = os.getenv("SEMGREP_RULES")
+        if rules:
+            command += ["--config", rules]
+        command.append(str(repo_path))
         try:
             result = subprocess.run(
-                [self.bin, "--json", str(repo_path)],
+                command,
                 capture_output=True,
                 text=True,
-                timeout=300,
+                timeout=timeout,
             )
         except subprocess.TimeoutExpired as exc:
             raise TimeoutError("Semgrep execution timed out") from exc

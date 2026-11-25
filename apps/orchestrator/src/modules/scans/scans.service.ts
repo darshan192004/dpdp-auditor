@@ -8,7 +8,7 @@ import {
 } from '@prisma/client';
 import { createHash } from 'node:crypto';
 import { ApiError } from '../../common/api-error.js';
-import { monthStart, PLAN_LIMITS } from '../../common/plan-limits.js';
+import { monthStart, planLimits } from '../../common/plan-limits.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { QueueService } from '../../queue/queue.service.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -26,6 +26,7 @@ import {
   createScanSchema,
   findingsBatchSchema,
   listScansSchema,
+  scanProgressSchema,
   type CancelScanInput,
   type CompleteScan,
   type CompleteScanInput,
@@ -33,6 +34,7 @@ import {
   type CreateScanInput,
   type FindingsBatchInput,
   type ListScansInput,
+  type ScanProgressInput,
 } from './scan.schemas.js';
 import { ScansRepository } from './scans.repository.js';
 
@@ -223,6 +225,25 @@ export class ScansService {
     });
 
     return { id: scan.id, status: 'cancelled', cancelledAt };
+  }
+
+  /**
+   * api.md §10.4: phase progress from the runner. `scanning` is the only
+   * transition the runner can prove; mapping and completion stay with the
+   * orchestrator. Late reports for a terminal scan are acknowledged, not
+   * rejected, so a lost race never fails an otherwise complete scan.
+   */
+  async recordProgress(orgId: string, scanId: string, raw: ScanProgressInput) {
+    const input = scanProgressSchema.parse({ ...raw, orgId, scanId });
+    const scan = await this.requireScan(input.orgId, input.scanId);
+    if (!isActive(scan.status)) return { status: scan.status, updated: false };
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await this.scans.startScanning(scan.id, tx);
+      if (!updated) return { status: scan.status, updated: false };
+      await this.scans.appendEvent(scan.id, orgId, 'scanning', {}, tx);
+      return { status: 'scanning' as const, updated: true };
+    });
   }
 
   /** api.md §10.4: batched, idempotent findings upload from the runner. */
@@ -474,7 +495,7 @@ export class ScansService {
   }
 
   private async assertQuota(organization: Organization): Promise<void> {
-    const limit = PLAN_LIMITS[organization.plan].scansPerMonth;
+    const limit = planLimits(organization.plan).scansPerMonth;
     if (limit === null) return;
 
     const used = await this.scans.countCreatedSince(organization.id, monthStart(new Date()));

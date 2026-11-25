@@ -20,6 +20,10 @@ export class DockerRunner {
       Image: this.image,
       Env: Object.entries(env).map(([k, v]) => `${k}=${v}`),
       name: `scan-${scanId}`,
+      HostConfig: {
+        NetworkMode: 'host',
+        ExtraHosts: ['host.docker.internal:host-gateway'],
+      },
     });
     await container.start();
     return (container as unknown as { id: string }).id;
