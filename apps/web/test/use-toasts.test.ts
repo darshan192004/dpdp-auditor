@@ -6,7 +6,7 @@ describe('useToasts', () => {
   it('pushes and dismisses a toast', () => {
     const { toasts, push, dismiss } = useToasts();
     const before = toasts.value.length;
-    const _id = push('success', 'Scan started', 'Queued for scanning.');
+    const id = push('success', 'Scan started', 'Queued for scanning.');
 
     expect(toasts.value.at(-1)).toMatchObject({
       id,
@@ -39,7 +39,7 @@ describe('useToasts', () => {
   it('includes dismissAt timestamp on pushed toasts', () => {
     const { toasts, push } = useToasts();
     const before = Date.now();
-    const _id = push('error', 'Has timestamp');
+    const id = push('error', 'Has timestamp');
 
     const toast = toasts.value.find((t) => t.id === id);
     expect(toast).toBeDefined();
