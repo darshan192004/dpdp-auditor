@@ -34,5 +34,6 @@ export default defineEventHandler(async (event) => {
       ?.error;
     if (error?.code !== 'NOT_FOUND') throw cause;
     apiError(event, 404, 'NOT_FOUND', error.message ?? 'The report was not found.');
+    return;
   }
 });

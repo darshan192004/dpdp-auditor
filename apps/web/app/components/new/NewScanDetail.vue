@@ -89,14 +89,14 @@ async function openReport(): Promise<void> {
           >
             Remediation
           </NuxtLink>
-          <NuxtLink
-            :to="`/report/${scan.id}`"
-            class="border-ink-300 rounded-[var(--radius-control)] border px-3 py-1.5 text-sm"
-            :aria-disabled="openingReport"
-            @click.prevent="openReport"
+          <button
+            type="button"
+            class="border-ink-300 cursor-pointer rounded-[var(--radius-control)] border px-3 py-1.5 text-sm"
+            :disabled="openingReport"
+            @click="openReport"
           >
             {{ openingReport ? 'Opening…' : 'Report' }}
-          </NuxtLink>
+          </button>
           <button
             v-if="running && !confirming"
             type="button"
