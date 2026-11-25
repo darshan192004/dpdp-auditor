@@ -126,4 +126,18 @@ describe('report download polling lifecycle', () => {
     await flushPromises();
     expect(fetch).toHaveBeenCalledTimes(3);
   });
+
+  it('reuses an existing report id instead of reserving another', async () => {
+    fetch.mockResolvedValueOnce({ data: { status: 'ready' } });
+    wrapper = await mountSuspended(DownloadButton, {
+      props: { scanId: 'scan_1', reportId: 'report_existing' },
+    });
+    await wrapper.find('button').trigger('click');
+    await flushPromises();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch.mock.calls[0]?.[0]).toBe('/api/v1/report/pdf/report_existing');
+    expect(wrapper.find('a[href="/api/v1/report/pdf/report_existing/download"]').exists()).toBe(
+      true,
+    );
+  });
 });
