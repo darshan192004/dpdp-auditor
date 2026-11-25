@@ -226,9 +226,6 @@ importers:
       happy-dom:
         specifier: ^21.0.4
         version: 21.0.4
-      playwright:
-        specifier: ^1.65.1
-        version: 1.65.1
       vue-tsc:
         specifier: ^3.3.14
         version: 3.3.14(typescript@6.0.3)
@@ -4898,11 +4895,6 @@ packages:
 
   playwright@1.65.0:
     resolution: {integrity: sha512-F3AMWcR44qMBt4kq+6Kb6mX7bjGXshktKFOPULd7reED6ZJWevjbNRqysP7q+AATE9kdPEZBibex1BYsvpVoeA==}
-    engines: {node: '>=20'}
-    hasBin: true
-
-  playwright@1.65.1:
-    resolution: {integrity: sha512-vJ1FuoOrNwOKHUIVEvSt3jT1L+wjjDpwhwIstKtfvTh8XIG4FG4bIFuvNdMxi81LGfAhUgUZleVFaOLY4RIUUw==}
     engines: {node: '>=20'}
     hasBin: true
 
@@ -11597,10 +11589,6 @@ snapshots:
   playwright@1.65.0:
     dependencies:
       playwright-core: 1.65.0
-
-  playwright@1.65.1:
-    dependencies:
-      playwright-core: 1.65.1
 
   pluralize@8.0.0: {}
 
