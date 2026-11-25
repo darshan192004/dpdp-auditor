@@ -1,5 +1,22 @@
 # Rule pack changelog
 
+## 2026.10.2 — 2026-11-25
+
+- Minor pack bump for new mappings only; control definitions, weights, and the
+  scoring formula are unchanged. Historical scans are never re-scored.
+- Added the 14 Checkov rule IDs that the runner already emitted but the pinned
+  catalog did not review (`CKV2_GHA_1`, `CKV_DOCKER_2/3/7`,
+  `CKV_OPENAPI_1/4/5/6/7/16/17/18/21`, `CKV_SECRET_4`). They now map to access
+  control, transport encryption, minimisation, monitoring, and secret controls,
+  so whole-repository scans no longer drop real findings as unmapped.
+- Added three advisory Semgrep rules so every scored control can fail:
+  `dpdpa.generic.lawful-basis-missing` (§7),
+  `dpdpa.generic.breach-alert-missing` (§8(5)), and
+  `dpdpa.generic.sdf-artifacts-missing` (§10). DPDPA §8(4) transport encryption
+  is now evidenced by the mapped `CKV_OPENAPI_7` and `CKV_OPENAPI_18` rules.
+- Section scores include unassessed sections as `null`, and reports label
+  unmapped findings explicitly instead of showing `-`.
+
 ## 2026.10.1 — 2026-11-12
 
 - Initial pack: 19 controls from `docs/rules.md` §4, 33 scanner mappings

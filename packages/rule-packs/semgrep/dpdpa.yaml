@@ -152,3 +152,42 @@ rules:
       (DPDPA §5 notice).
     patterns:
       - pattern-regex: '(?i)(app\.(get|post|put)|@app\.(route|get|post)|router\.(get|post))\([^\n]{0,120}(signup|register|collect|onboard)'
+
+  - id: dpdpa.generic.lawful-basis-missing
+    languages: [generic]
+    severity: WARNING
+    message: >-
+      Personal data is persisted without a visible lawful-basis marker. Record
+      the lawful basis or legitimate use beside the processing activity
+      (DPDPA §7 lawful basis).
+    patterns:
+      - pattern-either:
+          - pattern-regex: '(?i)\b(email|phone|user_data|customer_data|personal_data|pii)\b.{0,80}\b(save|store|persist|insert|create|write|update)\b'
+          - pattern-regex: '(?i)\b(save|store|persist|insert|create|write|update)\b.{0,80}\b(email|phone|user_data|customer_data|personal_data|pii|user|customer|profile)\b'
+      - pattern-not-regex: '(?i)\b(lawful_basis|legal_basis|legitimate_use|processing_purpose|lawful basis|legal basis)\b'
+
+  - id: dpdpa.generic.breach-alert-missing
+    languages: [generic]
+    severity: WARNING
+    message: >-
+      A security or error event path has no notification hook, so a personal
+      data breach may not be escalated to the response process (DPDPA §8(5)
+      breach notification).
+    patterns:
+      - pattern-regex: '(?i)\b(except|catch|error_handler|onerror|security_event|audit_failure)\b'
+      - pattern-not-regex: '(?i)\b(notify|alert|incident|breach|report|webhook|page_oncall)\b'
+
+  - id: dpdpa.generic.sdf-artifacts-missing
+    languages: [generic]
+    severity: WARNING
+    message: >-
+      Documentation discusses personal-data processing without referencing a
+      DPO, impact assessment, or audit record. SDF status is a legal
+      designation, so confirm applicability before treating this as a failure
+      (DPDPA §10 significant data fiduciaries).
+    paths:
+      include:
+        - '**/*.md'
+    patterns:
+      - pattern-regex: '(?i)\b(personal data|personal_data|pii|privacy notice|data principal)\b'
+      - pattern-not-regex: '(?i)\b(dpo|data protection officer|dpia|data protection impact assessment|audit)\b'

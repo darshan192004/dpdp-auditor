@@ -148,7 +148,7 @@ packages/rule-packs/
 
 ```yaml
 version: 1
-pack: dpdpa-2026.10.1
+pack: dpdpa-2026.10.2
 effectiveFrom: 2026-10-15
 
 controls:
@@ -180,7 +180,7 @@ controls:
 
 ```yaml
 version: 1
-pack: dpdpa-2026.10.1
+pack: dpdpa-2026.10.2
 
 mappings:
   - scanner: checkov
@@ -212,7 +212,7 @@ mappings:
 
 ```yaml
 version: 1
-pack: dpdpa-2026.10.1
+pack: dpdpa-2026.10.2
 
 suppressions:
   - id: documented-test-keys
