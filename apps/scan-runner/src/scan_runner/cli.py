@@ -26,6 +26,7 @@ from scan_runner.adapters import CheckovAdapter, GitleaksAdapter, SemgrepAdapter
 from scan_runner.batches import BatchClient
 from scan_runner.callbacks import post_signed
 from scan_runner.config import ALL_SCANNERS, SECRETS_ONLY_SCANNERS, Config
+from scan_runner.facts import collect_facts
 from scan_runner.logging_setup import configure_logging
 from scan_runner.normalise import normalize_findings
 from scan_runner.versions import SCANNER_VERSIONS
@@ -76,7 +77,7 @@ def run_scanner(
     """
     start = time.monotonic()
     try:
-        raw = adapter.run(workspace)
+        raw = adapter.run(workspace, timeout)
     except TimeoutError:
         duration_ms = int((time.monotonic() - start) * 1000)
         log.warning("scanner %s timed out after %ds", name, timeout)
@@ -120,6 +121,18 @@ def total_workspace_bytes(workspace: Path) -> int:
     return sum(path.stat().st_size for path in workspace.rglob("*") if path.is_file())
 
 
+def send_progress(config: Config, client: httpx.Client | None = None) -> None:
+    """Send the signed 'scanning' progress callback (P3-10 / api.md §10.4)."""
+    payload = {"status": "scanning"}
+    post_signed(
+        config,
+        f"/internal/v1/scans/{config.scan_id}/progress",
+        payload,
+        client=client,
+    )
+    log.info("progress 'scanning' accepted for scan %s", config.scan_id)
+
+
 def send_completion(
     config: Config,
     statuses: dict[str, str],
@@ -128,6 +141,7 @@ def send_completion(
     durations: dict[str, int] | None = None,
     commit_sha: str | None = None,
     workspace_bytes: int | None = None,
+    facts: dict[str, list[str]] | None = None,
     client: httpx.Client | None = None,
 ) -> None:
     """Send the signed final completion callback (P3-10)."""
@@ -143,7 +157,12 @@ def send_completion(
             }
             for name in ALL_SCANNERS
         ],
-        "facts": {"languages": [], "frameworks": [], "resourceTypes": []},
+        # Applicability predicates evaluate against these (rules.md §13). An
+        # empty set silently drops every conditional control from the score,
+        # so the runner reports what the checkout actually holds.
+        "facts": facts
+        if facts is not None
+        else {"languages": [], "frameworks": [], "resourceTypes": []},
     }
     if commit_sha:
         payload["commitSha"] = commit_sha
@@ -170,6 +189,14 @@ def run_scan(config: Config) -> int:
 
     try:
         clone_repository(config.repo_url, workspace, config.repo_ref, config.timeout_clone)
+
+        # Notify orchestrator that cloning finished and scanning is starting.
+        # Non-fatal: a lost callback must not fail an otherwise valid scan.
+        with httpx.Client(timeout=10.0) as progress_client:
+            try:
+                send_progress(config, client=progress_client)
+            except Exception as exc:
+                log.warning("failed to send scanning progress callback: %s", exc)
 
         timeouts = {
             "semgrep": config.timeout_semgrep,
@@ -202,6 +229,20 @@ def run_scan(config: Config) -> int:
 
         for batch in batches.values():
             batch.finish()
+        # Collect applicability facts from the checkout before it is deleted.
+        # Scoring excludes any control whose predicate does not match these,
+        # so a failure here must not lose the findings already uploaded.
+        try:
+            facts = collect_facts(workspace)
+        except Exception as exc:  # pragma: no cover - defensive
+            log.warning("fact collection failed: %s", exc)
+            facts = {"languages": [], "frameworks": [], "resourceTypes": []}
+        log.info(
+            "repo facts: languages=%s frameworks=%s resourceTypes=%s",
+            facts["languages"],
+            facts["frameworks"],
+            facts["resourceTypes"],
+        )
         send_completion(
             config,
             statuses,
@@ -209,6 +250,7 @@ def run_scan(config: Config) -> int:
             durations=durations,
             commit_sha=read_commit_sha(workspace),
             workspace_bytes=total_workspace_bytes(workspace),
+            facts=facts,
         )
         return exit_code
     finally:

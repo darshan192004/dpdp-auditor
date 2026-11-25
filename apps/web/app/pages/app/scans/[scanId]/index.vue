@@ -33,7 +33,7 @@ async function cancel(reason: string): Promise<void> {
     <NewScanDetail
       :scan="scan"
       :cancelling="cancelling"
-      :loading="status === 'pending'"
+      :loading="status === 'pending' && scan === null"
       @cancel="cancel"
     />
   </div>

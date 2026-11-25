@@ -66,7 +66,7 @@ export class SessionService {
   async touch(sessionId: string): Promise<void> {
     const session = await this.sessions.findById(sessionId);
     if (!isActive(session)) throw new ApiError('UNAUTHENTICATED', 'The session has expired.');
-    await this.sessions.touch(sessionId, new Date());
+    await this.sessions.touch(sessionId, new Date(Date.now()));
   }
 
   async revoke(sessionId: string): Promise<void> {
@@ -87,7 +87,10 @@ export class SessionService {
 function isActive(session: Session | null, now = Date.now()): boolean {
   if (!session) return false;
   if (session.revokedAt) return false;
+  // Use UTC epoch for absolute expiry comparison to avoid local timezone offset skew
   if (session.absoluteExpiresAt.getTime() <= now) return false;
+  // Use UTC epoch for lastSeenAt to avoid IST offset skew (5:30 hours)
+  // lastSeenAt stored as Timestamptz; getTime() gives UTC ms, which is correct
   return session.lastSeenAt.getTime() > now - SESSION_IDLE_MS;
 }
 

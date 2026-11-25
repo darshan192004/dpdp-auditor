@@ -5,4 +5,5 @@ export interface Toast {
   tone: ToastTone;
   title: string;
   message: string;
+  dismissAt?: number;
 }

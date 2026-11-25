@@ -1,0 +1,15 @@
+# Semgrep ignore rules for the DPDPA scan runner.
+#
+# The stock Semgrep ignore template also excludes `tests/`, which hides real
+# findings in test and load-test code and makes a "full repository" audit
+# partial. Keep only dependency and generated-output paths out of scope.
+.git/
+node_modules/
+vendor/
+build/
+dist/
+.venv/
+.tox/
+.npm/
+.yarn/
+*.min.js

@@ -23,7 +23,7 @@ import {
 import { MembershipsRepository } from './memberships.repository.js';
 import { OrganizationsRepository } from './organizations.repository.js';
 import { UsersRepository } from './users.repository.js';
-import { monthStart, PLAN_LIMITS } from '../../common/plan-limits.js';
+import { monthStart, planLimits } from '../../common/plan-limits.js';
 import { ReportsRepository } from '../reports/reports.repository.js';
 import { ScansRepository } from '../scans/scans.repository.js';
 
@@ -254,7 +254,7 @@ export class IdentityService {
     const organization = await this.organizations.findById(orgId);
     if (!organization) throw new ApiError('NOT_FOUND', 'The organisation does not exist.');
 
-    const limits = PLAN_LIMITS[organization.plan];
+    const limits = planLimits(organization.plan);
     const month = monthStart(new Date());
     const scansThisMonth = await this.scans.countCreatedSince(orgId, month);
     const reportsThisMonth = await this.reports.countCreatedSince(orgId, month);

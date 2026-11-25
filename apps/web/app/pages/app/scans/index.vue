@@ -171,7 +171,7 @@ async function startScan(payload: {
       :scans="items"
       :pagination="pagination"
       :status="status"
-      :loading="scansRequest.status.value === 'pending'"
+      :loading="scansRequest.status.value === 'pending' && !scansRequest.data.value"
       @update:status="setStatus"
       @update:page="
         router.push({ query: { ...route.query, page: $event === 1 ? undefined : String($event) } })

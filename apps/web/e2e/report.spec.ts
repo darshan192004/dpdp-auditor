@@ -11,8 +11,10 @@ test.describe('Report preview', () => {
   test('renders the PDF export card from the report view model', async ({ page }) => {
     await page.goto(`/report/${REPORT_ID}`);
 
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Report');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('DPDPA Audit Report');
+    await expect(page.locator('body')).toContainText(SCAN_ID);
     await expect(page.locator('body')).toContainText(`PDF export for scan ${SCAN_ID}`);
+    await expect(page.getByRole('button', { name: 'Export PDF' })).toBeEnabled();
   });
 
   test('uses the print layout without console chrome', async ({ page }) => {

@@ -13,7 +13,7 @@ import pytest
 from pydantic import SecretStr
 
 from scan_runner.callbacks import post_signed
-from scan_runner.cli import send_completion
+from scan_runner.cli import send_completion, send_progress
 from scan_runner.config import Config
 from scan_runner.versions import SCANNER_VERSIONS
 
@@ -142,6 +142,22 @@ def test_failed_flush_keeps_the_batch_id_for_a_retry() -> None:
     assert len(requests) == 2
 
 
+def test_send_progress_posts_scanning_status() -> None:
+    captured: dict[str, httpx.Request] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["request"] = request
+        return httpx.Response(200, json={"data": {"status": "scanning", "updated": True}})
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        send_progress(CONFIG, client=client)
+
+    assert captured["request"].url.path == "/internal/v1/scans/scan-1/progress"
+    assert captured["request"].content == b'{"status":"scanning"}'
+    assert captured["request"].headers["x-internal-key"] == "i" * 32
+    assert captured["request"].headers["x-org-id"] == "org-1"
+
+
 def test_send_completion_posts_all_scanner_reports() -> None:
     captured: dict[str, httpx.Request] = {}
 
@@ -188,6 +204,35 @@ def test_send_completion_posts_all_scanner_reports() -> None:
     assert payload["commitSha"] == "a" * 40
     assert payload["workspaceBytes"] == 42
     assert payload["facts"] == {"languages": [], "frameworks": [], "resourceTypes": []}
+
+
+def test_send_completion_forwards_collected_repo_facts() -> None:
+    """Facts drive applicability (rules.md §13); an empty payload would drop
+    every conditional control from the assessment, so they must be forwarded
+    exactly as collected."""
+    captured: dict[str, httpx.Request] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["request"] = request
+        return httpx.Response(200, json={"data": {"status": "completed"}})
+
+    facts = {
+        "languages": ["javascript", "typescript"],
+        "frameworks": ["vue"],
+        "resourceTypes": ["aws_s3_bucket"],
+    }
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        send_completion(
+            CONFIG,
+            {"semgrep": "completed", "checkov": "completed", "gitleaks": "completed"},
+            {"semgrep": 1, "checkov": 0, "gitleaks": 0},
+            facts=facts,
+            client=client,
+        )
+
+    payload = json.loads(captured["request"].content)
+    assert payload["facts"] == facts
 
 
 def test_config_loads_callback_identity_from_environment(monkeypatch: pytest.MonkeyPatch) -> None:

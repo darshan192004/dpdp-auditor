@@ -28,7 +28,8 @@ test.describe('PDF parity (P5-23)', () => {
   test('HTML report preview offers the PDF export for that scan', async ({ page }) => {
     await page.goto(`/report/${FIXTURE_REPORT_ID}`);
 
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Report');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('DPDPA Audit Report');
+    await expect(page.locator('body')).toContainText(FIXTURE_SCAN_ID);
     await expect(page.locator('body')).toContainText(`PDF export for scan ${FIXTURE_SCAN_ID}`);
     await expect(page.getByRole('button', { name: 'Export PDF' })).toBeEnabled();
   });

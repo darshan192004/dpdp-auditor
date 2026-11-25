@@ -1,0 +1,154 @@
+# Custom Semgrep rules for DPDPA controls (docs/rules.md §6.2).
+#
+# Every id here MUST have an entry in mappings/semgrep.yaml, otherwise the
+# finding is reported as Unmapped. These rules are bundled into the scan runner
+# image and passed to Semgrep with --config so the whole repository is scanned
+# for application-code evidence, not just the registry's CI/Docker rules.
+#
+# NOTE: Semgrep's `metavariable-regex` is a *full* match against the captured
+# text, so every pattern is wrapped in `.*` (a bare alternation never matches).
+rules:
+  - id: dpdpa.python.pii-in-logs
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Personal data is passed to a logger. Logging widens access beyond the
+      collection purpose (DPDPA §8(4) security safeguards).
+    patterns:
+      - pattern: $LOG.$METHOD(..., $ARG, ...)
+      - metavariable-regex:
+          metavariable: $METHOD
+          regex: '^(debug|info|warning|warn|error|exception|critical|log)$'
+      - metavariable-regex:
+          metavariable: $ARG
+          regex: '(?i).*(?:\bemail\b|e[_-]?mail|\bphone\b|\bmobile\b|\bssn\b|\baadhaar\b|\bpan\b|\bpassport\b|\bdob\b|date[_-]?of[_-]?birth|\baddress\b|\bpii\b|personal|customer|user_data).*'
+
+  - id: dpdpa.javascript.pii-in-logs
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      Personal data or a request body is logged, exposing it to log readers
+      (DPDPA §8(4) security safeguards).
+    patterns:
+      - pattern-either:
+          - pattern: console.$METHOD(..., $ARG, ...)
+          - pattern: $LOG.$METHOD(..., $ARG, ...)
+      - metavariable-regex:
+          metavariable: $METHOD
+          regex: '^(log|info|debug|warn|error|trace)$'
+      - metavariable-regex:
+          metavariable: $ARG
+          regex: '(?i).*(?:\bemail\b|\bphone\b|\buser\b|\bbody\b|\bpayload\b|request|personal|\bpii\b|\bssn\b|\baadhaar\b|password|token).*'
+
+  - id: dpdpa.generic.hardcoded-credential
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      A credential literal is present in source, readable by anyone with
+      repository access (DPDPA §8(4) security safeguards).
+    patterns:
+      - pattern-regex: '(?i)(password|passwd|secret|api[_-]?key|apikey|access[_-]?key|private[_-]?key|client[_-]?secret|token)\b["'']?\s*[:=]\s*["''][A-Za-z0-9+/_=@!#%^&*\-]{8,}["'']'
+
+  - id: dpdpa.python.no-consent-check
+    languages: [python]
+    severity: WARNING
+    message: >-
+      Personal data is persisted on a write path with no visible consent
+      dependency. Confirm that consent is enforced before processing
+      (DPDPA §6 consent).
+    patterns:
+      - pattern-inside: |
+          def $FUNC(...):
+            ...
+      - pattern: $DB.$OP(..., $DATA, ...)
+      - metavariable-regex:
+          metavariable: $OP
+          regex: '^(add|commit|save|flush|insert|update|create|execute)$'
+      - metavariable-regex:
+          metavariable: $DATA
+          regex: '(?i).*(?:\buser\b|\bprofile\b|\bcustomer\b|personal|\bpii\b|consent|email).*'
+
+  - id: dpdpa.javascript.no-consent-check
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      Personal data is persisted without a visible consent dependency
+      (DPDPA §6 consent).
+    patterns:
+      - pattern-inside: |
+          function $FUNC(...) {
+            ...
+          }
+      - pattern: $MODEL.$OP(..., $DATA, ...)
+      - metavariable-regex:
+          metavariable: $OP
+          regex: '^(save|create|update|insert|upsert|findOneAndUpdate)$'
+      - metavariable-regex:
+          metavariable: $DATA
+          regex: '(?i).*(?:\buser\b|\bprofile\b|\bcustomer\b|personal|\bpii\b|email).*'
+
+  - id: dpdpa.generic.overcollection
+    languages: [generic]
+    severity: WARNING
+    message: >-
+      A schema or DTO declares personal-data fields beyond a stated purpose.
+      Document the purpose for each field (DPDPA §6 data minimisation).
+    patterns:
+      - pattern-regex: '(?i)\b(phone|mobile|ssn|aadhaar|pan|passport|date_of_birth|dob)\b\s*[:=]\s*["'']?(string|str|text)["'']?'
+
+  - id: dpdpa.python.consent-withdrawal-missing
+    languages: [python]
+    severity: WARNING
+    message: >-
+      A consent record has no withdrawal path. Withdrawal cannot be honoured
+      without one (DPDPA §6(4) withdrawal of consent).
+    patterns:
+      - pattern-regex: '(?i)^class\s+\w*Consent\w*\s*[:(]'
+      - pattern-not-regex: '(?i)^\s*def\s+withdraw\w*\s*\('
+      - pattern-not-regex: '(?i)^\s*def\s+revoke\w*\s*\('
+
+  - id: dpdpa.generic.unbounded-retention
+    languages: [generic]
+    severity: WARNING
+    message: >-
+      A store holds personal data with no visible retention or TTL setting
+      (DPDPA §8(4) retention).
+    patterns:
+      - pattern-regex: '(?i)\b(pii|personal_data|user_data|customer_data)\b.{0,40}\b(table|collection|bucket|model)\b'
+
+  - id: dpdpa.generic.hard-delete-missing
+    languages: [generic]
+    severity: WARNING
+    message: >-
+      Deletion is implemented as a soft flag, leaving personal data in place.
+      Propagate erasure to derived stores (DPDPA §13 erasure).
+    patterns:
+      - pattern-regex: '(?i)\b(is_deleted|deleted_at|soft_delete|deleted_flag)\b\s*[:=]'
+
+  - id: dpdpa.javascript.cross-border-sdk
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      A third-party SDK is configured with a region outside India. Confirm the
+      transfer basis (DPDPA §16 cross-border transfer).
+    patterns:
+      - pattern-regex: '(?i)\b(region|defaultRegion|location)\b\s*[:=]\s*["''](?!ap-south-1|in-|IN)[a-z0-9-]{2,}["'']'
+
+  - id: dpdpa.generic.children-data-no-age-gate
+    languages: [generic]
+    severity: WARNING
+    message: >-
+      Child-directed data collection without a visible age gate. Applicability
+      depends on the product audience (DPDPA §9 children's data).
+    patterns:
+      - pattern-regex: '(?i)\b(child|children|minor|underage|guardian)\b.{0,40}\b(email|name|photo|location)\b'
+
+  - id: dpdpa.generic.privacy-notice-missing
+    languages: [generic]
+    severity: WARNING
+    message: >-
+      A collection endpoint has no visible notice link. The notice may be
+      rendered by a shared layout; confirm before treating this as a failure
+      (DPDPA §5 notice).
+    patterns:
+      - pattern-regex: '(?i)(app\.(get|post|put)|@app\.(route|get|post)|router\.(get|post))\([^\n]{0,120}(signup|register|collect|onboard)'

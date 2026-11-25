@@ -8,12 +8,13 @@ import { onBeforeUnmount, ref } from 'vue';
 
 type ReportStatus = 'queued' | 'rendering' | 'ready' | 'failed';
 
-const props = withDefaults(defineProps<{ scanId: string; canExport?: boolean }>(), {
-  canExport: true,
-});
+const props = withDefaults(
+  defineProps<{ scanId: string; reportId?: string | undefined; canExport?: boolean }>(),
+  { reportId: undefined, canExport: true },
+);
 
 const state = ref<'idle' | 'requesting' | 'polling' | 'ready' | 'failed'>('idle');
-const reportId = ref<string | null>(null);
+const resolvedReportId = ref<string | null>(null);
 const message = ref<string | null>(null);
 let idempotencyKey: string | null = null;
 let timer: ReturnType<typeof setTimeout> | null = null;
@@ -40,7 +41,7 @@ function messageFrom(cause: unknown): string {
 
 async function poll(): Promise<void> {
   clearTimer();
-  if (disposed || reportId.value === null) return;
+  if (disposed || resolvedReportId.value === null) return;
   attempts += 1;
   if (attempts > 40) {
     state.value = 'failed';
@@ -49,7 +50,7 @@ async function poll(): Promise<void> {
   }
   try {
     const response = await $fetch<{ data: { status: ReportStatus } }>(
-      `/api/v1/report/pdf/${reportId.value}`,
+      `/api/v1/report/pdf/${resolvedReportId.value}`,
       { signal: abortController.signal },
     );
     if (disposed) return;
@@ -75,6 +76,15 @@ async function request(): Promise<void> {
   if (disposed || !props.canExport || state.value === 'requesting' || state.value === 'polling')
     return;
   message.value = null;
+  // The report preview already has a reserved report id. Reuse it instead of
+  // creating a second report for the same scan (docs/api.md §6.1).
+  if (props.reportId) {
+    resolvedReportId.value = props.reportId;
+    state.value = 'polling';
+    attempts = 0;
+    await poll();
+    return;
+  }
   state.value = 'requesting';
   if (idempotencyKey === null) idempotencyKey = crypto.randomUUID();
   try {
@@ -88,7 +98,7 @@ async function request(): Promise<void> {
       },
     );
     if (disposed) return;
-    reportId.value = response.data.id;
+    resolvedReportId.value = response.data.id;
     if (response.data.status === 'failed') {
       idempotencyKey = null;
       state.value = 'failed';
@@ -112,7 +122,7 @@ async function request(): Promise<void> {
 function reset(): void {
   clearTimer();
   idempotencyKey = null;
-  reportId.value = null;
+  resolvedReportId.value = null;
   state.value = 'idle';
   message.value = null;
 }
@@ -138,15 +148,15 @@ function reset(): void {
       {{ state === 'requesting' ? 'Requesting report.' : 'Rendering PDF.' }}
     </p>
 
-    <template v-if="state === 'ready' && reportId !== null">
+    <template v-if="state === 'ready' && resolvedReportId !== null">
       <a
-        :href="`/api/v1/report/pdf/${reportId}/download`"
+        :href="`/api/v1/report/pdf/${resolvedReportId}/download`"
         class="bg-brand-500 hover:bg-brand-600 focus-visible:ring-brand-500 text-ink-50 inline-flex items-center rounded-[var(--radius-control)] px-3 py-1.5 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
       >
         Download PDF
       </a>
       <NuxtLink
-        :to="`/report/${reportId}`"
+        :to="`/report/${resolvedReportId}`"
         class="text-ink-600 hover:text-ink-900 focus-visible:ring-brand-500 rounded-[var(--radius-control)] px-2.5 py-1.5 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
       >
         Preview

@@ -16,6 +16,7 @@ import type {
   CreateScanInput,
   FindingsBatchInput,
   ListScansInput,
+  ScanProgressInput,
 } from './scan.schemas.js';
 import { ScansService } from './scans.service.js';
 
@@ -104,6 +105,20 @@ export class InternalScansController {
       reason: body?.reason,
     });
     return { data };
+  }
+
+  /**
+   * POST /internal/v1/scans/:scanId/progress — the runner tells the
+   * orchestrator that cloning finished and scanning started (api.md §10.4).
+   */
+  @Post(':scanId/progress')
+  @HttpCode(200)
+  async progress(
+    @Headers('x-org-id') orgHeader: string | undefined,
+    @Param('scanId') scanId: string,
+    @Body() body: ScanProgressInput,
+  ) {
+    return { data: await this.scans.recordProgress(orgIdFrom(orgHeader), scanId, body) };
   }
 
   @Post(':scanId/findings')

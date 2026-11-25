@@ -63,3 +63,5 @@ __pycache__/
 # Local tool caches
 .tmp/
 .agents/
+# Added by code-review-graph
+.code-review-graph/
