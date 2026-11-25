@@ -7,8 +7,12 @@ each fact kind and must ignore dependency/build directories.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
+import pytest
+
+import scan_runner.facts as facts
 from scan_runner.facts import collect_facts
 
 
@@ -53,6 +57,31 @@ def test_detects_js_frameworks_from_package_json(tmp_path: Path) -> None:
     assert facts["frameworks"] == ["nuxt", "vue"]
 
 
+def test_detects_frameworks_from_nested_manifests(tmp_path: Path) -> None:
+    write(tmp_path / "web" / "package.json", '{"dependencies": {"vue": "^3.0.0"}}')
+    write(tmp_path / "api" / "requirements.txt", "flask==3.0\n")
+    write(tmp_path / "worker" / "Gemfile", "gem 'rails'\n")
+    write(tmp_path / "php" / "composer.json", '{"require": {"laravel/framework": "^11.0"}}')
+    # Dependencies must not contribute facts even when nested.
+    write(
+        tmp_path / "web" / "node_modules" / "vue" / "package.json",
+        '{"dependencies": {"react": "^18"}}',
+    )
+
+    facts = collect_facts(tmp_path)
+
+    assert facts["frameworks"] == ["flask", "laravel", "rails", "vue"]
+
+
+def test_detects_python_frameworks_from_nested_dev_requirements(tmp_path: Path) -> None:
+    write(tmp_path / "api" / "requirements" / "dev.txt", "fastapi>=0.100\n")
+    write(tmp_path / "api" / "pyproject.toml", '[project]\ndependencies = ["django"]\n')
+
+    facts = collect_facts(tmp_path)
+
+    assert facts["frameworks"] == ["django", "fastapi"]
+
+
 def test_detects_python_frameworks_from_requirements(tmp_path: Path) -> None:
     write(tmp_path / "requirements.txt", "Django==5.0\nrequests==2.31\n")
 
@@ -94,6 +123,21 @@ def test_maps_cloudformation_types_to_catalog_names(tmp_path: Path) -> None:
     facts = collect_facts(tmp_path)
 
     assert facts["resourceTypes"] == ["aws_db_instance", "aws_s3_bucket"]
+
+
+def test_maps_cloudformation_json_resource_types(tmp_path: Path) -> None:
+    template = {
+        "Resources": {
+            "Assets": {"Type": "AWS::S3::Bucket"},
+            "Database": {"Type": "AWS::RDS::DBInstance"},
+            "Table": {"Type": "AWS::DynamoDB::Table"},
+        }
+    }
+    write(tmp_path / "stack.json", json.dumps(template))
+
+    facts = collect_facts(tmp_path)
+
+    assert facts["resourceTypes"] == ["aws_db_instance", "aws_dynamodb_table", "aws_s3_bucket"]
 
 
 def test_detects_kubernetes_workloads(tmp_path: Path) -> None:
@@ -147,3 +191,48 @@ def test_survives_binary_and_oversized_files(tmp_path: Path) -> None:
 
     assert facts["languages"] == ["python"]
     assert facts["resourceTypes"] == []
+
+
+def test_json_integer_limit_does_not_discard_other_facts(tmp_path: Path) -> None:
+    """One pathological JSON file must not clear valid applicability facts."""
+    write(tmp_path / "package.json", '{"dependencies": {"vue": "^3.0.0"}}')
+    write(tmp_path / "api.py", "x = 1\n")
+    write(tmp_path / "huge.json", '{"value": ' + "9" * 5_000 + "}")
+
+    result = collect_facts(tmp_path)
+
+    assert result["frameworks"] == ["vue"]
+    assert result["languages"] == ["python"]
+    assert result["resourceTypes"] == []
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        ValueError("integer string conversion limit exceeded"),
+        RecursionError("maximum recursion depth exceeded"),
+    ],
+)
+def test_json_decoder_failures_are_isolated_to_the_bad_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: Exception
+) -> None:
+    write(tmp_path / "package.json", '{"dependencies": {"vue": "^3.0.0"}}')
+    write(tmp_path / "good.tf", 'resource "aws_s3_bucket" "logs" {}\n')
+    write(tmp_path / "bad.json", '{"BROKEN_DECODER": true}')
+
+    original_loads = json.loads
+
+    def selective_loads(text: str, *args: object, **kwargs: object) -> object:
+        if "BROKEN_DECODER" in text:
+            raise failure
+        return original_loads(text, *args, **kwargs)
+
+    monkeypatch.setattr(facts.json, "loads", selective_loads)
+
+    result = collect_facts(tmp_path)
+
+    assert result == {
+        "languages": [],
+        "frameworks": ["vue"],
+        "resourceTypes": ["aws_s3_bucket"],
+    }

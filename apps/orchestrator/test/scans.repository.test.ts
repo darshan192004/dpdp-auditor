@@ -225,6 +225,33 @@ describe('ScansRepository', () => {
     });
   });
 
+  it('normalizes runner line 0 to null to satisfy the DB line_start check', async () => {
+    const { repo, scannerFinding } = make();
+    const batch = {
+      ...BATCH,
+      findings: [
+        {
+          scannerRuleId: 'rule-1',
+          severity: 'high' as const,
+          message: 'Personal data logged',
+          fingerprint: 'fpt_1',
+          context: {},
+          lineStart: 0,
+          lineEnd: 0,
+        },
+      ],
+    };
+
+    await expect(repo.insertFindings(SCAN_ID, ORG_ID, batch)).resolves.toEqual({
+      accepted: 1,
+      duplicates: 0,
+    });
+    expect(scannerFinding.createMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ lineStart: null, lineEnd: null })],
+      skipDuplicates: true,
+    });
+  });
+
   it('skips the insert for an empty batch', async () => {
     const { repo, scannerFinding } = make();
     await expect(repo.insertFindings(SCAN_ID, ORG_ID, { ...BATCH, findings: [] })).resolves.toEqual(

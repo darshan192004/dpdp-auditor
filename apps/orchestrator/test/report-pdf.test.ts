@@ -117,6 +117,44 @@ function extractText(buffer: Buffer): string {
   return `${raw}\n${content}`;
 }
 
+/** Decode just the text operators in one inflated PDFKit page stream. */
+function decodePageStream(content: string): string {
+  const decodeHex = (hex: string): string => {
+    let decoded = '';
+    for (let index = 0; index < hex.length; index += 2) {
+      decoded += String.fromCharCode(Number.parseInt(hex.slice(index, index + 2), 16));
+    }
+    return decoded;
+  };
+  return content
+    .replace(/\[([^\]]*)\]\s*TJ/g, (_match, body: string) =>
+      (body.match(/<[0-9a-fA-F]+>/g) ?? []).map((hex) => decodeHex(hex.slice(1, -1))).join(''),
+    )
+    .replace(/\(([^)]*)\)\s*Tj/g, (_match, value: string) => value);
+}
+
+/** Extract visible text for each page, in page order, without external tools. */
+function pageTexts(buffer: Buffer): string[] {
+  const raw = buffer.toString('latin1');
+  const objects = new Map<number, string>();
+  for (const match of raw.matchAll(/(\d+) 0 obj\s*([\s\S]*?)\s*endobj/g)) {
+    objects.set(Number(match[1]), match[2]!);
+  }
+
+  return [...objects.entries()]
+    .filter(([, body]) => /\/Type \/Page\b/.test(body))
+    .sort(([left], [right]) => left - right)
+    .map(([, page]) => {
+      const contents = page.match(/\/Contents (\d+) 0 R/);
+      expect(contents, 'page is missing a content stream').not.toBeNull();
+      const stream = objects
+        .get(Number(contents![1]))
+        ?.match(/stream\r?\n([\s\S]*?)\r?\nendstream/);
+      expect(stream, 'page content stream is missing').not.toBeNull();
+      return decodePageStream(inflateSync(Buffer.from(stream![1]!, 'latin1')).toString('latin1'));
+    });
+}
+
 describe('renderReportPdf (real PDF rendering)', () => {
   it('produces a genuine, multi-page PDF document', async () => {
     const buffer = await pdf();
@@ -130,6 +168,18 @@ describe('renderReportPdf (real PDF rendering)', () => {
 
     // The old fallback shell embedded this marker; real PDFs must not.
     expect(raw).not.toContain('html-bytes');
+  });
+
+  it('keeps the header, footer, and page number on each rendered page', async () => {
+    const pages = pageTexts(await pdf());
+    expect(pages.length).toBeGreaterThan(1);
+
+    pages.forEach((text, index) => {
+      expect(text, `page ${index + 1} is blank or footer-only`).toContain('DPDPA AUDIT REPORT');
+      expect(text, `page ${index + 1} is missing the repository header`).toContain(
+        'acme/payments-service',
+      );
+    });
   });
 
   it('embeds the report content as extractable text', async () => {

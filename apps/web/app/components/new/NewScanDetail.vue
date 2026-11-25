@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue';
 
 import DashboardPageHeader from '~/components/dashboard/DashboardPageHeader.vue';
+import { useToasts } from '~/composables/useToasts';
 import ScoreRing from '~/components/dashboard/ScoreRing.vue';
 import SeverityBar from '~/components/dashboard/SeverityBar.vue';
 import StatusChip from '~/components/dashboard/StatusChip.vue';
@@ -24,10 +25,12 @@ const props = withDefaults(
   },
 );
 const emit = defineEmits<{ cancel: [reason: string] }>();
+const { push } = useToasts();
 
 const CANCEL_REASON = 'Cancelled from the console';
 
 const confirming = ref(false);
+const openingReport = ref(false);
 const coverage = computed(() => coverageFor(props.scan?.coverage ?? {}));
 const running = computed(() => props.scan !== null && !isTerminalStatus(props.scan.status));
 const sections = computed(() =>
@@ -37,6 +40,24 @@ const sections = computed(() =>
 function confirmCancel(): void {
   emit('cancel', CANCEL_REASON);
   confirming.value = false;
+}
+
+/** Report previews are read-only; reserve explicitly via POST (docs/api.md §6.1). */
+async function openReport(): Promise<void> {
+  if (openingReport.value || props.scan === null) return;
+  openingReport.value = true;
+  try {
+    const response = await $fetch<{ data: { id: string } }>('/api/v1/report/pdf', {
+      method: 'POST',
+      body: { scanId: props.scan.id },
+      headers: { 'Idempotency-Key': crypto.randomUUID() },
+    });
+    await navigateTo(`/report/${response.data.id}`);
+  } catch {
+    push('error', 'Report unavailable', 'The report could not be opened. Please try again.');
+  } finally {
+    openingReport.value = false;
+  }
 }
 </script>
 
@@ -68,12 +89,14 @@ function confirmCancel(): void {
           >
             Remediation
           </NuxtLink>
-          <NuxtLink
-            :to="`/report/${scan.id}`"
-            class="border-ink-300 rounded-[var(--radius-control)] border px-3 py-1.5 text-sm"
+          <button
+            type="button"
+            class="border-ink-300 cursor-pointer rounded-[var(--radius-control)] border px-3 py-1.5 text-sm"
+            :disabled="openingReport"
+            @click="openReport"
           >
-            Report
-          </NuxtLink>
+            {{ openingReport ? 'Opening…' : 'Report' }}
+          </button>
           <button
             v-if="running && !confirming"
             type="button"

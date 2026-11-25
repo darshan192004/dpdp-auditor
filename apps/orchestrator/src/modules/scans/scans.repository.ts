@@ -3,6 +3,11 @@ import type { Prisma, Scan, ScanEvent, ScanStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import type { FindingsBatch } from './scan.schemas.js';
 
+/** Line numbers are 1-based in the DB; 0/absent means "no line". */
+function toNullableLine(line: number | undefined | null): number | null {
+  return line && line > 0 ? line : null;
+}
+
 export interface CreateScanRecord {
   orgId: string;
   repositoryId: string;
@@ -226,8 +231,10 @@ export class ScansRepository {
       scannerRuleVersion: finding.scannerRuleVersion ?? batch.scannerVersion,
       severity: finding.severity,
       filePath: finding.filePath ?? null,
-      lineStart: finding.lineStart ?? null,
-      lineEnd: finding.lineEnd ?? null,
+      // Runner embeds line 0 for file-level findings (e.g. Checkov); the DB
+      // constraint requires line_start > 0, and NULL represents "no line".
+      lineStart: toNullableLine(finding.lineStart),
+      lineEnd: toNullableLine(finding.lineEnd),
       message: finding.message,
       evidenceRedacted: finding.evidenceRedacted ?? null,
       evidenceHash: finding.evidenceHash ?? null,

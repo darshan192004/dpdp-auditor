@@ -15,6 +15,9 @@ const PAGE_HEIGHT = 841.89;
 const MARGIN = 48;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
 const BOTTOM = PAGE_HEIGHT - MARGIN - 24;
+// PDFKit's usable area ends at PAGE_HEIGHT - MARGIN. Text placed lower than
+// this silently creates a new page, so keep the footer inside the margin.
+const FOOTER_Y = PAGE_HEIGHT - MARGIN - 12;
 
 const INK = '#16181d';
 const MUTED = '#5b616e';
@@ -112,11 +115,11 @@ class ReportWriter {
 
   private footer(): void {
     this.setText('Helvetica', 7.5, '#8b919e');
-    this.doc.text(this.footerText, MARGIN, PAGE_HEIGHT - 30, {
+    this.doc.text(this.footerText, MARGIN, FOOTER_Y, {
       width: CONTENT_WIDTH - 60,
       lineBreak: false,
     });
-    this.doc.text(`Page ${this.pageNo}`, PAGE_WIDTH - MARGIN - 50, PAGE_HEIGHT - 30, {
+    this.doc.text(`Page ${this.pageNo}`, PAGE_WIDTH - MARGIN - 50, FOOTER_Y, {
       width: 50,
       align: 'right',
       lineBreak: false,

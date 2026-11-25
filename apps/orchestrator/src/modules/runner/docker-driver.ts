@@ -21,6 +21,9 @@ export class DockerRunner {
       Env: Object.entries(env).map(([k, v]) => `${k}=${v}`),
       name: `scan-${scanId}`,
       HostConfig: {
+        // Host networking is required to reach local services from the scan
+        // container. On Docker Desktop this needs 4.34+, host networking
+        // enabled, and Enhanced Container Isolation disabled (docs/architecture.md).
         NetworkMode: 'host',
         ExtraHosts: ['host.docker.internal:host-gateway'],
       },

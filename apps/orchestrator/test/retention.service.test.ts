@@ -58,7 +58,7 @@ describe('RetentionService', () => {
     const [call] = rawCalls(fake.sessionRaw);
     expect(call?.sql).toContain('DELETE FROM sessions');
     expect(call?.sql).toContain('absolute_expires_at < now()');
-    expect(call?.sql).toContain("last_seen_at AT TIME ZONE 'UTC' < now() - interval '30 minutes'");
+    expect(call?.sql).toContain("last_seen_at < now() - interval '30 minutes'");
     expect(call?.sql).toContain("revoked_at < now() - interval '24 hours'");
     expect(call?.sql).toContain('LIMIT 500');
     expect(counts.purgedSessions).toBe(7);

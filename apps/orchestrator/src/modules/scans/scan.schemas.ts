@@ -128,7 +128,9 @@ export const scannerReportSchema = z.strictObject({
 export const repoFactsSchema = z.strictObject({
   languages: z.array(z.string().trim().min(1).max(64)).max(100).default([]),
   frameworks: z.array(z.string().trim().min(1).max(64)).max(100).default([]),
-  resourceTypes: z.array(z.string().trim().min(1).max(128)).max(500).default([]),
+  // CloudFormation/Terraform checkouts can contain more than 500 distinct
+  // types. Keep every collected type so applicability is not silently narrowed.
+  resourceTypes: z.array(z.string().trim().min(1).max(128)).default([]),
 });
 
 export const completeScanSchema = z.strictObject({
