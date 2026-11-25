@@ -159,6 +159,18 @@ def _read_text(path: Path) -> str:
         return ""
 
 
+def _safe_json_loads(text: str) -> object | None:
+    """Decode one repository JSON file without discarding facts from other files.
+
+    The byte-size cap does not bound parser depth or integer length; CPython can
+    raise ValueError/RecursionError on a file that is well below the cap.
+    """
+    try:
+        return json.loads(text)
+    except (ValueError, RecursionError):
+        return None
+
+
 def _iter_manifests(workspace: Path) -> Iterable[Path]:
     """Yield dependency manifests anywhere under *workspace*, pruning SKIP_DIRS."""
     names = {"package.json", "requirements.txt", "pyproject.toml", "Gemfile", "composer.json"}
@@ -182,10 +194,7 @@ def _framework_facts(workspace: Path) -> set[str]:
     for path in _iter_manifests(workspace):
         text = _read_text(path)
         if path.name == "package.json":
-            try:
-                manifest = json.loads(text)
-            except json.JSONDecodeError:
-                manifest = {}
+            manifest = _safe_json_loads(text)
             if isinstance(manifest, dict):
                 for section in ("dependencies", "devDependencies", "peerDependencies"):
                     deps = manifest.get(section)
@@ -239,11 +248,7 @@ def _resource_facts(workspace: Path) -> set[str]:
                 continue
             # CloudFormation templates are valid JSON as well as YAML; the
             # `Type:` regex alone misses JSON's quoted keys.
-            document: object = None
-            try:
-                document = json.loads(text)
-            except json.JSONDecodeError:
-                document = None
+            document = _safe_json_loads(text)
             if isinstance(document, dict):
                 resources = document.get("Resources")
                 if isinstance(resources, dict):
