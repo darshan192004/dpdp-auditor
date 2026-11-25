@@ -44,8 +44,9 @@ interface CreatedSession {
 }
 
 export default defineEventHandler(async (event) => {
-  // Use import.meta.env.PROD for runtime check to prevent build-time dead code elimination
-  if (import.meta.env.PROD) {
+  // Nitro replaces process.env.NODE_ENV at build time; import.meta.env.PROD
+  // is not a runtime flag in the bundled server and left this route exposed.
+  if (process.env.NODE_ENV === 'production') {
     throw createError({ statusCode: 404, statusMessage: 'Not Found' });
   }
 
