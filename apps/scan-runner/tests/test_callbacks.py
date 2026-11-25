@@ -235,6 +235,29 @@ def test_send_completion_forwards_collected_repo_facts() -> None:
     assert payload["facts"] == facts
 
 
+def test_send_completion_emits_every_resource_type_without_a_cap() -> None:
+    """The producer must not truncate collected facts before signing them."""
+    captured: dict[str, httpx.Request] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["request"] = request
+        return httpx.Response(200, json={"data": {"status": "completed"}})
+
+    resource_types = [f"aws_resource_{index:04d}" for index in range(600)]
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        send_completion(
+            CONFIG,
+            {"semgrep": "completed", "checkov": "completed", "gitleaks": "completed"},
+            {"semgrep": 0, "checkov": 0, "gitleaks": 0},
+            facts={"languages": [], "frameworks": [], "resourceTypes": resource_types},
+            client=client,
+        )
+
+    payload = json.loads(captured["request"].content)
+    assert payload["facts"]["resourceTypes"] == resource_types
+
+
 def test_config_loads_callback_identity_from_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     values: dict[str, str] = {
         "SCAN_ID": "scan-env",

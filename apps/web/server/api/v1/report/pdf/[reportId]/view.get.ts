@@ -1,4 +1,5 @@
 import { defineEventHandler, getQuery, getRouterParam } from 'h3';
+import { apiError } from '../../../../../utils/api-error';
 import { callOrchestrator } from '../../../../../utils/orchestrator';
 import { fixtureReportViewModel } from '../../../../../utils/fixtures/reports';
 import { getFixtureScan } from '../../../../../utils/fixtures/scans';
@@ -10,10 +11,9 @@ import { requireIdentity } from '../../../../../utils/session';
  * GET /api/v1/report/pdf/:reportId/view - docs/api.md 10.6.
  * Report view model for the accessible HTML preview. Role: viewer+.
  *
- * The console's Report tab links with the scan id (a report may not exist
- * yet), so an unknown id is retried as a scan id: the orchestrator reserves
- * the report for that scan (idempotent per scan+template) and the view model
- * is read back under the reserved report id.
+ * Reading is side-effect free: an unknown report id answers 404. Clients
+ * reserve a report for a scan with POST /api/v1/report/pdf (auditor+), which
+ * reuses an unexpired report for the same scan and template.
  */
 export default defineEventHandler(async (event) => {
   const reportId = getRouterParam(event, 'reportId');
@@ -30,21 +30,9 @@ export default defineEventHandler(async (event) => {
       path: `/internal/v1/reports/${reportId}/view-model`,
     });
   } catch (cause) {
-    const code = (cause as { data?: { error?: { code?: string } } })?.data?.error?.code;
-    if (code !== 'NOT_FOUND') throw cause;
+    const error = (cause as { data?: { error?: { code?: string; message?: string } } })?.data
+      ?.error;
+    if (error?.code !== 'NOT_FOUND') throw cause;
+    apiError(event, 404, 'NOT_FOUND', error.message ?? 'The report was not found.');
   }
-
-  // Unknown report id → treat it as a scan id and reserve its report.
-  const created = await callOrchestrator<{ data?: { id?: string } }>(event, {
-    method: 'POST',
-    path: '/internal/v1/reports',
-    body: { scanId: reportId },
-    idempotencyKey: `view-${reportId}`,
-  });
-  const reservedId = created?.data?.id;
-  if (!reservedId) throw new Error('The report could not be created for this scan.');
-  return await callOrchestrator(event, {
-    method: 'GET',
-    path: `/internal/v1/reports/${reservedId}/view-model`,
-  });
 });

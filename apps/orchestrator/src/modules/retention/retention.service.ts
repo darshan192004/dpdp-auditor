@@ -85,16 +85,15 @@ export class RetentionService {
 
   /** database.md L567: expired, idle-beyond-limit, or revoked over 24 h. */
   private async purgeSessions(): Promise<number> {
-    // Use timezone-aware comparison: cast timestamps to UTC for fair comparison.
-    // PostgreSQL's now() returns timestamp in its session timezone (UTC by default),
-    // but last_seen_at may have been stored with a local-time offset.
-    // Explicitly convert to UTC epoch milliseconds for consistent comparison.
+    // timestamptz values are absolute instants. Compare them directly with the
+    // timezone-aware now(); `AT TIME ZONE` would strip the offset and make the
+    // comparison depend on the database session's TimeZone setting.
     return this.prisma.$executeRaw`
       DELETE FROM sessions
       WHERE id IN (
         SELECT id FROM sessions
         WHERE absolute_expires_at < now()
-           OR last_seen_at AT TIME ZONE 'UTC' < now() - interval '30 minutes'
+           OR last_seen_at < now() - interval '30 minutes'
            OR (revoked_at IS NOT NULL AND revoked_at < now() - interval '24 hours')
         LIMIT 500
       )`;

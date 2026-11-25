@@ -159,6 +159,14 @@ def _read_text(path: Path) -> str:
         return ""
 
 
+def _iter_manifests(workspace: Path) -> Iterable[Path]:
+    """Yield dependency manifests anywhere under *workspace*, pruning SKIP_DIRS."""
+    names = {"package.json", "requirements.txt", "pyproject.toml", "Gemfile", "composer.json"}
+    for path in _iter_files(workspace):
+        if path.name in names or (path.name == "dev.txt" and path.parent.name == "requirements"):
+            yield path
+
+
 def _language_facts(workspace: Path) -> set[str]:
     languages: set[str] = set()
     for path in _iter_files(workspace):
@@ -171,49 +179,50 @@ def _language_facts(workspace: Path) -> set[str]:
 def _framework_facts(workspace: Path) -> set[str]:
     frameworks: set[str] = set()
 
-    package_json = workspace / "package.json"
-    if package_json.is_file():
-        try:
-            manifest = json.loads(_read_text(package_json))
-        except json.JSONDecodeError:
-            manifest = {}
-        if isinstance(manifest, dict):
-            for section in ("dependencies", "devDependencies", "peerDependencies"):
-                deps = manifest.get(section)
-                if isinstance(deps, dict):
-                    for name in deps:
-                        framework = JS_FRAMEWORKS.get(str(name).lower())
-                        if framework:
-                            frameworks.add(framework)
-
-    for name in ("requirements.txt", "requirements/dev.txt", "pyproject.toml"):
-        candidate = workspace / name
-        if not candidate.is_file():
-            continue
-        text = _read_text(candidate)
-        if name.endswith("pyproject.toml"):
+    for path in _iter_manifests(workspace):
+        text = _read_text(path)
+        if path.name == "package.json":
+            try:
+                manifest = json.loads(text)
+            except json.JSONDecodeError:
+                manifest = {}
+            if isinstance(manifest, dict):
+                for section in ("dependencies", "devDependencies", "peerDependencies"):
+                    deps = manifest.get(section)
+                    if isinstance(deps, dict):
+                        for name in deps:
+                            framework = JS_FRAMEWORKS.get(str(name).lower())
+                            if framework:
+                                frameworks.add(framework)
+        elif path.name == "pyproject.toml":
             # `[tool.django]`-style markers plus bare project names.
             for framework in PY_FRAMEWORKS:
                 if re.search(rf"\b{re.escape(framework)}\b", text, re.IGNORECASE):
                     frameworks.add(framework)
-            continue
-        for line in text.splitlines():
-            match = _REQ_LINE_RE.match(line)
-            if match:
-                normalized = re.split(r"[<>=!\[;]", match.group(1))[0].strip().lower()
-                framework = PY_FRAMEWORKS.get(normalized)
-                if framework:
-                    frameworks.add(framework)
-
-    gemfile = workspace / "Gemfile"
-    if gemfile.is_file() and re.search(r"^\s*gem\s+['\"]rails['\"]", _read_text(gemfile), re.M):
-        frameworks.add("rails")
-
-    composer = workspace / "composer.json"
-    if composer.is_file() and "laravel/framework" in _read_text(composer):
-        frameworks.add("laravel")
+        elif path.name in {"requirements.txt", "dev.txt"}:
+            for line in text.splitlines():
+                match = _REQ_LINE_RE.match(line)
+                if match:
+                    normalized = re.split(r"[<>=!\[;]", match.group(1))[0].strip().lower()
+                    framework = PY_FRAMEWORKS.get(normalized)
+                    if framework:
+                        frameworks.add(framework)
+        elif path.name == "Gemfile":
+            if re.search(r"^\s*gem\s+['\"]rails['\"]", text, re.M):
+                frameworks.add("rails")
+        elif path.name == "composer.json" and "laravel/framework" in text:
+            frameworks.add("laravel")
 
     return frameworks
+
+
+def _cfn_resource_type(cfn_type: str) -> str | None:
+    """Map a CloudFormation type to the catalog's resource type name."""
+    mapped = CFN_TYPE_MAP.get(cfn_type)
+    if mapped is None and cfn_type.startswith(("AWS::", "AZURE::", "Google::")):
+        provider, _, resource = cfn_type.partition("::")
+        mapped = f"{provider.lower()}_{resource.replace('::', '_').lower()}"
+    return mapped
 
 
 def _resource_facts(workspace: Path) -> set[str]:
@@ -228,11 +237,25 @@ def _resource_facts(workspace: Path) -> set[str]:
             text = _read_text(path)
             if not text:
                 continue
+            # CloudFormation templates are valid JSON as well as YAML; the
+            # `Type:` regex alone misses JSON's quoted keys.
+            document: object = None
+            try:
+                document = json.loads(text)
+            except json.JSONDecodeError:
+                document = None
+            if isinstance(document, dict):
+                resources = document.get("Resources")
+                if isinstance(resources, dict):
+                    for resource in resources.values():
+                        if isinstance(resource, dict):
+                            cfn_type = resource.get("Type")
+                            if isinstance(cfn_type, str):
+                                mapped = _cfn_resource_type(cfn_type)
+                                if mapped:
+                                    resource_types.add(mapped)
             for cfn_type in _CFN_TYPE_RE.findall(text):
-                mapped = CFN_TYPE_MAP.get(cfn_type)
-                if mapped is None and cfn_type.startswith(("AWS::", "AZURE::", "Google::")):
-                    provider, _, resource = cfn_type.partition("::")
-                    mapped = f"{provider.lower()}_{resource.replace('::', '_').lower()}"
+                mapped = _cfn_resource_type(cfn_type)
                 if mapped:
                     resource_types.add(mapped)
             # Kubernetes manifests: a bare `kind:` line (not nested under spec).

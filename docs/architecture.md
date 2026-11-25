@@ -458,7 +458,7 @@ Kubernetes is **production infrastructure only** (§11 topology); a developer la
 
 - The orchestrator dispatches scans through a **runner driver** selected by configuration (`RUNNER_DRIVER=kubernetes|docker`):
   - `kubernetes` (production): creates a Job per scan exactly as §6 specifies.
-  - `docker` (local development): runs the **same** scan-runner image with one `docker run` per scan — same environment variables, per-scan HMAC callback contract, `emptyDir`-equivalent workspace volume, resource limits, and remove-on-exit cleanup. Isolation stays structural: one container, one repository, one lifetime.
+  - `docker` (local development): runs the **same** scan-runner image with one `docker run` per scan — same environment variables, per-scan HMAC callback contract, `emptyDir`-equivalent workspace volume, resource limits, and remove-on-exit cleanup. Isolation stays structural: one container, one repository, one lifetime. The local driver uses host networking so the scan container can reach host services; on Docker Desktop this requires **Docker Desktop 4.34 or later**, **host networking enabled** under Settings → Resources → Network, and **Enhanced Container Isolation disabled**.
 - Local services (Postgres, Redis, Mailpit, mock GitHub) come up with `docker compose up -d` (memory.md §17).
 - CI may spin up a **kind cluster** optionally to verify Job-spec parity before merge, but it is not part of the day-to-day dev loop.
 

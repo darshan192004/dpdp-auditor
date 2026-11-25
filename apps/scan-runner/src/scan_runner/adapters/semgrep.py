@@ -32,6 +32,12 @@ class SemgrepAdapter:
             )
         except subprocess.TimeoutExpired as exc:
             raise TimeoutError("Semgrep execution timed out") from exc
+        if result.returncode != 0:
+            # `semgrep --json` exits 0 even when findings exist (no --error),
+            # so any nonzero exit means the scan itself failed.
+            detail = result.stderr.strip() or result.stdout.strip()
+            message = f"Semgrep execution failed (exit code {result.returncode}): {detail}"
+            raise RuntimeError(message)
         if result.returncode == 0 and result.stdout:
             data: dict[str, Any] = json.loads(result.stdout)
             results = data.get("results", [])

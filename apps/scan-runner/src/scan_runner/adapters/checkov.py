@@ -28,6 +28,10 @@ class CheckovAdapter:
         if result.returncode in (0, 1) and result.stdout:
             try:
                 data: object = json.loads(result.stdout)
+                if isinstance(data, dict):
+                    # Checkov 3.2.0 emits a single object when only one
+                    # framework has results; treat it as a one-item list.
+                    data = [data]
                 if isinstance(data, list):
                     # Checkov JSON output format: [{"results": {"failed_checks": [...]}, "summary": {...}}, ...]
                     all_results = []
