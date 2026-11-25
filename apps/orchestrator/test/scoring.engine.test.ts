@@ -123,7 +123,12 @@ describe('scoreScan (P4-08, P4-12)', () => {
 
   it('excludes unscored controls from the numerator and denominator', () => {
     const result = score({ findings: [finding('DPDPA-12-ACCESS-01', 'open', 'medium')] });
-    expect(result.sectionScores['12']).toBeUndefined();
+    expect(result.sectionScores['12']).toBeNull();
+    expect(result.sections.find((section) => section.section === '12')).toMatchObject({
+      assessed: false,
+      applicableWeight: 0,
+      sectionWeight: 0,
+    });
     expect(result.score).toBe(100);
     expect(result.grade).toBe('A');
   });
