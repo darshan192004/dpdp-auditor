@@ -1,10 +1,12 @@
 # Lunch-time autonomous plan
 
 ## Root causes identified (Phase 1)
+
 1. **Scan exit 1 / Connection refused**: orchestrator process started 12:35, `docker-driver.js` rebuilt 13:16 (host-network fix). Running process is stale -> container gets `bridge` -> `localhost:3002` refused from container.
 2. **Session dropped to /login**: `/api/v1/me` 401, `sessions` table = 0 rows. TTLs: absolute 8h, idle 30min; hourly retention deletes idle>30m.
 
 ## Tasks
+
 - [ ] T1 Restart orchestrator with rebuilt dist (host-network fix live)
 - [ ] T2 Rebuild scan-runner Docker image (facts.py, dpdpa.yaml, dpdpa.semgrepignore, adapter fixes)
 - [ ] T3 Root-cause + fix session drop (dev-appropriate session lifetime)
