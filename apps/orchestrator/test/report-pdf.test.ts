@@ -201,6 +201,18 @@ describe('renderReportPdf (real PDF rendering)', () => {
     }
   });
 
+  it('labels unmapped findings and unassessed sections', async () => {
+    const base = model();
+    const raw = extractText(
+      await pdf({
+        scan: { ...base.scan, sectionScores: { ...base.scan.sectionScores, '12': null } },
+        topFindings: [{ ...base.topFindings[0]!, dpdpa: null }],
+      }),
+    );
+    expect(raw).toContain('Unmapped');
+    expect(raw).toContain('Not assessed');
+  });
+
   it('writes a generated sample when RUN_PDF_SAMPLE is set', async () => {
     if (!process.env.RUN_PDF_SAMPLE) return;
     const buffer = await pdf();
