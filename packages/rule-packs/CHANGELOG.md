@@ -1,5 +1,22 @@
 # Rule pack changelog
 
+## 2026.10.6 — 2026-11-26
+
+- Patch bump for advisory Semgrep rule exclusions only; controls, weights, and
+  the scoring formula are unchanged. Historical scans are never re-scored.
+- The breach-alert positive span no longer limits how far into a line a handler
+  keyword may appear, tolerates mixed indentation and blank lines inside a
+  handler, and starts a fresh match for a nested handler. String or comment text
+  cannot fake a handler header.
+- Breach-alert suppression is case-insensitive, accepts a hook passed by
+  function reference as well as a call, and ignores hook-like words in strings
+  and comments. A one-line handler with a real notification hook is suppressed.
+- The JS lawful-basis exclusion no longer consumes marker-bearing comments as
+  ordinary comments while skipping braces, so a visible `lawful_basis` comment
+  beside a write suppresses the finding.
+- Regression fixtures cover every case above on the pinned runner Semgrep and
+  the CI image.
+
 ## 2026.10.5 — 2026-11-26
 
 - Patch bump for advisory Semgrep breach-alert exclusion correctness only;

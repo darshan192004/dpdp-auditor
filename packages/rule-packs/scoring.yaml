@@ -4,7 +4,7 @@
 # assessed is excluded from both numerator and denominator. Grade bands are
 # inclusive on both ends and use half-up rounding at two decimals.
 version: 1
-pack: dpdpa-2026.10.5
+pack: dpdpa-2026.10.6
 scoringVersion: 1.0.0
 
 sectionWeights:

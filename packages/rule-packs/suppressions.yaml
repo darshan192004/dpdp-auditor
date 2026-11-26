@@ -4,6 +4,6 @@
 # exact evidence hash plus a written reason and an expiry date. Reviewed
 # suppressions are added here with a CHANGELOG entry, not per tenant.
 version: 1
-pack: dpdpa-2026.10.5
+pack: dpdpa-2026.10.6
 
 suppressions: []

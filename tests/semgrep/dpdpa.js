@@ -26,3 +26,14 @@ try {
 } catch (err) {
   recover(err);
 }
+
+export function persistWithCommentBasis(email) {
+  // lawful_basis: consent
+  // ok: dpdpa.generic.lawful-basis-missing
+  db.save(email);
+}
+
+export function persistWithInlineBasis(email) {
+  // ok: dpdpa.generic.lawful-basis-missing
+  db.save(email, { lawful_basis: 'consent' });
+}

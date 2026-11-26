@@ -177,13 +177,15 @@ rules:
             |
             ^[^\r\n]*(?&marker)[^\r\n]*
           )
-      # Ignore braces inside strings and comments when scoping a JS operation.
+      # Ignore braces inside strings and comments when scoping a JS operation,
+      # but let a marker-bearing comment satisfy (?&marked) instead of being
+      # consumed as an ordinary comment.
       - pattern-not-regex: |-
           (?ix)
           (?(DEFINE)
             (?<marker>\b(?:lawful_basis|legal_basis|legitimate_use|processing_purpose|lawful\ basis|legal\ basis)\b)
-            (?<string>"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)
-            (?<comment>/\*(?:(?!\*/)[\s\S])*\*/|//[^\r\n]*)
+            (?<string>"(?:\\.|(?!(?&marker))[^"\\])*"|'(?:\\.|(?!(?&marker))[^'\\])*'|`(?:\\.|(?!(?&marker))[^`\\])*`)
+            (?<comment>/\*(?:(?!\*/)(?!(?&marker))[\s\S])*\*/|//(?:(?!(?&marker))[^\r\n])*)
             (?<skip>(?&string)|(?&comment))
             (?<block>\{(?:(?&skip)|[^{}]++|(?&block))*\})
             (?<marked>\{(?:(?:(?!(?&marker))(?:(?&skip)|[^{}]))++|(?&block))*
@@ -199,15 +201,27 @@ rules:
       data breach may not be escalated to the response process (DPDPA §8(5)
       breach notification).
     patterns:
-      # Match the handler header and only its own body: every following line
-      # must be strictly more indented than the header. That covers assigned
-      # handlers and callbacks without brace parsing, while stopping at a
-      # sibling handler so one hook cannot silence its neighbours.
-      - pattern-regex: '(?im)^(?<indent>\h*)[^\r\n]{0,80}?\b(except|catch|error_handler|onerror|security_event|audit_failure)\b[^\n]{0,200}(?:\n(?=\k<indent>\h)[ \t]+[^\n]{0,240})*'
-      # Suppress only on a real hook call outside strings/comments. A bare word
-      # in a log message or comment must not silence a scored finding, and a
-      # hook call beyond any fixed line budget must still count.
-      - pattern-not-regex: '(?:"(?:\\.|[^"\\])*"|''(?:\\.|[^''\\])*''|`(?:\\.|[^`\\])*`|/\*(?:(?!\*/)[\s\S])*\*/|//[^\r\n]*|\#[^\r\n]*)(*SKIP)(*F)|\b(?:notify|alert|incident|breach|report|webhook|page_oncall)\b\h*\('
+      # Match a handler header plus only the lines belonging to that handler.
+      # A nested handler starts its own match; a line at the header's own
+      # indentation ends this one. Strings and comments cannot fake a header.
+      - pattern-regex: |-
+          (?imx)
+          (?:"(?:\\.|[^"\\\r\n])*"|'(?:\\.|[^'\\\r\n])*'|`[^`\\\r\n]*`|/\*(?:(?!\*/)[\s\S])*\*/|//[^\r\n]*|\#[^\r\n]*)(*SKIP)(*F)
+          |
+          (?(DEFINE)
+            (?<handler>except|catch|error_handler|onerror|security_event|audit_failure)
+            (?<str>"(?:\\.|[^"\\\r\n])*"|'(?:\\.|[^'\\\r\n])*'|`[^`\\\r\n]*`)
+          )
+          ^(?<indent>\h*)(?:(?&str)|[^"'`#\r\n])*?\b(?&handler)\b[^\r\n]*
+          (?:\R(?!\h*\}?[^\r\n]{0,80}\b(?&handler)\b)
+            (?:(?!\k<indent>(?!\h))\h+[^\r\n]*|[ \t]*(?=\R|\z))
+          )*
+      # Suppress only on a real hook (call or function reference) outside
+      # strings and comments, case-insensitively.
+      - pattern-not-regex: |-
+          (?ix)
+          (?:"(?:\\.|[^"\\\r\n])*"|'(?:\\.|[^'\\\r\n])*'|`[^`\\\r\n]*`|/\*(?:(?!\*/)[\s\S])*\*/|//[^\r\n]*|\#[^\r\n]*)(*SKIP)(*F)
+          |\b(?:notify|alert|incident|breach|report|webhook|page_oncall)\b(?:\h*\(|(?=[\s,;)\]}]|\z))
 
   - id: dpdpa.generic.sdf-artifacts-missing
     languages: [generic]

@@ -14,7 +14,7 @@ import {
 } from '../src/modules/rule-pack/rule-pack.loader.js';
 
 const PACK_DIR = fileURLToPath(new URL('../../../packages/rule-packs', import.meta.url));
-const PACK = 'dpdpa-2026.10.5';
+const PACK = 'dpdpa-2026.10.6';
 
 const roots: string[] = [];
 

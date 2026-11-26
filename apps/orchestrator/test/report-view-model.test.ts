@@ -85,7 +85,7 @@ function scan(overrides: Partial<Scan> = {}): Scan & { repository: Repository } 
     ref: 'main',
     commitSha: 'a'.repeat(40),
     scannerVersions: { semgrep: '1.95.0' },
-    rulePackVersion: 'dpdpa-2026.10.5',
+    rulePackVersion: 'dpdpa-2026.10.6',
     scoringVersion: '1.0.0',
     score: { toString: () => '70.95' } as unknown as Scan['score'],
     grade: 'C',
@@ -175,7 +175,7 @@ describe('buildReportViewModel (P4-20)', () => {
     });
     expect(view.methodology).toMatchObject({
       scoringVersion: '1.0.0',
-      rulePackVersion: 'dpdpa-2026.10.5',
+      rulePackVersion: 'dpdpa-2026.10.6',
     });
     expect(view.disclaimer).toBe(REPORT_DISCLAIMER);
     expect(view.generatedAt).toEqual(new Date('2026-11-12T10:00:00.000Z'));

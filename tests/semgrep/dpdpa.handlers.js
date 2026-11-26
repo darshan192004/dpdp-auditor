@@ -92,3 +92,58 @@ function twoHandlers() {
     notify(err);
   }
 }
+
+// prettier-ignore
+// ruleid: dpdpa.generic.breach-alert-missing
+function longHeader() { try { const padding = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"; risky(); } catch (err) { recover(err); } }
+
+try {
+  risky();
+  // ok: dpdpa.generic.breach-alert-missing
+} catch (err) {
+  Notify(err);
+}
+
+// ok: dpdpa.generic.breach-alert-missing
+window.onerror = notify;
+
+// ok: dpdpa.generic.breach-alert-missing
+security_event(notify);
+
+// ok: dpdpa.generic.breach-alert-missing
+const fakeHandler = 'catch (e) { notify() }';
+
+// ok: dpdpa.generic.breach-alert-missing
+// catch (e) { recover(err); }
+
+function mixedIndent() {
+  try {
+    risky();
+    // ok: dpdpa.generic.breach-alert-missing
+  } catch (err) {
+    notify(err);
+  }
+}
+
+try {
+  risky();
+  // ok: dpdpa.generic.breach-alert-missing
+} catch (err) {
+  recover(err);
+
+  notify(err);
+}
+
+function nestedHandler() {
+  try {
+    risky();
+    // ruleid: dpdpa.generic.breach-alert-missing
+  } catch (outer) {
+    try {
+      risky();
+      // ok: dpdpa.generic.breach-alert-missing
+    } catch (inner) {
+      notify(inner);
+    }
+  }
+}

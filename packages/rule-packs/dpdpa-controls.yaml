@@ -5,7 +5,7 @@
 # repository facts (languages, frameworks, resourceTypes) delivered by the
 # runner; an empty predicate means the control always applies.
 version: 1
-pack: dpdpa-2026.10.5
+pack: dpdpa-2026.10.6
 effectiveFrom: 2026-10-15
 
 controls:
