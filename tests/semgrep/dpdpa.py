@@ -15,6 +15,11 @@ def persist_with_basis_after(email):
     record(legal_basis)
 
 
+def persist_with_inline_basis(email):
+    # ok: dpdpa.generic.lawful-basis-missing
+    db.save(email, lawful_basis="consent")
+
+
 try:
     process()
 # ok: dpdpa.generic.breach-alert-missing
