@@ -120,6 +120,45 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  name: allow-stateful-service-ingress
+  namespace: dpdpa
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [postgres, redis, minio, registry]
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: orchestrator
+        - podSelector:
+            matchLabels:
+              app: web
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values: [migrate, seed-users, backup-refresh]
+        - podSelector:
+            matchExpressions:
+              - key: job-name
+                operator: Exists
+      ports:
+        - protocol: TCP
+          port: 5432
+        - protocol: TCP
+          port: 6379
+        - protocol: TCP
+          port: 9000
+        - protocol: TCP
+          port: 5000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
   name: allow-dpdpa-jobs-to-stateful-services
   namespace: dpdpa
 spec:
