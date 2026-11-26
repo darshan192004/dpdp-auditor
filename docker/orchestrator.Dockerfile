@@ -20,10 +20,9 @@ RUN pnpm exec turbo build --filter=@dpdpa/orchestrator...
 # install also keeps the web workspace's runtime deps (Nuxt modules and their
 # bundled binaries) in the shared store, which bloats this image and drags in
 # unrelated CVEs.
-# Scripts must run: @prisma/engines' postinstall places the query/schema
-# engines in the image. HUSKY=0 above neutralises the root prepare hook.
+# --ignore-scripts avoids the root `prepare: husky` hook (husky is a dev dep).
 RUN rm -rf node_modules apps/*/node_modules packages/*/node_modules
-RUN pnpm install --prod --frozen-lockfile --filter=@dpdpa/orchestrator...
+RUN pnpm install --prod --frozen-lockfile --ignore-scripts --filter=@dpdpa/orchestrator...
 RUN pnpm --filter @dpdpa/orchestrator exec prisma generate
 # `pnpm install --prod` only creates node_modules for workspaces that still have
 # runtime dependencies. @dpdpa/observability has none, so its directory is
@@ -53,6 +52,13 @@ COPY --from=build --chown=nonroot:nonroot /repo/packages/observability/node_modu
 # The rule-pack loader reads and hash-verifies every YAML file in this
 # directory at startup; without it the API exits with RULE_PACK_MISSING.
 COPY --from=build --chown=nonroot:nonroot /repo/packages/rule-packs ./packages/rule-packs
+# The prod install above skips lifecycle scripts, so @prisma/engines has no
+# platform binary. Copy the schema engine downloaded by the full build-stage
+# install; without it `prisma migrate deploy` tries to download from the
+# internet at runtime and fails under default-deny egress.
+COPY --from=build --chown=nonroot:nonroot \
+  /repo/node_modules/.pnpm/@prisma+engines@7.10.1/node_modules/@prisma/engines/schema-engine-debian-openssl-3.0.x \
+  ./node_modules/.pnpm/@prisma+engines@7.10.1/node_modules/@prisma/engines/
 USER nonroot
 EXPOSE 3001
 CMD ["apps/orchestrator/dist/main.js"]
