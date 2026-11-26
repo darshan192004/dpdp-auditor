@@ -126,11 +126,13 @@ bash infra/scripts/validate-images.sh
 | Image | Digest |
 | --- | --- |
 | `dpdpa/web` | `sha256:71bc455e32dd6c7893383c33641e64f829d1b82df7c723109665865db280a790` |
-| `dpdpa/orchestrator` | `sha256:45593dc2577944da074810e32ef9c883b4a80eb302a8050d279beef2e3412b64` |
+| `dpdpa/orchestrator` | `sha256:f98e24fffc2c9cb0132de58f59c1805690b34a959cc00d0764e598bda423bb0f` |
 | `dpdpa/scan-runner` | `sha256:97aca88c0c5a51e87683ee812e45d2da5c97a1a4d9154ad0f71d012c25d7b517` |
 | `dpdpa/chromium` | `sha256:783c7c72f8dc1c85a7671c1f5b13dcd8eb0443bb115126654cd65dfe8eaa1594` |
 
-The Chromium image's s6 service launches the browser with `CHROMIUM_ARGS` and forwards `0.0.0.0:9222` to its loopback debug port `9223`; do not override it with a second browser on port 3000. `REPORTS_BROWSER_WS_ENDPOINT` is `ws://renderer.dpdpa.svc.cluster.local:9222`.
+The Chromium image's s6 service launches the browser with `CHROMIUM_ARGS` and forwards `0.0.0.0:9222` to its loopback debug port `9223`; do not override it with a second browser on port 3000. Its container keeps `CAP_SETUID` and `CAP_SETGID` so s6 can drop to the `chrome` user; dropping all capabilities makes s6 exit with `unable to set supplementary group list`. `REPORTS_BROWSER_WS_ENDPOINT` is `ws://renderer.dpdpa.svc.cluster.local:9222`.
+
+The orchestrator image must copy `packages/rule-packs` into `/app/packages/rule-packs`, because `RulePackService.onModuleInit` hash-verifies the manifest at startup; omitting it causes `RULE_PACK_MISSING` and a CrashLoopBackOff. In the distroless image the Node binary is `/nodejs/bin/node`; Jobs must use that absolute path rather than `node` from `$PATH`.
 
 Promote an image by changing the manifest to the new immutable `registry.dpdpa.svc.cluster.local:5000/dpdpa/<name>@sha256:<digest>` reference, applying the manifest, and waiting for rollout (never apply `apps/config.yaml`, which is a Secret template containing `REPLACE_AT_DEPLOY`):
 
