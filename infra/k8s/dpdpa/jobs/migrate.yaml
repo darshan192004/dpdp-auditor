@@ -21,15 +21,10 @@ spec:
       containers:
         - name: migrate
           image: registry.dpdpa.svc.cluster.local:5000/dpdpa/orchestrator@sha256:8a57b2179d25dd14061a073495f85e33d50e5ab8d85299bd0cada007a5d190c8
-          command:
-            [
-              '/nodejs/bin/node',
-              'apps/orchestrator/node_modules/prisma/build/index.js',
-              'migrate',
-              'deploy',
-              '--schema',
-              'apps/orchestrator/prisma/schema.prisma',
-            ]
+          # Prisma 7 reads prisma.config.ts from the current directory. It must
+          # run inside the orchestrator workspace or datasource.url is missing.
+          workingDir: /app/apps/orchestrator
+          command: ['/nodejs/bin/node', 'node_modules/prisma/build/index.js', 'migrate', 'deploy']
           env:
             - name: DATABASE_URL
               valueFrom:
