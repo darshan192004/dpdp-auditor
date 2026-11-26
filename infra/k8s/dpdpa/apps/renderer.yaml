@@ -69,6 +69,8 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: ['ALL']
+              # s6-setuidgid switches from root to the image's `chrome` user.
+              add: ['SETUID', 'SETGID']
       volumes:
         - name: chromium-data
           emptyDir: {}

@@ -49,6 +49,9 @@ COPY --from=build --chown=nonroot:nonroot /repo/packages/contracts/node_modules 
 COPY --from=build --chown=nonroot:nonroot /repo/packages/observability/package.json ./packages/observability/package.json
 COPY --from=build --chown=nonroot:nonroot /repo/packages/observability/dist ./packages/observability/dist
 COPY --from=build --chown=nonroot:nonroot /repo/packages/observability/node_modules ./packages/observability/node_modules
+# The rule-pack loader reads and hash-verifies every YAML file in this
+# directory at startup; without it the API exits with RULE_PACK_MISSING.
+COPY --from=build --chown=nonroot:nonroot /repo/packages/rule-packs ./packages/rule-packs
 USER nonroot
 EXPOSE 3001
 CMD ["apps/orchestrator/dist/main.js"]
