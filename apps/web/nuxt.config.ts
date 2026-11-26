@@ -60,6 +60,8 @@ export default defineNuxtConfig({
       // P1-32: empty in dev/CI → telemetry plugins never load.
       sentryDsn: process.env.NUXT_PUBLIC_SENTRY_DSN ?? '',
       posthogKey: process.env.NUXT_PUBLIC_POSTHOG_KEY ?? '',
+      // Internal pilot: exposes the email/password form and hides GitHub OAuth.
+      passwordLoginEnabled: process.env.NUXT_PUBLIC_PASSWORD_LOGIN_ENABLED === 'true',
     },
   },
 

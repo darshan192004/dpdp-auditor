@@ -491,8 +491,8 @@ git commit -m "feat(identity): add password login with rate limiting"
 - Test: `apps/web/test/password-login.test.ts`
 
 **Interfaces:**
-- Consumes: `POST /internal/v1/identity/password/login` (Task 3), existing `callOrchestrator`, `replaceUserSession`, `fetchResolvedSession`, `clearUserSession` from `dev-session.post.ts`.
-- Produces: `POST /api/auth/password/login`; public config `passwordLoginEnabled` controlling UI visibility.
+- Consumes: `POST /internal/v1/identity/password/login` (Task 3), existing `callOrchestrator`, `replaceUserSession`, `fetchResolvedSession`, `clearUserSession` from `dev-session.post.ts`, and `clientIp` from `server/utils/rate-limit.ts` so the orchestrator can enforce its per-IP limit.
+- Produces: `POST /api/auth/password/login` returning `{ ok: true; mustChangePassword: boolean }`; public config `passwordLoginEnabled` controlling UI visibility. The web app has no zod dependency, so body validation is a small manual parser.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -529,24 +529,50 @@ export function passwordLoginError(_code: string): string {
 
 ```ts
 // apps/web/server/api/auth/password/login.post.ts
-import { createError, readBody } from 'h3';
-import { z } from 'zod';
+import { createError, getHeader, readBody } from 'h3';
 
-import { callOrchestrator } from '../../utils/orchestrator';
-import { fetchResolvedSession } from '../../utils/session';
+import { callOrchestrator } from '../../../utils/orchestrator';
+import { clientIp } from '../../../utils/rate-limit';
+import { fetchResolvedSession } from '../../../utils/session';
 
-const schema = z.object({ email: z.email(), password: z.string().min(1).max(200) });
+interface PasswordLoginResult {
+  user: { id: string; email: string; name: string | null; avatarUrl: string | null };
+  mustChangePassword: boolean;
+  sessionId: string;
+}
+
+function parseInput(raw: unknown): { email: string; password: string } {
+  if (typeof raw !== 'object' || raw === null) throw new Error('invalid body');
+  const { email, password } = raw as Record<string, unknown>;
+  if (
+    typeof email !== 'string' || email.length === 0 || email.length > 320 ||
+    typeof password !== 'string' || password.length === 0 || password.length > 200
+  ) throw new Error('invalid body');
+  return { email, password };
+}
 
 export default defineEventHandler(async (event) => {
-  const { email, password } = schema.parse(await readBody(event));
-  let data: { user: { id: string; email: string; name: string | null }; sessionId: string };
+  let email: string;
+  let password: string;
   try {
-    const result = await callOrchestrator<{
-      data: { user: { id: string; email: string; name: string | null }; sessionId: string };
-    }>(event, {
+    ({ email, password } = parseInput(await readBody(event)));
+  } catch {
+    throw createError({ statusCode: 400, statusMessage: 'Invalid email or password.' });
+  }
+
+  const resolvedIp = clientIp(event);
+  const ip = resolvedIp === 'unknown' ? null : resolvedIp;
+
+  let data: PasswordLoginResult;
+  try {
+    const result = await callOrchestrator<{ data: PasswordLoginResult }>(event, {
       method: 'POST',
       path: '/internal/v1/identity/password/login',
-      body: { email, password, userAgent: getHeader(event, 'user-agent') ?? 'password-login' },
+      body: {
+        email, password,
+        userAgent: getHeader(event, 'user-agent') ?? 'password-login',
+        ip,
+      },
     });
     data = result.data;
   } catch {
@@ -555,13 +581,16 @@ export default defineEventHandler(async (event) => {
 
   await replaceUserSession(event, {
     sessionId: data.sessionId,
-    user: { id: data.user.id, name: data.user.name, email: data.user.email, avatarUrl: null },
+    user: {
+      id: data.user.id, name: data.user.name,
+      email: data.user.email, avatarUrl: data.user.avatarUrl ?? null,
+    },
   });
   if ((await fetchResolvedSession(event, data.sessionId)) === null) {
     await clearUserSession(event);
     throw createError({ statusCode: 503, statusMessage: 'The audit service is unavailable. Try again shortly.' });
   }
-  return { ok: true };
+  return { ok: true, mustChangePassword: data.mustChangePassword };
 });
 ```
 
@@ -602,22 +631,37 @@ const config = useRuntimeConfig();
 const email = ref('');
 const password = ref('');
 const formError = ref<string | null>(null);
+const submitting = ref(false);
+
+// Reject absolute / protocol-relative redirects (no open redirect).
+const redirect = computed(() => {
+  const value = route.query.redirect;
+  if (typeof value !== 'string' || !value.startsWith('/') ||
+      value.startsWith('//') || value.startsWith('/\\')) return '/app';
+  return value;
+});
 
 async function submitPassword() {
+  if (submitting.value) return;
+  submitting.value = true;
   formError.value = null;
   try {
-    await $fetch('/api/auth/password/login', {
-      method: 'POST',
-      body: { email: email.value, password: password.value },
+    const result = await $fetch<{ ok: boolean; mustChangePassword: boolean }>(
+      '/api/auth/password/login',
+      { method: 'POST', body: { email: email.value, password: password.value } },
+    );
+    await navigateTo(result.mustChangePassword ? '/change-password' : redirect.value, {
+      replace: true,
     });
-    await navigateTo(redirect.value, { replace: true });
   } catch {
     formError.value = passwordLoginError('UNAUTHENTICATED');
+  } finally {
+    submitting.value = false;
   }
 }
 ```
 
-Hide the GitHub anchor with `v-if="!config.public.passwordLoginEnabled"`.
+The GitHub anchor and its helper text sit inside `<template v-else>` so they are hidden whenever the password form is enabled.
 
 - [ ] **Step 5: Run tests, typecheck, lint**
 
