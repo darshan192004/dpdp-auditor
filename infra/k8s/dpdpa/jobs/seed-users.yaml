@@ -18,7 +18,7 @@ spec:
       restartPolicy: Never
       containers:
         - name: seed-users
-          image: registry.dpdpa.svc.cluster.local:5000/dpdpa/orchestrator@sha256:8a57b2179d25dd14061a073495f85e33d50e5ab8d85299bd0cada007a5d190c8
+          image: registry.dpdpa.svc.cluster.local:5000/dpdpa/orchestrator@sha256:5f3a00aec3fe88a8848ab07009f0e2afd52465838ac7a663bcb1684cbffe6af6
           command: ['/nodejs/bin/node', 'apps/orchestrator/dist/commands/seed-users.js']
           env:
             - name: DATABASE_URL

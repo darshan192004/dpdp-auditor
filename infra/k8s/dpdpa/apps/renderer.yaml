@@ -88,6 +88,9 @@ metadata:
     app.kubernetes.io/component: renderer
 spec:
   type: ClusterIP
+  # Pinned because orchestrator's REPORTS_BROWSER_WS_ENDPOINT must use an IP
+  # literal: Chromium DevTools rejects a DNS hostname in the Host header.
+  clusterIP: 10.43.220.236
   selector:
     app: renderer
   ports:

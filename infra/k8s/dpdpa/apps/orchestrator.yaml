@@ -38,7 +38,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: orchestrator
-          image: registry.dpdpa.svc.cluster.local:5000/dpdpa/orchestrator@sha256:568c4293a384aa27a723e3afda63b29bd8dae2aec82d9bfa47bf6fa49f498833
+          image: registry.dpdpa.svc.cluster.local:5000/dpdpa/orchestrator@sha256:5f3a00aec3fe88a8848ab07009f0e2afd52465838ac7a663bcb1684cbffe6af6
           ports:
             - name: http
               containerPort: 3001
@@ -91,8 +91,13 @@ spec:
               value: registry.dpdpa.svc.cluster.local:5000/dpdpa/scan-runner@sha256:97aca88c0c5a51e87683ee812e45d2da5c97a1a4d9154ad0f71d012c25d7b517
             - name: ORCHESTRATOR_CALLBACK_URL
               value: http://orchestrator.dpdpa.svc.cluster.local:3001
+            # Chromium's DevTools endpoint rejects Host headers that are not
+            # localhost or an IP literal, and configuration only permits ws://
+            # over loopback. The sidecar forwards this loopback port to the
+            # renderer Service ClusterIP (10.43.220.236), which passes both
+            # checks. A DNS name or a remote ws:// endpoint is rejected.
             - name: REPORTS_BROWSER_WS_ENDPOINT
-              value: ws://renderer.dpdpa.svc.cluster.local:9222
+              value: ws://127.0.0.1:9222
             - name: S3_ENDPOINT
               value: http://minio:9000
             - name: S3_BUCKET
@@ -120,6 +125,26 @@ spec:
             limits:
               cpu: '1'
               memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ['ALL']
+        # Loopback-only forwarder to the headless Chromium renderer. It keeps
+        # the browser WebSocket inside the pod network and satisfies the
+        # configuration guard that allows plaintext WS only on loopback.
+        - name: browser-proxy
+          image: registry.dpdpa.svc.cluster.local:5000/dpdpa/chromium@sha256:783c7c72f8dc1c85a7671c1f5b13dcd8eb0443bb115126654cd65dfe8eaa1594
+          command:
+            - /usr/bin/socat
+            - TCP4-LISTEN:9222,fork,reuseaddr
+            - TCP4:10.43.220.236:9222
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -157,6 +182,10 @@ rules:
   - apiGroups: ['batch']
     resources: ['jobs']
     verbs: ['create', 'get', 'list', 'delete']
+  # The watcher reads the Job's status subresource to reconcile scan outcomes.
+  - apiGroups: ['batch']
+    resources: ['jobs/status']
+    verbs: ['get', 'list', 'watch']
   - apiGroups: ['']
     resources: ['secrets']
     # patch is required to attach the ownerReference after Job creation.

@@ -37,14 +37,31 @@ spec:
               value: production
             - name: PORT
               value: '3000'
+            # The web app only allows plaintext internal calls to loopback.
+            # A tiny sidecar forwards loopback:3001 to the orchestrator Service.
             - name: ORCHESTRATOR_URL
-              value: http://orchestrator:3001
+              value: http://127.0.0.1:3001
             - name: ORCHESTRATOR_HMAC_KEY
               valueFrom:
                 secretKeyRef:
                   name: dpdpa-app-secrets
                   key: ORCHESTRATOR_HMAC_KEY
             - name: ORCHESTRATOR_INTERNAL_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: dpdpa-app-secrets
+                  key: ORCHESTRATOR_INTERNAL_KEY
+            # Nuxt overrides runtimeConfig at runtime only via NUXT_-prefixed
+            # variables. The unprefixed values above are kept for non-Nuxt
+            # consumers but do not populate useRuntimeConfig() in the image.
+            - name: NUXT_ORCHESTRATOR_URL
+              value: http://127.0.0.1:3001
+            - name: NUXT_ORCHESTRATOR_HMAC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: dpdpa-app-secrets
+                  key: ORCHESTRATOR_HMAC_KEY
+            - name: NUXT_ORCHESTRATOR_INTERNAL_KEY
               valueFrom:
                 secretKeyRef:
                   name: dpdpa-app-secrets
@@ -84,6 +101,26 @@ spec:
             limits:
               cpu: '1'
               memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ['ALL']
+        # Loopback-only proxy for signed internal API calls. No public port.
+        - name: orchestrator-proxy
+          image: registry.dpdpa.svc.cluster.local:5000/dpdpa/chromium@sha256:783c7c72f8dc1c85a7671c1f5b13dcd8eb0443bb115126654cd65dfe8eaa1594
+          command:
+            - /usr/bin/socat
+            - TCP4-LISTEN:3001,fork,reuseaddr
+            # The sidecar's musl resolver cannot resolve the Service name even
+            # though CoreDNS returns an A record; the stable ClusterIP works.
+            - TCP4:10.43.237.124:3001
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

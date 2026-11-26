@@ -227,6 +227,47 @@ load_secrets() {
   note "loaded pilot secrets and selected a seeded ${SEED_ROLE} account (values not printed)"
 }
 
+# A successful rotation is permanent. A later sign-off run must start from the
+# deploy-time temporary credential so the forced-rotation gate is exercised
+# again; this only touches the seeded pilot account.
+reset_seed_password() {
+  local hash sql
+  [[ "$SEED_EMAIL" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+$ ]] || {
+    note "seeded email is not safe for a SQL query"
+    return 1
+  }
+  hash=$(kubectl -n dpdpa exec deploy/orchestrator -- /nodejs/bin/node -e '
+    const argon2 = require("/app/node_modules/.pnpm/argon2@0.43.1/node_modules/argon2");
+    argon2
+      .hash(process.argv[1], {
+        type: argon2.argon2id,
+        memoryCost: 19456,
+        timeCost: 2,
+        parallelism: 1,
+      })
+      .then((h) => process.stdout.write(h))
+      .catch((e) => {
+        console.error(e.message);
+        process.exit(1);
+      });
+  ' "$SEED_PASSWORD") || {
+    note "could not hash the deploy-time seeded password"
+    return 1
+  }
+  [[ "$hash" == \$argon2id\$* ]] || {
+    note "unexpected argon2 hash returned by the orchestrator"
+    return 1
+  }
+  sql=$(printf "UPDATE users SET password_hash='%s', must_change_password = TRUE WHERE email = '%s';" \
+    "$hash" "$SEED_EMAIL")
+  printf '%s\n' "$sql" | kubectl -n dpdpa exec -i deploy/postgres -- \
+    psql -U dpdpa -d dpdpa_auditor -v ON_ERROR_STOP=1 >/dev/null || {
+    note "could not reset the seeded pilot password for a fresh rotation gate"
+    return 1
+  }
+  note "seeded pilot password reset to the deploy-time value for a fresh rotation gate"
+}
+
 start_port_forward() {
   note "port-forwarding svc/orchestrator to 127.0.0.1:${ORCH_LOCAL_PORT}"
   kubectl -n dpdpa port-forward "svc/orchestrator" "${ORCH_LOCAL_PORT}:3001" >"$TMP_DIR/port-forward.log" 2>&1 &
@@ -366,8 +407,18 @@ verify_fresh_scan() {
     note "scan ${SCAN_ID} has rulePackVersion=$(jq -r '.data.rulePackVersion // empty' "$TMP_DIR/scan.json"), expected ${EXPECTED_PACK}"
     return 1
   }
-  [ "$(jq -r '.data.counts.unmapped // empty' "$TMP_DIR/scan.json")" = '0' ] || {
-    note "scan ${SCAN_ID} has $(jq -r '.data.counts.unmapped // empty' "$TMP_DIR/scan.json") unmapped findings"
+  # Scan.counts intentionally holds severity counts only; unmapped findings
+  # are a mapping-quality signal and are counted from the persisted rows.
+  [[ "$SCAN_ID" =~ ^[0-9a-fA-F-]{36}$ ]] || {
+    note "scan id ${SCAN_ID:-empty} is not a UUID; refusing to query unmapped findings"
+    return 1
+  }
+  local unmapped
+  unmapped=$(kubectl -n dpdpa exec deploy/postgres -- psql -U dpdpa -d dpdpa_auditor -tAc \
+    "SELECT count(*) FROM scanner_findings WHERE scan_id = '${SCAN_ID}' AND control_code IS NULL;" \
+    2>/dev/null | tr -d '[:space:]') || unmapped=''
+  [ "$unmapped" = '0' ] || {
+    note "scan ${SCAN_ID} has ${unmapped:-unknown} unmapped findings"
     return 1
   }
   local scanner
@@ -417,12 +468,18 @@ verify_fresh_scan() {
 verify_gvisor_job() {
   local job runtime pod_runtime
   kubectl -n dpdpa-scanners get jobs -o json >"$TMP_DIR/jobs.json"
-  job=$(jq -r '[.items[] | select(any(.status.conditions[]?; .type == "Complete" and .status == "True"))] | .[0].metadata.name // empty' \
-    "$TMP_DIR/jobs.json")
-  if [ -z "$job" ]; then
-    note "no completed Job in namespace dpdpa-scanners (Job TTL may already have removed it)"
+  # Newer k3s releases report SuccessCriteriaMet instead of Complete for a
+  # finished Job; both mean the scanner pod ran to completion.
+  # Bind the evidence to this sign-off's scan; an older finished Job must not
+  # satisfy the gate and a stale Job must not make it fail.
+  job="scan-${SCAN_ID}"
+  jq -e --arg job "$job" \
+    '[.items[] | select(.metadata.name == $job and any(.status.conditions[]?;
+      (.type == "Complete" or .type == "SuccessCriteriaMet") and .status == "True"))] | length == 1' \
+    "$TMP_DIR/jobs.json" >/dev/null || {
+    note "Job ${job} is missing or not completed in namespace dpdpa-scanners"
     return 1
-  fi
+  }
 
   jq -e --arg job "$job" \
     '[.items[] | select(.metadata.name == $job) | .spec.template.spec.runtimeClassName] | any(. == "gvisor")' \
@@ -828,13 +885,14 @@ YAML
     note "SELECT 1 failed against the restored scratch database"
     return 1
   }
-  users=$(kubectl -n dpdpa exec "$RESTORE_POD" -- psql -U dpdpa -d scratch -tAc 'SELECT count(*) FROM "User";' 2>/dev/null | tr -d '[:space:]') || users=''
-  orgs=$(kubectl -n dpdpa exec "$RESTORE_POD" -- psql -U dpdpa -d scratch -tAc 'SELECT count(*) FROM "Organization";' 2>/dev/null | tr -d '[:space:]') || orgs=''
+  # Prisma maps these models to lowercase table names in this deployment.
+  users=$(kubectl -n dpdpa exec "$RESTORE_POD" -- psql -U dpdpa -d scratch -tAc 'SELECT count(*) FROM users;' 2>/dev/null | tr -d '[:space:]') || users=''
+  orgs=$(kubectl -n dpdpa exec "$RESTORE_POD" -- psql -U dpdpa -d scratch -tAc 'SELECT count(*) FROM organizations;' 2>/dev/null | tr -d '[:space:]') || orgs=''
   [[ "$users" =~ ^[0-9]+$ ]] && [[ "$orgs" =~ ^[0-9]+$ ]] || {
     note "representative restored-table counts could not be read"
     return 1
   }
-  note "restored $(basename "$dump") into scratch: SELECT 1=1, User rows=${users}, Organization rows=${orgs}"
+  note "restored $(basename "$dump") into scratch: SELECT 1=1, users rows=${users}, organizations rows=${orgs}"
 }
 
 # ---------------------------------------------------------------------------
@@ -848,6 +906,7 @@ if [ "$FAILURES" -gt 0 ]; then
 fi
 
 check 'setup: load pilot secrets' load_secrets
+check 'setup: reset seeded pilot password' reset_seed_password
 check 'setup: orchestrator port-forward' start_port_forward
 check 'setup: discover organisation id' discover_org_id
 

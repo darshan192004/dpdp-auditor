@@ -126,11 +126,13 @@ bash infra/scripts/validate-images.sh
 | Image | Digest |
 | --- | --- |
 | `dpdpa/web` | `sha256:71bc455e32dd6c7893383c33641e64f829d1b82df7c723109665865db280a790` |
-| `dpdpa/orchestrator` | `sha256:568c4293a384aa27a723e3afda63b29bd8dae2aec82d9bfa47bf6fa49f498833` |
+| `dpdpa/orchestrator` | `sha256:e94c1c824151b5ce8604beada75118d218b1987d7f181a0912095f5cc7913bc7` |
 | `dpdpa/scan-runner` | `sha256:97aca88c0c5a51e87683ee812e45d2da5c97a1a4d9154ad0f71d012c25d7b517` |
 | `dpdpa/chromium` | `sha256:783c7c72f8dc1c85a7671c1f5b13dcd8eb0443bb115126654cd65dfe8eaa1594` |
 
-The Chromium image's s6 service launches the browser with `CHROMIUM_ARGS` and forwards `0.0.0.0:9222` to its loopback debug port `9223`; do not override it with a second browser on port 3000. Its container keeps `CAP_SETUID` and `CAP_SETGID` so s6 can drop to the `chrome` user; dropping all capabilities makes s6 exit with `unable to set supplementary group list`. `REPORTS_BROWSER_WS_ENDPOINT` is `ws://renderer.dpdpa.svc.cluster.local:9222`.
+The Chromium image's s6 service launches the browser with `CHROMIUM_ARGS` and forwards `0.0.0.0:9222` to its loopback debug port `9223`; do not override it with a second browser on port 3000. Its container keeps `CAP_SETUID` and `CAP_SETGID` so s6 can drop to the `chrome` user; dropping all capabilities makes s6 exit with `unable to set supplementary group list`. Chromium's DevTools endpoint rejects a DNS name in the `Host` header, so the renderer Service is pinned to `10.43.220.236` and `REPORTS_BROWSER_WS_ENDPOINT` is `ws://10.43.220.236:9222`; a hostname here fails report rendering with `Host header is specified and is not an IP address or localhost.`
+
+The web container's internal orchestrator client only accepts plaintext URLs on loopback. `web.yaml` sets `ORCHESTRATOR_URL=http://127.0.0.1:3001` and adds a `socat` sidecar (from the same pinned Chromium image) that forwards that loopback port to `orchestrator.dpdpa.svc.cluster.local:3001`; the sidecar has no Service port. Scanner Secrets set `HOME=/home/scanner/.cache` because the scan-runner root filesystem is read-only and Semgrep, Checkov and git otherwise try to write to `/home/runner/.semgrep`. The orchestrator Role also needs `get/list/watch` on `jobs/status`, or the scan watcher receives HTTP 403 and never reconciles finished Jobs.
 
 The orchestrator image must copy `packages/rule-packs` into `/app/packages/rule-packs`, because `RulePackService.onModuleInit` hash-verifies the manifest at startup; omitting it causes `RULE_PACK_MISSING` and a CrashLoopBackOff. In the distroless image the Node binary is `/nodejs/bin/node`; Jobs must use that absolute path rather than `node` from `$PATH`. The migration Job sets `workingDir: /app/apps/orchestrator` and invokes Prisma from there: Prisma 7 loads `prisma.config.ts` from the process working directory, and without it `migrate deploy` fails with `The datasource.url property is required in your Prisma config file`. The migration Job runs as UID/GID 65532 (the distroless image's `nonroot` owner of the Prisma engine cache). Prisma CLI writes that cache at startup; root with `drop: ALL` lacks `CAP_DAC_OVERRIDE` and fails with `Can't write to .../@prisma/engines`. `allow-dpdpa-jobs-to-stateful-services` grants the one-off `migrate` and `seed-users` Jobs egress to Postgres/Redis under default-deny, and `allow-stateful-service-ingress` is required because `default-deny` also blocks all ingress to Postgres/Redis/registry; without it the Jobs fail with `P1001: Can't reach database server`.
 
@@ -215,7 +217,7 @@ kubectl -n dpdpa exec pg-restore-drill -- ls -1 /backups
 kubectl -n dpdpa exec -i pg-restore-drill -- sh -c \
   'gunzip -c /backups/dpdpa-YYYY-MM-DD.sql.gz | psql -U dpdpa -d scratch -v ON_ERROR_STOP=1'
 kubectl -n dpdpa exec pg-restore-drill -- psql -U dpdpa -d scratch -c 'SELECT 1;'
-kubectl -n dpdpa exec pg-restore-drill -- psql -U dpdpa -d scratch -c 'SELECT count(*) FROM "User";'
+kubectl -n dpdpa exec pg-restore-drill -- psql -U dpdpa -d scratch -c 'SELECT count(*) FROM users;'
 kubectl -n dpdpa delete pod pg-restore-drill
 ```
 
@@ -225,7 +227,7 @@ The drill passes when `SELECT 1` and representative table counts succeed without
 
 ## 7. Stuck Job / Secret cleanup
 
-Scanner Jobs live in `dpdpa-scanners`; the seed Job lives in `dpdpa`. Jobs use `backoffLimit: 0`, `activeDeadlineSeconds: 900` and `ttlSecondsAfterFinished: 300`, so a Job that has not completed after ~15 minutes is stuck rather than merely slow.
+Scanner Jobs live in `dpdpa-scanners`; the seed Job lives in `dpdpa`. Jobs use `backoffLimit: 0`, `activeDeadlineSeconds: 900` and `ttlSecondsAfterFinished: 3600` (long enough for sign-off to capture the finished pod's RuntimeClass evidence), so a Job that has not completed after ~15 minutes is stuck rather than merely slow.
 
 ```bash
 kubectl -n dpdpa-scanners get jobs
@@ -285,15 +287,56 @@ For scan-runner or Chromium, restore the previous `@sha256:` reference in `RUNNE
 
 **Prisma migrations in this pilot are forward-only and backward-compatible (expand/contract).** Never roll a migration back, never apply an older schema to a newer database, and do not attempt automatic schema rollback. Roll back application manifests and images only; if a migration has already been applied, keep it and deploy code that remains compatible with it. Schema changes that require removal of a column or table are a separate, reviewed migration after the rollback window has closed.
 
-## 11. Sign-off record (Task 11 — intentionally empty)
+## 11. Sign-off record (Task 11)
 
-Live verification evidence is recorded only after the deployed instance is exercised with the real `https://github.com/Improwised/jovVix.git` repository. Fixtures are not acceptable evidence and no identifiers are pre-filled here.
+Live verification evidence is recorded only from a real `https://github.com/Improwised/jovVix.git` scan. Fixtures are not acceptable evidence. The identifiers below are from the **local Docker pilot only**; they are not k3s deployment evidence and must not be reused as such.
+
+### 11.1 Local verification (2026-11-26, Docker runner, no cluster deploy)
+
+Services: Postgres host port `5433`, headless Chromium CDP `9222`, orchestrator `3101`, web `3100`. The orchestrator must be rebuilt before restart so `dist` includes `resolveBrowserWsEndpoint`; a stale `dist` made Chromium connections fail with `Unexpected server response: 404`.
 
 | Evidence | Value |
 |---|---|
-| Scan ID | Not recorded — pending live verification |
-| Report ID | Not recorded — pending live verification |
-| PDF SHA-256 | Not recorded — pending live verification |
+| Scan ID | `77971e23-6f5a-46fd-abcc-cc508b34cdee` |
+| Repository / ref | `https://github.com/Improwised/jovVix.git`, blank ref resolved to `main` |
+| Commit | `190f1a428421a0bb73731a04a927f493b706a4cb` |
+| Profile / rule pack / scoring | Standard, `dpdpa-2026.10.6`, `1.0.0` |
+| Coverage | `checkov=completed`, `semgrep=completed`, `gitleaks=completed`; 0 unmapped findings |
+| Result | Score `90`, grade `A`, 3 critical mapped findings |
+| Report ID | `0253ec33-d871-4217-9dea-a90a1cf60562` (`ready`) |
+| PDF | 83,073 bytes, 4 pages, no blank pages |
+| PDF SHA-256 | `29de640b6dd574f2ad36335c83cf16cc584a7a81feb259a333635cbc47af37dc` |
+| Playwright UI check | Login, dashboard, scans, scan detail, findings/evidence, coverage, remediation, rules, audit, settings, health, report preview, `Export PDF`, `Download PDF`; no console errors after the UTC timestamp fix |
+| Account controls | Seeded user password rotated, `must_change_password=false`, `auth.password_changed` attributed to the user id; `/signup` and `/register` return 404 |
+| Stale scan | `9698d97a-05cd-4af5-b054-b2f4b40f33f9` cancelled before the fresh scan |
+
+Do not treat these older artefacts as evidence: scans `e3a3d8b1-098f-4e14-a73e-3dda4ae8dcd3`, `35e1d556-0ae8-42bc-b845-b49efeef34ca`, `2625812c-9c24-4349-81be-4e467e2e1fa0`; reports `6d952115-b82d-4bc9-8a99-856ea7f0f82d`, `87d4db00-94f1-4a44-9f16-7b67efed6ab3`, `23dc4453-1052-42a7-9794-721e12577f46`. The local `pnpm test` run also left a completed scan `d2795fe5-5774-40fa-96d3-772841494e0e` with no report; it is an automated-test artefact, not sign-off evidence.
+
+### 11.2 MVP fidelity probe (local, 2026-11-26)
+
+A deliberately vulnerable public repository was scanned through the UI to test whether results are real or padded:
+
+| Evidence | Value |
+|---|---|
+| Scan ID | `daf266a7-c376-4b44-929e-589b96af1a6b` |
+| Repository / commit | `https://github.com/OWASP/WebGoat.git`, default branch `master`, commit `5900119921433ecacbb02acde5ef0f2186d2626f` |
+| Scanner runs | `semgrep=0 findings/2.1s`, `checkov=0 findings/17.4s`, `gitleaks=1 finding/2.3s`; 0 unmapped |
+| Result | Score `90`, grade `A`; 8 of 9 assessed sections `100 / Compliant`, right-to-access `Not assessed` |
+| Finding | `DPDPA-8.4-SECRET-01`, gitleaks `generic-api-key` at `DOMInjection.java:63`, a hardcoded lesson licence key |
+
+The finding is genuine scanner output anchored to real source, so the pipeline is not fabricating evidence. However, an intentionally vulnerable application receiving `A` shows that "compliant" currently means "no configured rule fired", not that an obligation was verified. Active rule mappings are narrow for this repository (15 Semgrep rules, mostly generic/JS/Python; 27 Checkov IaC rules; 8 Gitleaks rules) and WebGoat is primarily Java. Treat this as an engineering-signal pilot, not a DPDPA compliance attestation, until rule applicability and unknown-state scoring are improved.
+
+The same UI correctly rejected `juice-shop/juice-shop` at 315 MB against the 100 MB cap and rejected a missing/private repository as `Repository not found or not public.`
+
+### 11.3 Deployed k3s sign-off (pending)
+
+No k3s push, image pin update, or deployment has been authorised. Run `infra/scripts/signoff-check.sh` against the deployed instance only after explicit approval, and record the *deployed* scan/report/PDF identifiers here together with the completed scanner Job carrying `RuntimeClass gvisor`.
+
+| Evidence | Value |
+|---|---|
+| Deployed scan ID | Not recorded — pending authorised k3s verification |
+| Deployed report ID | Not recorded — pending authorised k3s verification |
+| Deployed PDF SHA-256 | Not recorded — pending authorised k3s verification |
 | Sign-off decision | Pending |
 
 The external penetration test remains **Pending — deferred for internal pilot**; see `docs/security/external-penetration-test-report.md`. It must be completed before any non-internal exposure.
