@@ -132,7 +132,7 @@ bash infra/scripts/validate-images.sh
 
 The Chromium image's s6 service launches the browser with `CHROMIUM_ARGS` and forwards `0.0.0.0:9222` to its loopback debug port `9223`; do not override it with a second browser on port 3000. Its container keeps `CAP_SETUID` and `CAP_SETGID` so s6 can drop to the `chrome` user; dropping all capabilities makes s6 exit with `unable to set supplementary group list`. `REPORTS_BROWSER_WS_ENDPOINT` is `ws://renderer.dpdpa.svc.cluster.local:9222`.
 
-The orchestrator image must copy `packages/rule-packs` into `/app/packages/rule-packs`, because `RulePackService.onModuleInit` hash-verifies the manifest at startup; omitting it causes `RULE_PACK_MISSING` and a CrashLoopBackOff. In the distroless image the Node binary is `/nodejs/bin/node`; Jobs must use that absolute path rather than `node` from `$PATH`.
+The orchestrator image must copy `packages/rule-packs` into `/app/packages/rule-packs`, because `RulePackService.onModuleInit` hash-verifies the manifest at startup; omitting it causes `RULE_PACK_MISSING` and a CrashLoopBackOff. In the distroless image the Node binary is `/nodejs/bin/node`; Jobs must use that absolute path rather than `node` from `$PATH`. The migration Job runs as UID 0 because Prisma CLI writes its engine cache at startup, and `allow-dpdpa-jobs-to-stateful-services` grants the one-off `migrate` and `seed-users` Jobs egress to Postgres/Redis under default-deny.
 
 Promote an image by changing the manifest to the new immutable `registry.dpdpa.svc.cluster.local:5000/dpdpa/<name>@sha256:<digest>` reference, applying the manifest, and waiting for rollout (never apply `apps/config.yaml`, which is a Secret template containing `REPLACE_AT_DEPLOY`):
 
