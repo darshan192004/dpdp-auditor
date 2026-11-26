@@ -104,16 +104,42 @@ Smoke test: a pod in `dpdpa-scanners` with `runtimeClassName: gvisor` and `nodeS
 
 All four images are built at tag `1.0.0-pilot.1` in `registry.dpdpa.svc.cluster.local:5000/dpdpa/`: `web`, `orchestrator`, `scan-runner`, and the digest-pinned headless Chromium base retagged as `chromium`. The upstream browser is `ghcr.io/patte/alpine-chromium@sha256:a60e0acb96fc3cbea335889b7fe52cacbfad19a5d33f5a8fe837348859e11efd`; never use its `latest` tag for pulls. If the browser image is re-pinned, record the new digest in this runbook in the same change.
 
+Node prerequisite: k3s/containerd cannot resolve cluster DNS and does not trust the plain-HTTP registry by default. `/etc/rancher/k3s/registries.yaml` must mirror the in-cluster registry name to its ClusterIP and be followed by `sudo systemctl restart k3s`:
+
+```yaml
+mirrors:
+  registry.dpdpa.svc.cluster.local:5000:
+    endpoint:
+      - http://10.43.165.207:5000
+```
+
+From a workstation with `kubectl -n dpdpa port-forward svc/registry 5000:5000` active:
+
 ```bash
+export REGISTRY_HOST=127.0.0.1:5000 MANIFEST_REGISTRY_HOST=registry.dpdpa.svc.cluster.local:5000
 bash infra/scripts/build-and-push.sh
 bash infra/scripts/validate-images.sh
 ```
 
-`resolve-digest.sh` writes the resolved `scan-runner@sha256:<digest>` into `infra/k8s/dpdpa/apps/orchestrator.yaml` as `RUNNER_IMAGE` and the Chromium digest into `renderer.yaml`. Promote an image by changing the manifest to the new immutable `registry.dpdpa.svc.cluster.local:5000/dpdpa/<name>@sha256:<digest>` reference, applying the manifest, and waiting for rollout:
+`resolve-digest.sh` pins all four immutable digests into `web.yaml`, `orchestrator.yaml`, `renderer.yaml`, `jobs/migrate.yaml`, and `jobs/seed-users.yaml`. The promoted pilot pins are:
+
+| Image | Digest |
+| --- | --- |
+| `dpdpa/web` | `sha256:71bc455e32dd6c7893383c33641e64f829d1b82df7c723109665865db280a790` |
+| `dpdpa/orchestrator` | `sha256:45593dc2577944da074810e32ef9c883b4a80eb302a8050d279beef2e3412b64` |
+| `dpdpa/scan-runner` | `sha256:97aca88c0c5a51e87683ee812e45d2da5c97a1a4d9154ad0f71d012c25d7b517` |
+| `dpdpa/chromium` | `sha256:783c7c72f8dc1c85a7671c1f5b13dcd8eb0443bb115126654cd65dfe8eaa1594` |
+
+The Chromium image's s6 service launches the browser with `CHROMIUM_ARGS` and forwards `0.0.0.0:9222` to its loopback debug port `9223`; do not override it with a second browser on port 3000. `REPORTS_BROWSER_WS_ENDPOINT` is `ws://renderer.dpdpa.svc.cluster.local:9222`.
+
+Promote an image by changing the manifest to the new immutable `registry.dpdpa.svc.cluster.local:5000/dpdpa/<name>@sha256:<digest>` reference, applying the manifest, and waiting for rollout (never apply `apps/config.yaml`, which is a Secret template containing `REPLACE_AT_DEPLOY`):
 
 ```bash
 git diff -- infra/k8s/dpdpa/apps
-kubectl apply -f infra/k8s/dpdpa/apps/
+kubectl apply -f infra/k8s/dpdpa/apps/network-policies.yaml \
+  -f infra/k8s/dpdpa/apps/web.yaml \
+  -f infra/k8s/dpdpa/apps/orchestrator.yaml \
+  -f infra/k8s/dpdpa/apps/renderer.yaml
 kubectl -n dpdpa rollout status deployment/orchestrator --timeout=180s
 ```
 
