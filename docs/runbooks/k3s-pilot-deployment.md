@@ -126,7 +126,7 @@ bash infra/scripts/validate-images.sh
 | Image | Digest |
 | --- | --- |
 | `dpdpa/web` | `sha256:71bc455e32dd6c7893383c33641e64f829d1b82df7c723109665865db280a790` |
-| `dpdpa/orchestrator` | `sha256:8a57b2179d25dd14061a073495f85e33d50e5ab8d85299bd0cada007a5d190c8` |
+| `dpdpa/orchestrator` | `sha256:2f166ee4143a4e14cea27b6e03a8a54c7eeef3a11af61a1145b9244f8c0cb72d` |
 | `dpdpa/scan-runner` | `sha256:97aca88c0c5a51e87683ee812e45d2da5c97a1a4d9154ad0f71d012c25d7b517` |
 | `dpdpa/chromium` | `sha256:783c7c72f8dc1c85a7671c1f5b13dcd8eb0443bb115126654cd65dfe8eaa1594` |
 
