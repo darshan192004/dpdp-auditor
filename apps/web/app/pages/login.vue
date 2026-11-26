@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 
-import { passwordLoginError } from '~/utils/password-login';
+import { navigateAfterPasswordLogin, passwordLoginError } from '~/utils/password-login';
 
 definePageMeta({ layout: 'auth' });
 
@@ -51,9 +51,10 @@ async function submitPassword() {
       '/api/auth/password/login',
       { method: 'POST', body: { email: email.value, password: password.value } },
     );
-    await navigateTo(result.mustChangePassword ? '/change-password' : redirect.value, {
-      replace: true,
-    });
+    await navigateAfterPasswordLogin(
+      result.mustChangePassword ? '/change-password' : redirect.value,
+      navigateTo,
+    );
   } catch {
     formError.value = passwordLoginError('UNAUTHENTICATED');
   } finally {

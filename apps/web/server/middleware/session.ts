@@ -28,6 +28,10 @@ export default defineEventHandler(async (event) => {
   if (!getCookie(event, SESSION_COOKIE_NAME)) return;
 
   let sessionId: unknown;
+  // The sealed session carries the rotation flag alongside its id. Declaring
+  // `user` here is required: assigning to an undeclared binding threw in the
+  // Nitro ESM bundle, which was swallowed below and deleted a valid cookie.
+  let user: unknown;
   let resolved: ResolvedSession | null = null;
   try {
     ({ sessionId, user } = await getUserSession(event));
