@@ -90,7 +90,7 @@ spec:
             - name: RUNNER_IMAGE
               value: registry.dpdpa.svc.cluster.local:5000/dpdpa/scan-runner@sha256:REPLACE_WITH_RUNNER_DIGEST
             - name: ORCHESTRATOR_CALLBACK_URL
-              value: https://dpdpa.pride.improwised.dev
+              value: http://orchestrator.dpdpa.svc.cluster.local:3001
             - name: REPORTS_BROWSER_WS_ENDPOINT
               value: ws://renderer.dpdpa.svc.cluster.local:3000
             - name: S3_ENDPOINT
