@@ -173,7 +173,7 @@ describe('ScanScoringService (P4-06, P4-10, P4-11)', () => {
       isNew: true,
     });
     expect(result.findings).toMatchObject({ mapped: 1, unmapped: 0, new: 1 });
-    expect(result.rulePackVersion).toBe('dpdpa-2026.10.4');
+    expect(result.rulePackVersion).toBe('dpdpa-2026.10.5');
     expect(result.scoringVersion).toBe('1.0.0');
     expect(result.coverage).toBe('full');
     expect(result.grade).not.toBeNull();

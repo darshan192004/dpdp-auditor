@@ -50,3 +50,45 @@ security_event(() => {
 security_event(() => {
   recover();
 });
+
+try {
+  risky();
+  // ruleid: dpdpa.generic.breach-alert-missing
+} catch (err) {
+  logger.info('report(status)');
+  recover(err);
+}
+
+try {
+  risky();
+  // ok: dpdpa.generic.breach-alert-missing
+} catch (err) {
+  step01 = 1;
+  step02 = 2;
+  step03 = 3;
+  step04 = 4;
+  step05 = 5;
+  step06 = 6;
+  step07 = 7;
+  step08 = 8;
+  step09 = 9;
+  step10 = 10;
+  step11 = 11;
+  step12 = 12;
+  notify(err);
+}
+
+function twoHandlers() {
+  try {
+    risky();
+    // ruleid: dpdpa.generic.breach-alert-missing
+  } catch (err) {
+    recover(err);
+  }
+  try {
+    risky();
+    // ok: dpdpa.generic.breach-alert-missing
+  } catch (err) {
+    notify(err);
+  }
+}

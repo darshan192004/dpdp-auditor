@@ -148,7 +148,7 @@ jobs:
       - name: Validate DPDPA Semgrep rule scoping
         run: >
           docker run --rm -v "${{ github.workspace }}:/repo" -w /repo
-          semgrep/semgrep python3 tests/semgrep/check.py
+          semgrep/semgrep:1.95.0 python3 tests/semgrep/check.py
 
   secrets:
     name: Secret scan

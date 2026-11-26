@@ -1,6 +1,6 @@
 # Semgrep (application code) mappings (rules.md §6.2).
 version: 1
-pack: dpdpa-2026.10.4
+pack: dpdpa-2026.10.5
 
 mappings:
   - scanner: semgrep

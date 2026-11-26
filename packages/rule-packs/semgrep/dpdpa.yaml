@@ -199,11 +199,15 @@ rules:
       data breach may not be escalated to the response process (DPDPA §8(5)
       breach notification).
     patterns:
-      # Match the handler header and its indented body so a notification hook
-      # in that body overlaps the positive range. This covers assigned handlers
-      # and callbacks without depending on brace parsing.
-      - pattern-regex: '(?is)\b(except|catch|error_handler|onerror|security_event|audit_failure)\b[^\n]{0,200}(?:\n[ \t]+[^\n]{0,240}){0,12}'
-      - pattern-not-regex: '(?i)\b(notify|alert|incident|breach|report|webhook|page_oncall)\b'
+      # Match the handler header and only its own body: every following line
+      # must be strictly more indented than the header. That covers assigned
+      # handlers and callbacks without brace parsing, while stopping at a
+      # sibling handler so one hook cannot silence its neighbours.
+      - pattern-regex: '(?im)^(?<indent>\h*)[^\r\n]{0,80}?\b(except|catch|error_handler|onerror|security_event|audit_failure)\b[^\n]{0,200}(?:\n(?=\k<indent>\h)[ \t]+[^\n]{0,240})*'
+      # Suppress only on a real hook call outside strings/comments. A bare word
+      # in a log message or comment must not silence a scored finding, and a
+      # hook call beyond any fixed line budget must still count.
+      - pattern-not-regex: '(?:"(?:\\.|[^"\\])*"|''(?:\\.|[^''\\])*''|`(?:\\.|[^`\\])*`|/\*(?:(?!\*/)[\s\S])*\*/|//[^\r\n]*|\#[^\r\n]*)(*SKIP)(*F)|\b(?:notify|alert|incident|breach|report|webhook|page_oncall)\b\h*\('
 
   - id: dpdpa.generic.sdf-artifacts-missing
     languages: [generic]

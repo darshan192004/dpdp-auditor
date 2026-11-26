@@ -30,7 +30,7 @@ function rule(overrides: Partial<DpdpaRule> = {}): DpdpaRule {
     weight: { toString: () => '5' } as unknown as DpdpaRule['weight'],
     appliesWhen: {},
     remediationGuidance: 'Remove the PII from the log call.',
-    version: 'dpdpa-2026.10.4',
+    version: 'dpdpa-2026.10.5',
     isActive: true,
     createdAt: new Date('2026-11-01T00:00:00.000Z'),
     updatedAt: new Date('2026-11-01T00:00:00.000Z'),
@@ -85,7 +85,7 @@ function scan(overrides: Partial<Scan> = {}): Scan {
     ref: 'main',
     commitSha: null,
     scannerVersions: {},
-    rulePackVersion: 'dpdpa-2026.10.4',
+    rulePackVersion: 'dpdpa-2026.10.5',
     scoringVersion: '1.0.0',
     score: null,
     grade: null,
@@ -130,7 +130,7 @@ function make(
   };
   const scoring = {
     scorePersisted: vi.fn().mockResolvedValue({
-      loaded: { pack: 'dpdpa-2026.10.4', scoringVersion: '1.0.0' },
+      loaded: { pack: 'dpdpa-2026.10.5', scoringVersion: '1.0.0' },
       result: {
         score: 88.5,
         grade: 'B',

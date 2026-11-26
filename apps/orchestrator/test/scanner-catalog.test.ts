@@ -28,7 +28,7 @@ function mapping(overrides: Partial<Mapping> = {}): Mapping {
 
 function catalog(overrides: Partial<ScannerCatalog> = {}): ScannerCatalog {
   return {
-    pack: 'dpdpa-2026.10.4',
+    pack: 'dpdpa-2026.10.5',
     scanners: {
       semgrep: { version: '1.95.0', rules: ['dpdpa.python.pii-in-logs'] },
     },

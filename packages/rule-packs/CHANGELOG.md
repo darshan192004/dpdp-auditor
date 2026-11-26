@@ -1,5 +1,19 @@
 # Rule pack changelog
 
+## 2026.10.5 — 2026-11-26
+
+- Patch bump for advisory Semgrep breach-alert exclusion correctness only;
+  controls, weights, and the scoring formula are unchanged. Historical scans
+  are never re-scored.
+- The exclusion now requires an actual notification call outside strings and
+  comments, so a word such as `report` in `logger.error("report failed")` can no
+  longer silently suppress a breach-alert finding for the scored §8(5) control.
+- The positive range spans the handler's own body instead of a 12-line budget,
+  stopping at a sibling handler by requiring stricter indentation on each
+  continued line. A real hook beyond the old budget still counts without one
+  handler's hook silencing its neighbours. Regression fixtures cover both cases
+  on the pinned runner Semgrep and the CI image.
+
 ## 2026.10.4 — 2026-11-26
 
 - Patch bump for advisory Semgrep exclusion hardening only; controls, weights,
