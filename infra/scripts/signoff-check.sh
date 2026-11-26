@@ -796,17 +796,20 @@ YAML
     note "scratch Postgres did not become accepting connections"
     return 1
   }
-  # The dump preserves table ownership from the live DB; the scratch cluster
-  # only creates POSTGRES_USER, so recreate the owner role before restoring.
-  kubectl -n dpdpa exec "$RESTORE_POD" -- \
-    psql -U dpdpa -d scratch -c 'CREATE ROLE dpdpa_migrate;' >/dev/null 2>&1 || true
-
   dump=$(kubectl -n dpdpa exec "$RESTORE_POD" -- \
     sh -c 'ls -1 /backups/dpdpa-*.sql.gz 2>/dev/null | sort | tail -n 1' 2>/dev/null | tr -d '\r') || dump=''
   [ -n "$dump" ] || {
     note "no dpdpa-*.sql.gz dump found on PVC pg-backups"
     return 1
   }
+  # The dump preserves table ownership from the live DB; the scratch cluster
+  # only creates POSTGRES_USER, so recreate the owner roles before restoring.
+  for role in $(kubectl -n dpdpa exec "$RESTORE_POD" -- sh -c 'gzip -dc "$1"' sh "$dump" \
+    | grep -oE 'OWNER TO [^;]+|FOR ROLE [^ ]+' | awk '{print $NF}' | tr -d '"' | sort -u); do
+    [ "$role" = dpdpa ] && continue
+    kubectl -n dpdpa exec "$RESTORE_POD" -- \
+      psql -U dpdpa -d scratch -c "CREATE ROLE \"$role\";" >/dev/null 2>&1 || true
+  done
 
   if ! kubectl -n dpdpa exec -i "$RESTORE_POD" -- \
     sh -c 'gunzip -c "$1" | psql -U dpdpa -d scratch -v ON_ERROR_STOP=1' sh "$dump" \
