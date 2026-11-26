@@ -39,7 +39,9 @@ export class KubernetesScanExecutor implements ScanExecutor {
           spec: {
             backoffLimit: 0,
             activeDeadlineSeconds: 900,
-            ttlSecondsAfterFinished: 300,
+            // Keep finished Jobs long enough for launch sign-off to capture
+            // the completed pod's RuntimeClass evidence.
+            ttlSecondsAfterFinished: 3600,
             template: {
               metadata: {
                 annotations: {

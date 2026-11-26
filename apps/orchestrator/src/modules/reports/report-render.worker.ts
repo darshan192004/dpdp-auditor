@@ -10,6 +10,28 @@ import { ReportsService } from './reports.service.js';
 
 export const REPORT_RENDER_QUEUE: QueueName = 'report.render';
 
+/**
+ * Chromium exposes its browser target at a per-process path returned by
+ * `/json/version`. Connecting to a bare `ws://host:port` is rejected with 404,
+ * so resolve the advertised path and keep it behind the configured host.
+ */
+export async function resolveBrowserWsEndpoint(endpoint: string): Promise<string> {
+  const parsed = new URL(endpoint);
+  if (parsed.pathname !== '/' || parsed.search) return endpoint;
+  const versionUrl = new URL(
+    '/json/version',
+    endpoint.replace(/^wss?:/, parsed.protocol === 'wss:' ? 'https:' : 'http:'),
+  );
+  const response = await fetch(versionUrl.toString(), { signal: AbortSignal.timeout(10_000) });
+  if (!response.ok) throw new Error(`Browser /json/version returned HTTP ${response.status}.`);
+  const version = (await response.json()) as { webSocketDebuggerUrl?: string };
+  if (!version.webSocketDebuggerUrl)
+    throw new Error('Browser did not advertise a WebSocket endpoint.');
+  const resolved = new URL(version.webSocketDebuggerUrl);
+  resolved.host = parsed.host;
+  return resolved.toString();
+}
+
 /** Render failures propagate to BullMQ retries; never publish an empty placeholder PDF. */
 export async function renderPdf(
   html: string,
@@ -19,7 +41,7 @@ export async function renderPdf(
     throw new Error('REPORTS_BROWSER_WS_ENDPOINT is required for PDF rendering.');
   const { default: puppeteer } = await import('puppeteer-core');
   const browser = await puppeteer.connect({
-    browserWSEndpoint,
+    browserWSEndpoint: await resolveBrowserWsEndpoint(browserWSEndpoint),
     wsOptions: { handshakeTimeout: 15_000 },
   });
   try {
@@ -76,7 +98,8 @@ export function createReportRenderWorker(
 
   worker.on('error', (error: Error) => logger.error({ err: error }, 'report.render worker error'));
 
-  worker.on('failed', async (job: Job | undefined, _error: Error) => {
+  worker.on('failed', async (job: Job | undefined, error: Error) => {
+    logger.error({ err: error, reportId: job?.data?.reportId }, 'report.render job failed');
     const reportId = job?.data?.reportId as string | undefined;
     if (!job || !reportId) return;
     try {

@@ -52,7 +52,9 @@ export class QueueService implements OnModuleDestroy {
     logger.error({ queue: name, jobId: job.id, err: error }, 'job moved to DLQ');
     // Jobs always carry an id once created; the DLQ copy reuses it so the
     // dead-letter entry is addressable back to the original job.
-    await this.dlq(name).add(job.name, job.data, { jobId: job.id! });
+    // BullMQ rejects numeric custom ids; normalize to the string form so a
+    // failed watcher/render job is actually dead-lettered and removed.
+    await this.dlq(name).add(job.name, job.data, { jobId: String(job.id) });
     await job.remove();
   }
 
