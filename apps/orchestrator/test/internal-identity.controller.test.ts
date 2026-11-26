@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { InternalIdentityController } from '../src/modules/identity/internal-identity.controller.js';
 import type { IdentityService } from '../src/modules/identity/identity.service.js';
+import type { PasswordLoginService } from '../src/modules/identity/password-login.service.js';
 import type { SessionService } from '../src/modules/identity/session.service.js';
 import type { FeatureFlagsService } from '../src/modules/feature-flags/feature-flags.service.js';
 
@@ -62,20 +63,45 @@ function make() {
     revoke: vi.fn().mockResolvedValue(undefined),
   };
   const flags = { all: vi.fn().mockReturnValue({ auditExport: true }) };
+  const passwords = {
+    login: vi.fn().mockResolvedValue({ user: USER, mustChangePassword: false }),
+  };
 
   return {
     controller: new InternalIdentityController(
       identity as unknown as IdentityService,
       sessions as unknown as SessionService,
       flags as unknown as FeatureFlagsService,
+      passwords as unknown as PasswordLoginService,
     ),
     identity,
     sessions,
     flags,
+    passwords,
   };
 }
 
 describe('InternalIdentityController', () => {
+  it('logs in with a password and creates a revocable session', async () => {
+    const { controller, passwords, sessions } = make();
+    const body = {
+      email: 'asha@example.com',
+      password: 'correct horse battery staple',
+      userAgent: 'test-agent',
+      ip: '127.0.0.1',
+    };
+    await expect(controller.passwordLogin(body)).resolves.toEqual({
+      data: { user: USER, mustChangePassword: false, sessionId: SESSION_ID },
+    });
+    expect(passwords.login).toHaveBeenCalledWith(body);
+    expect(sessions.create).toHaveBeenCalledWith({
+      userId: USER_ID,
+      activeOrgId: null,
+      ip: '127.0.0.1',
+      userAgent: 'test-agent',
+    });
+  });
+
   it('upserts the GitHub profile and returns the user', async () => {
     const { controller, identity } = make();
     const profile = {

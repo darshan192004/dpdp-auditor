@@ -209,98 +209,148 @@ git commit -m "feat(identity): add password credential columns"
 ### Task 3: Orchestrator password login endpoint with rate limiting
 
 **Files:**
-- Modify: `apps/orchestrator/src/modules/identity/identity.service.ts`
+- Modify: `apps/orchestrator/package.json` (add `ioredis`)
+- Modify: `apps/orchestrator/src/modules/identity/identity.module.ts`
 - Modify: `apps/orchestrator/src/modules/identity/internal-identity.controller.ts`
 - Modify: `apps/orchestrator/src/modules/identity/identity.schemas.ts`
 - Create: `apps/orchestrator/src/modules/identity/password-login.service.ts`
+- Create: `apps/orchestrator/src/modules/identity/password-rate-limit.service.ts`
 - Test: `apps/orchestrator/test/password-login.service.test.ts`
+- Modify: `apps/orchestrator/test/internal-identity.controller.test.ts` (constructor now takes the login service)
 
 **Interfaces:**
-- Consumes: `hashPassword`/`verifyPassword` (Task 1), `User.passwordHash` and `mustChangePassword` (Task 2), existing `AuditService.record`, existing Redis client used by `rate-limit` code.
-- Produces: `POST /internal/v1/identity/password/login` accepting `{ email: string; password: string; userAgent?: string }` and returning `{ data: { user: UserView; mustChangePassword: boolean; sessionId: string } }`; class `PasswordLoginService` with `login(input): Promise<{ user: UserView; mustChangePassword: boolean }>`.
+- Consumes: `hashPassword`/`verifyPassword` (Task 1), `User.passwordHash` and `mustChangePassword` (Task 2), `AuditService.record`, and `REDIS_URL` from the existing env schema.
+- Produces: `POST /internal/v1/identity/password/login` accepting `{ email: string; password: string; userAgent?: string; ip?: string }` and returning `{ data: { user: UserView; mustChangePassword: boolean; sessionId: string } }`; class `PasswordLoginService` with `login(input): Promise<PasswordLoginResult>` and `RateLimitGate.consume(key, limit, windowSeconds)`.
+- Rate limits are 5 attempts per normalised email and 20 per client IP per 15 minutes, enforced by one atomic Redis Lua script per attempt. Store failures fail closed as `UPSTREAM_UNAVAILABLE` and are masked to a generic login error by the web route.
 
-- [ ] **Step 1: Write the failing tests**
+- [ ] **Step 1: Install the dependency**
+
+```bash
+pnpm --filter @dpdpa/orchestrator add ioredis@^6.0.0
+```
+
+- [ ] **Step 2: Write the failing tests**
 
 ```ts
 // apps/orchestrator/test/password-login.service.test.ts
 import { describe, expect, it, vi } from 'vitest';
 
 import { PasswordLoginService } from '../src/modules/identity/password-login.service.js';
-import { hashPassword } from '../src/modules/identity/password.js';
 
 function makeService() {
   const users = {
-    findByEmail: vi.fn().mockResolvedValue({ id: 'u1', email: 'a@b.test', passwordHash: 'stored-hash', deletedAt: null, mustChangePassword: true }),
+    findByEmail: vi.fn().mockResolvedValue({
+      id: 'u1', email: 'a@b.test', name: 'A', avatarUrl: null,
+      passwordHash: 'stored-hash', deletedAt: null, mustChangePassword: true,
+    }),
   };
   const audit = { record: vi.fn().mockResolvedValue(undefined) };
-  const limits = { check: vi.fn().mockResolvedValue(true), bump: vi.fn().mockResolvedValue(undefined) };
+  const limits = { consume: vi.fn().mockResolvedValue(true) };
   const verify = vi.fn().mockResolvedValue(true);
   return {
-    service: new PasswordLoginService(users as never, audit as never, limits as never, verify),
+    service: new PasswordLoginService(users as never, audit as never, limits, verify),
     users, audit, limits, verify,
   };
 }
 
 describe('PasswordLoginService', () => {
   it('returns the user and rotation flag for valid credentials', async () => {
-    const { service, audit } = makeService();
-    const result = await service.login({ email: 'a@b.test', password: 'correct horse battery staple' });
+    const { service, audit, limits } = makeService();
+    const result = await service.login({
+      email: 'a@b.test', password: 'correct horse battery staple', ip: '127.0.0.1',
+    });
     expect(result.user.id).toBe('u1');
     expect(result.mustChangePassword).toBe(true);
-    expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ action: 'auth.login', metadata: { method: 'password' } }));
+    expect(limits.consume).toHaveBeenCalledWith('pw-login:email:a@b.test', 5, 900);
+    expect(limits.consume).toHaveBeenCalledWith('pw-login:ip:127.0.0.1', 20, 900);
+    expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'auth.login', metadata: { method: 'password' },
+    }));
   });
 
   it('rejects a user without a password hash', async () => {
-    const { service, users } = makeService();
-    users.findByEmail.mockResolvedValue({ id: 'u1', email: 'a@b.test', passwordHash: null, deletedAt: null });
-    await expect(service.login({ email: 'a@b.test', password: 'correct horse battery staple' })).rejects.toThrow('Invalid email or password.');
+    const { service, users, audit } = makeService();
+    users.findByEmail.mockResolvedValue({
+      id: 'u1', email: 'a@b.test', name: 'A', avatarUrl: null,
+      passwordHash: null, deletedAt: null, mustChangePassword: true,
+    });
+    await expect(service.login({ email: 'a@b.test', password: 'correct horse battery staple' }))
+      .rejects.toThrow('Invalid email or password.');
+    expect(audit.record).not.toHaveBeenCalled();
   });
 
-  it('refuses a login that exceeds the rate limit', async () => {
+  it('refuses a login that exceeds the email rate limit', async () => {
     const { service, limits } = makeService();
-    limits.check.mockResolvedValue(false);
-    await expect(service.login({ email: 'a@b.test', password: 'correct horse battery staple' })).rejects.toThrow('Invalid email or password.');
+    limits.consume.mockResolvedValueOnce(false);
+    await expect(service.login({ email: 'a@b.test', password: 'correct horse battery staple' }))
+      .rejects.toThrow('Invalid email or password.');
+  });
+
+  it('refuses a login that exceeds the IP rate limit', async () => {
+    const { service, limits } = makeService();
+    limits.consume.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    await expect(service.login({
+      email: 'a@b.test', password: 'correct horse battery staple', ip: '127.0.0.1',
+    })).rejects.toThrow('Invalid email or password.');
   });
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [ ] **Step 3: Run the test to verify it fails**
 
 ```bash
 pnpm --filter @dpdpa/orchestrator test -- password-login.service.test.ts
 ```
 Expected: FAIL because `PasswordLoginService` does not exist.
 
-- [ ] **Step 3: Add the Zod schema**
+- [ ] **Step 4: Add the Zod schema**
 
 In `apps/orchestrator/src/modules/identity/identity.schemas.ts`, append:
 
 ```ts
-export const passwordLoginSchema = z.object({
+export const passwordLoginSchema = z.strictObject({
   email: z.email().max(320),
   password: z.string().min(1).max(200),
+  userAgent: z.string().trim().max(512).nullable().optional(),
+  ip: z.union([z.ipv4(), z.ipv6()]).nullable().optional(),
 });
-export type PasswordLoginInput = z.infer<typeof passwordLoginSchema>;
+export type PasswordLoginInput = z.input<typeof passwordLoginSchema>;
 ```
 
-- [ ] **Step 4: Implement the service**
+- [ ] **Step 5: Implement the service and the Redis gate**
+
+Register both services in `identity.module.ts` (`PasswordLoginService`, `PasswordRateLimitService`, `{ provide: RATE_LIMIT_GATE, useExisting: PasswordRateLimitService }`, and `{ provide: VERIFY_PASSWORD, useValue: verifyPassword }`).
+
+```ts
+// apps/orchestrator/src/modules/identity/password-login.service.ts
 
 ```ts
 // apps/orchestrator/src/modules/identity/password-login.service.ts
 import { randomBytes } from 'node:crypto';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { ApiError } from '../../common/api-error.js';
 import { AuditService } from '../audit/audit.service.js';
-import type { UsersRepository } from './users.repository.js';
+import { UsersRepository } from './users.repository.js';
 import { passwordLoginSchema, type PasswordLoginInput } from './identity.schemas.js';
 import { hashPassword, verifyPassword } from './password.js';
 
 export interface RateLimitGate {
-  check(key: string, limit: number, windowSeconds: number): Promise<boolean>;
-  bump(key: string, windowSeconds: number): Promise<void>;
+  /** Atomically counts this attempt and reports whether it is within policy. */
+  consume(key: string, limit: number, windowSeconds: number): Promise<boolean>;
+}
+
+export const RATE_LIMIT_GATE = Symbol('RATE_LIMIT_GATE');
+export const VERIFY_PASSWORD = Symbol('VERIFY_PASSWORD');
+
+export interface PasswordLoginResult {
+  user: { id: string; email: string; name: string | null; avatarUrl: string | null };
+  mustChangePassword: boolean;
 }
 
 const INVALID = 'Invalid email or password.';
+const EMAIL_LIMIT = 5;
+const IP_LIMIT = 20;
+const WINDOW_SECONDS = 15 * 60;
 
 // A real argon2id hash generated once at module load, used only to keep the
 // unknown-user failure path constant-time. Never committed as a literal.
@@ -311,21 +361,26 @@ export class PasswordLoginService {
   constructor(
     private readonly users: UsersRepository,
     private readonly audit: AuditService,
-    private readonly limits: RateLimitGate,
+    @Inject(RATE_LIMIT_GATE) private readonly limits: RateLimitGate,
+    @Inject(VERIFY_PASSWORD)
     private readonly verify: (hash: string, plain: string) => Promise<boolean> = verifyPassword,
   ) {}
 
-  async login(raw: PasswordLoginInput): Promise<{ user: { id: string; email: string; name: string | null }; mustChangePassword: boolean }> {
+  async login(raw: PasswordLoginInput): Promise<PasswordLoginResult> {
     const input = passwordLoginSchema.parse(raw);
-    const emailKey = `pw-login:email:${input.email.toLowerCase()}`;
-    if (!(await this.limits.check(emailKey, 5, 900))) throw new ApiError('UNAUTHENTICATED', INVALID);
+    if (!(await this.limits.consume(`pw-login:email:${input.email.toLowerCase()}`, EMAIL_LIMIT, WINDOW_SECONDS))) {
+      throw new ApiError('UNAUTHENTICATED', INVALID);
+    }
+    if (input.ip && !(await this.limits.consume(`pw-login:ip:${input.ip}`, IP_LIMIT, WINDOW_SECONDS))) {
+      throw new ApiError('UNAUTHENTICATED', INVALID);
+    }
 
     const user = await this.users.findByEmail(input.email);
     const storedHash = user?.passwordHash ?? null;
-    // Always verify against a real argon2id hash so unknown users take the same path.
     const ok = await this.verify(storedHash ?? DUMMY_HASH, input.password);
-    await this.limits.bump(emailKey, 900);
-    if (!user || user.deletedAt || !storedHash || !ok) throw new ApiError('UNAUTHENTICATED', INVALID);
+    if (!user || user.deletedAt || !storedHash || !ok) {
+      throw new ApiError('UNAUTHENTICATED', INVALID);
+    }
 
     await this.audit.record({
       orgId: null,
@@ -334,14 +389,62 @@ export class PasswordLoginService {
       action: 'auth.login',
       resourceType: 'user',
       resourceId: user.id,
+      ip: input.ip ?? null,
+      userAgent: input.userAgent ?? null,
       metadata: { method: 'password' },
     });
-    return { user: { id: user.id, email: user.email, name: user.name }, mustChangePassword: user.mustChangePassword };
+    return {
+      user: { id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl ?? null },
+      mustChangePassword: user.mustChangePassword,
+    };
   }
 }
 ```
 
-- [ ] **Step 5: Wire the internal route**
+```ts
+// apps/orchestrator/src/modules/identity/password-rate-limit.service.ts
+import { Inject, Injectable, type OnModuleDestroy } from '@nestjs/common';
+import Redis from 'ioredis';
+import { ApiError } from '../../common/api-error.js';
+import { ENV, type Env } from '../../config/env.js';
+import type { RateLimitGate } from './password-login.service.js';
+
+const CONSUME = `
+local count = redis.call('INCR', KEYS[1])
+if count == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end
+if count > tonumber(ARGV[2]) then return 0 end
+return 1
+`;
+
+@Injectable()
+export class PasswordRateLimitService implements RateLimitGate, OnModuleDestroy {
+  private readonly redis: Redis;
+
+  constructor(@Inject(ENV) env: Env) {
+    this.redis = new Redis(env.REDIS_URL, {
+      enableOfflineQueue: false,
+      maxRetriesPerRequest: 1,
+    });
+    this.redis.on('error', () => undefined);
+  }
+
+  async consume(key: string, limit: number, windowSeconds: number): Promise<boolean> {
+    const bucket = `${key}:${Math.floor(Date.now() / 1000 / windowSeconds)}`;
+    try {
+      const result = await this.redis.eval(CONSUME, 1, bucket, String(windowSeconds + 5), String(limit));
+      return Number(result) === 1;
+    } catch {
+      throw new ApiError('UPSTREAM_UNAVAILABLE', 'Rate limiting is temporarily unavailable.');
+    }
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    await this.redis.quit().catch(() => undefined);
+  }
+}
+```
+
+- [ ] **Step 6: Wire the internal route**
 
 In `internal-identity.controller.ts`, inject `PasswordLoginService` and add before `upsertUser`:
 
@@ -355,13 +458,14 @@ In `internal-identity.controller.ts`, inject `PasswordLoginService` and add befo
     const session = await this.sessions.create({
       userId: result.user.id,
       activeOrgId: null,
+      ip: input.ip ?? null,
       userAgent: input.userAgent ?? 'password-login',
     });
     return { data: { ...result, sessionId: session.id } };
   }
 ```
 
-- [ ] **Step 6: Run tests and typecheck**
+- [ ] **Step 7: Run tests and typecheck**
 
 ```bash
 pnpm --filter @dpdpa/orchestrator test -- password-login.service.test.ts
@@ -369,10 +473,10 @@ pnpm --filter @dpdpa/orchestrator typecheck
 ```
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add apps/orchestrator/src/modules/identity apps/orchestrator/test/password-login.service.test.ts
+git add apps/orchestrator/package.json pnpm-lock.yaml apps/orchestrator/src/modules/identity apps/orchestrator/test/password-login.service.test.ts apps/orchestrator/test/internal-identity.controller.test.ts
 git commit -m "feat(identity): add password login with rate limiting"
 ```
 

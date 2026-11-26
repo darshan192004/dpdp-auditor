@@ -82,3 +82,12 @@ export const createSessionSchema = z.strictObject({
   userAgent: z.string().trim().max(1024).nullable().optional(),
 });
 export type CreateSessionInput = z.input<typeof createSessionSchema>;
+
+/** Internal-pilot email/password sign-in (Nitro mints the sealed session). */
+export const passwordLoginSchema = z.strictObject({
+  email: z.email().max(320),
+  password: z.string().min(1).max(200),
+  userAgent: z.string().trim().max(512).nullable().optional(),
+  ip: z.union([z.ipv4(), z.ipv6()]).nullable().optional(),
+});
+export type PasswordLoginInput = z.input<typeof passwordLoginSchema>;

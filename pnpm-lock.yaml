@@ -116,6 +116,9 @@ importers:
       fastify:
         specifier: 5.12.8
         version: 5.12.8
+      ioredis:
+        specifier: ^6.0.0
+        version: 6.0.0
       pdfkit:
         specifier: ^0.20.2
         version: 0.20.2
