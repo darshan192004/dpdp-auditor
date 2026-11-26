@@ -169,6 +169,16 @@ spec:
   policyTypes: [Egress]
   egress:
     # Required by the in-cluster Kubernetes driver to create/watch scan Jobs.
+    # k3s runs kube-apiserver with hostNetwork on the control-plane node, so
+    # its address is the node IP rather than a pod IP.
+    - to:
+        - ipBlock:
+            cidr: 10.0.15.186/32
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 6443
     - to:
         - namespaceSelector:
             matchLabels:
