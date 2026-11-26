@@ -1,6 +1,6 @@
 version: 1
 pack: dpdpa-2026.10.2
-generatedAt: '2026-11-25T13:43:16.152Z'
+generatedAt: '2026-11-26T05:05:47.443Z'
 files:
   - path: dpdpa-controls.yaml
     sha256: 0a5af40a533b3e0439e493a40721a483f685d862f9c5773184ef3d5f0576c24e
@@ -13,6 +13,6 @@ files:
   - path: scoring.yaml
     sha256: 1687c06667e1d4e9f1f4b9184772b5a7e3b270ab6806e2e103dc18b878851bd4
   - path: semgrep/dpdpa.yaml
-    sha256: 49758a0158dce86a0b980397cf8a80c801fcc8c058bb8a820a7f4112fbd29322
+    sha256: 8bb82922c6ec609b7498a293185e916db9aeafc408d04a0ece5dcf6daf6bdfec
   - path: suppressions.yaml
     sha256: a9b98e1c769cff51a66f163817f95ac2c6c51b227bef4265924936bb7894b8d1

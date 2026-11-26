@@ -196,8 +196,13 @@ class ReportWriter {
         characterSpacing: 0.9,
         lineBreak: false,
       });
+      const valueWidth = width - 10;
       this.setText('Helvetica-Bold', 22);
-      this.doc.text(item.value, x, this.y + 13, { width: width - 10, lineBreak: false });
+      const measured = this.doc.widthOfString(item.value);
+      if (measured > valueWidth) {
+        this.doc.fontSize(Math.floor((22 * valueWidth) / measured));
+      }
+      this.doc.text(item.value, x, this.y + 13, { lineBreak: false });
     });
     this.y += 44;
   }

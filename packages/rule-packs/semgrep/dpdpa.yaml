@@ -164,7 +164,28 @@ rules:
       - pattern-either:
           - pattern-regex: '(?i)\b(email|phone|user_data|customer_data|personal_data|pii)\b.{0,80}\b(save|store|persist|insert|create|write|update)\b'
           - pattern-regex: '(?i)\b(save|store|persist|insert|create|write|update)\b.{0,80}\b(email|phone|user_data|customer_data|personal_data|pii|user|customer|profile)\b'
-      - pattern-not-regex: '(?i)\b(lawful_basis|legal_basis|legitimate_use|processing_purpose|lawful basis|legal basis)\b'
+      # Match the containing operation so the exclusion overlaps the write.
+      # Retain same-line markers for writes outside a function.
+      - pattern-not-regex: |-
+          (?imx)
+          (?(DEFINE)(?<marker>\b(?:lawful_basis|legal_basis|legitimate_use|processing_purpose|lawful\ basis|legal\ basis)\b))
+          (?:
+            ^(?<indent>\h*)(?:async\h+)?def\h+[^\r\n]+:\h*(?:\#[^\r\n]*)?\R
+              (?=(?:(?:\k<indent>\h+\S[^\r\n]*|\h*)\R)*?
+                \k<indent>\h+[^\r\n]*(?&marker))
+              (?:\k<indent>\h+\S[^\r\n]*(?:\R|\z)|\h*\R)+
+            |
+            ^[^\r\n]*(?&marker)[^\r\n]*
+          )
+      - pattern-not-regex: |-
+          (?ix)
+          (?(DEFINE)
+            (?<marker>\b(?:lawful_basis|legal_basis|legitimate_use|processing_purpose|lawful\ basis|legal\ basis)\b)
+            (?<block>\{(?:[^{}]++|(?&block))*\})
+            (?<marked>\{(?:(?:(?!(?&marker))[^{}])++|(?&block))*
+              (?:(?&marker)|(?&marked))(?:[^{}]++|(?&block))*\})
+          )
+          (?:\bfunction\h*\*?\h*(?:[\w$]+\h*)?\([^{}]*?\)|=>)\s*(?&marked)
 
   - id: dpdpa.generic.breach-alert-missing
     languages: [generic]
@@ -175,7 +196,24 @@ rules:
       breach notification).
     patterns:
       - pattern-regex: '(?i)\b(except|catch|error_handler|onerror|security_event|audit_failure)\b'
-      - pattern-not-regex: '(?i)\b(notify|alert|incident|breach|report|webhook|page_oncall)\b'
+      # Span each handler independently, including nested braced blocks.
+      - pattern-not-regex: |-
+          (?imx)
+          (?(DEFINE)
+            (?<hook>\b(?:notify|alert|incident|breach|report|webhook|page_oncall)\b\h*\()
+            (?<block>\{(?:[^{}]++|(?&block))*\})
+            (?<marked>\{(?:(?:(?!(?&hook))[^{}])++|(?&block))*
+              (?:(?&hook)|(?&marked))(?:[^{}]++|(?&block))*\})
+          )
+          (?:
+            ^(?<indent>\h*)except\b[^:\r\n]*:\h*
+              (?:[^\r\n]*(?&hook)|(?:\#[^\r\n]*)?\R
+                (?:(?:\k<indent>\h+\S[^\r\n]*|\h*)\R)*?
+                \k<indent>\h+[^\r\n]*(?&hook))
+            |
+            \b(?:catch|error_handler|onerror|security_event|audit_failure)\b
+              (?:\s*\([^{}]*?\))?\s*(?&marked)
+          )
 
   - id: dpdpa.generic.sdf-artifacts-missing
     languages: [generic]
@@ -190,4 +228,5 @@ rules:
         - '**/*.md'
     patterns:
       - pattern-regex: '(?i)\b(personal data|personal_data|pii|privacy notice|data principal)\b'
-      - pattern-not-regex: '(?i)\b(dpo|data protection officer|dpia|data protection impact assessment|audit)\b'
+      # The exclusion must cover the whole Markdown target, not just a reference.
+      - pattern-not-regex: '(?is)\A.*\b(dpo|data protection officer|dpia|data protection impact assessment|audit)\b.*\z'

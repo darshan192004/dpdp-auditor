@@ -201,6 +201,13 @@ describe('renderReportPdf (real PDF rendering)', () => {
     }
   });
 
+  it('renders the unassessed executive score on one line before the repository row', async () => {
+    const base = model();
+    const pages = pageTexts(await pdf({ scan: { ...base.scan, score: null, grade: null } }));
+    const summary = pages.find((page) => page.includes('Executive summary'));
+    expect(summary).toMatch(/\nNot assessed\s*\n[\s\S]*REPOSITORY/);
+  });
+
   it('labels unmapped findings and unassessed sections', async () => {
     const base = model();
     const raw = extractText(

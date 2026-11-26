@@ -14,6 +14,8 @@
   `dpdpa.generic.breach-alert-missing` (§8(5)), and
   `dpdpa.generic.sdf-artifacts-missing` (§10). DPDPA §8(4) transport encryption
   is now evidenced by the mapped `CKV_OPENAPI_7` and `CKV_OPENAPI_18` rules.
+- Scoped the three Semgrep rule exclusions to the processing operation, exception
+  handler, and Markdown document respectively.
 - Section scores include unassessed sections as `null`, and reports label
   unmapped findings explicitly instead of showing `-`.
 
