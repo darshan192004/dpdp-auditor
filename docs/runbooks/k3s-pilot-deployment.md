@@ -102,7 +102,7 @@ Smoke test: a pod in `dpdpa-scanners` with `runtimeClassName: gvisor` and `nodeS
 
 ## 4. Image promotion by digest
 
-All four images are built at tag `1.0.0-pilot.1` in `registry.dpdpa.svc.cluster.local:5000/dpdpa/`: `web`, `orchestrator`, `scan-runner`, and the digest-pinned headless Chromium base retagged as `chromium`.
+All four images are built at tag `1.0.0-pilot.1` in `registry.dpdpa.svc.cluster.local:5000/dpdpa/`: `web`, `orchestrator`, `scan-runner`, and the digest-pinned headless Chromium base retagged as `chromium`. The upstream browser is `ghcr.io/patte/alpine-chromium@sha256:a60e0acb96fc3cbea335889b7fe52cacbfad19a5d33f5a8fe837348859e11efd`; never use its `latest` tag for pulls. If the browser image is re-pinned, record the new digest in this runbook in the same change.
 
 ```bash
 bash infra/scripts/build-and-push.sh
