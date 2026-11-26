@@ -1,5 +1,14 @@
 # Rule pack changelog
 
+## 2026.10.3 — 2026-11-26
+
+- Patch bump for advisory Semgrep rule exclusions only; controls, weights, and
+  the scoring formula are unchanged. Historical scans are never re-scored.
+- Scoped the three Semgrep rule exclusions to the processing operation, exception
+  handler, and Markdown document respectively, so an unrelated marker elsewhere
+  in a file no longer suppresses a finding.
+- `tests/semgrep/check.py` verifies the scoping cases in CI.
+
 ## 2026.10.2 — 2026-11-25
 
 - Minor pack bump for new mappings only; control definitions, weights, and the
@@ -14,8 +23,6 @@
   `dpdpa.generic.breach-alert-missing` (§8(5)), and
   `dpdpa.generic.sdf-artifacts-missing` (§10). DPDPA §8(4) transport encryption
   is now evidenced by the mapped `CKV_OPENAPI_7` and `CKV_OPENAPI_18` rules.
-- Scoped the three Semgrep rule exclusions to the processing operation, exception
-  handler, and Markdown document respectively.
 - Section scores include unassessed sections as `null`, and reports label
   unmapped findings explicitly instead of showing `-`.
 

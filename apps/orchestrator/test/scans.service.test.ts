@@ -143,12 +143,12 @@ function make(options?: { scan?: Scan | null; repo?: Repository | null; org?: ty
       sectionScores: { '8(4)': 100 },
       counts: { critical: 0, high: 0, medium: 0, low: 0, info: 0, total: 0 },
       coverage: 'full',
-      rulePackVersion: 'dpdpa-2026.10.2',
+      rulePackVersion: 'dpdpa-2026.10.3',
       scoringVersion: '1.0.0',
       findings: { mapped: 0, unmapped: 0, new: 0, persistent: 0, reopened: 0, resolved: 0 },
     }),
     scorePersisted: vi.fn().mockResolvedValue({
-      loaded: { pack: 'dpdpa-2026.10.2', scoringVersion: '1.0.0' },
+      loaded: { pack: 'dpdpa-2026.10.3', scoringVersion: '1.0.0' },
       result: {
         score: 72.5,
         grade: 'C',
@@ -687,7 +687,7 @@ describe('ScansService.complete', () => {
         status: 'completed',
         grade: 'A',
         coverageStatus: 'full',
-        rulePackVersion: 'dpdpa-2026.10.2',
+        rulePackVersion: 'dpdpa-2026.10.3',
         scoringVersion: '1.0.0',
       }),
       tx,

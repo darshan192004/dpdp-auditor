@@ -322,7 +322,7 @@ Retry-After: 3
       "checkov": "3.2.334",
       "gitleaks": "8.21.2"
     },
-    "rulePackVersion": "2026.10.1",
+    "rulePackVersion": "2026.10.3",
     "scoringVersion": "1.0.0",
     "error": null,
     "timestamps": {

@@ -33,7 +33,7 @@ const generatedAt = new Date().toISOString();
 const body = files.map((file) => `  - path: ${file.path}\n    sha256: ${file.sha256}`).join('\n');
 await writeFile(
   join(root, 'manifest.yaml'),
-  `version: 1\npack: ${pack}\ngeneratedAt: "${generatedAt}"\nfiles:\n${body}\n`,
+  `version: 1\npack: ${pack}\ngeneratedAt: '${generatedAt}'\nfiles:\n${body}\n`,
   'utf8',
 );
 process.stdout.write(`manifest.yaml: ${files.length} files for ${pack}\n`);
