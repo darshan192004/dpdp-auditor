@@ -656,6 +656,9 @@ rotate_password() {
   new_password=$(openssl rand -base64 24 | tr -d '\n')
   # No trailing newline: the value stays in a private temp dir and is never echoed.
   printf '%s' "$new_password" >"$TMP_DIR/rotated-password"
+  # Preserve the rotated credential in a private location for the live
+  # Playwright UI verification after sign-off (never printed to logs).
+  install -m 600 "$TMP_DIR/rotated-password" /tmp/opencode/dpdpa-rotated-password
   body=$(jq -nc --arg current "$SEED_PASSWORD" --arg next "$new_password" \
     '{currentPassword:$current,newPassword:$next}')
   printf '%s' "$body" >"$TMP_DIR/change-body.json"
@@ -698,6 +701,7 @@ verify_rotated_login() {
     note "rotated account still requires a password change"
     return 1
   }
+  install -m 600 "$ROTATED_JAR" /tmp/opencode/dpdpa-rotated-cookies.txt
   note "login with the rotated password succeeds and mustChangePassword=false"
 }
 
