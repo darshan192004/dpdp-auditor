@@ -1,0 +1,44 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: dpdpa-migrate
+  namespace: dpdpa
+  labels:
+    app.kubernetes.io/name: dpdpa
+    app.kubernetes.io/component: migrate
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: dpdpa
+        app.kubernetes.io/component: migrate
+    spec:
+      restartPolicy: Never
+      nodeSelector:
+        workload: scanner
+      containers:
+        - name: migrate
+          image: registry.dpdpa.svc.cluster.local:5000/dpdpa/orchestrator:1.0.0-pilot.1
+          command:
+            [
+              'node',
+              'apps/orchestrator/node_modules/prisma/build/index.js',
+              'migrate',
+              'deploy',
+              '--schema',
+              'apps/orchestrator/prisma/schema.prisma',
+            ]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: dpdpa-db
+                  key: DATABASE_URL
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ['ALL']
