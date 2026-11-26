@@ -1,18 +1,18 @@
 version: 1
-pack: dpdpa-2026.10.3
-generatedAt: '2026-11-26T05:23:20.742Z'
+pack: dpdpa-2026.10.4
+generatedAt: '2026-11-26T05:30:12.524Z'
 files:
   - path: dpdpa-controls.yaml
-    sha256: 39b9c170122a123d77f4516427b43d99d66efd470859c43f1fa62af231c658d3
+    sha256: 8835a2661338e9034dca499d99b64aa57ae3754c04d727c2eeb1ea37a9d21545
   - path: mappings/checkov.yaml
-    sha256: 555d65950c493126fed6f53592fd3146db0f1c011329cf786bfdee265e617c46
+    sha256: ca963a3723b57faeb53219efc62392c70a05aff57bbb9339caf99c5ba5491266
   - path: mappings/gitleaks.yaml
-    sha256: 087fd572006caedf78e5dc587f83e9c329ad51bcdf0ba5b43499fdcc5e4181f6
+    sha256: 9ffe75c123c14b6edc3e0eb4d9851e50ca16cff9a5a5fc9be23eac4aa5b76599
   - path: mappings/semgrep.yaml
-    sha256: 2968bd94a59f4d4d7e5b052c6477729995b48bd5e177eecdd297d5bef97f04f5
+    sha256: cc8e3b89b50f842151a50b2b87d96716c7119b9747a1b6475b932a56ca91d481
   - path: scoring.yaml
-    sha256: b5d3e5857ed66357b5b24db9f5675d9bc5705c36a94818031d6fd5a015dc92e1
+    sha256: 53394a54aa16cf9faba8f83b359fdfdd95c1ae2f1396a702c161015b3a56954c
   - path: semgrep/dpdpa.yaml
-    sha256: 8bb82922c6ec609b7498a293185e916db9aeafc408d04a0ece5dcf6daf6bdfec
+    sha256: a0dc293bf6de61d5b03ed01bed124a717c3d7243f9fa7d9219ee8adcffa17a7b
   - path: suppressions.yaml
-    sha256: 430e9db741201ba21716351d223ba9f57f88cc204cc2aa076008e3ad0d044fe3
+    sha256: b79b694df439c2eaa1c8fa2a0c3db7a8438d3b2d255b0fe338cf069808c763e4

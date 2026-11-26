@@ -1,6 +1,6 @@
 # Checkov (IaC) mappings (rules.md §6.1).
 version: 1
-pack: dpdpa-2026.10.3
+pack: dpdpa-2026.10.4
 
 mappings:
   - scanner: checkov

@@ -177,13 +177,17 @@ rules:
             |
             ^[^\r\n]*(?&marker)[^\r\n]*
           )
+      # Ignore braces inside strings and comments when scoping a JS operation.
       - pattern-not-regex: |-
           (?ix)
           (?(DEFINE)
             (?<marker>\b(?:lawful_basis|legal_basis|legitimate_use|processing_purpose|lawful\ basis|legal\ basis)\b)
-            (?<block>\{(?:[^{}]++|(?&block))*\})
-            (?<marked>\{(?:(?:(?!(?&marker))[^{}])++|(?&block))*
-              (?:(?&marker)|(?&marked))(?:[^{}]++|(?&block))*\})
+            (?<string>"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)
+            (?<comment>/\*(?:(?!\*/)[\s\S])*\*/|//[^\r\n]*)
+            (?<skip>(?&string)|(?&comment))
+            (?<block>\{(?:(?&skip)|[^{}]++|(?&block))*\})
+            (?<marked>\{(?:(?:(?!(?&marker))(?:(?&skip)|[^{}]))++|(?&block))*
+              (?:(?&marker)|(?&marked))(?:(?&skip)|[^{}]++|(?&block))*\})
           )
           (?:\bfunction\h*\*?\h*(?:[\w$]+\h*)?\([^{}]*?\)|=>)\s*(?&marked)
 
@@ -195,25 +199,11 @@ rules:
       data breach may not be escalated to the response process (DPDPA §8(5)
       breach notification).
     patterns:
-      - pattern-regex: '(?i)\b(except|catch|error_handler|onerror|security_event|audit_failure)\b'
-      # Span each handler independently, including nested braced blocks.
-      - pattern-not-regex: |-
-          (?imx)
-          (?(DEFINE)
-            (?<hook>\b(?:notify|alert|incident|breach|report|webhook|page_oncall)\b\h*\()
-            (?<block>\{(?:[^{}]++|(?&block))*\})
-            (?<marked>\{(?:(?:(?!(?&hook))[^{}])++|(?&block))*
-              (?:(?&hook)|(?&marked))(?:[^{}]++|(?&block))*\})
-          )
-          (?:
-            ^(?<indent>\h*)except\b[^:\r\n]*:\h*
-              (?:[^\r\n]*(?&hook)|(?:\#[^\r\n]*)?\R
-                (?:(?:\k<indent>\h+\S[^\r\n]*|\h*)\R)*?
-                \k<indent>\h+[^\r\n]*(?&hook))
-            |
-            \b(?:catch|error_handler|onerror|security_event|audit_failure)\b
-              (?:\s*\([^{}]*?\))?\s*(?&marked)
-          )
+      # Match the handler header and its indented body so a notification hook
+      # in that body overlaps the positive range. This covers assigned handlers
+      # and callbacks without depending on brace parsing.
+      - pattern-regex: '(?is)\b(except|catch|error_handler|onerror|security_event|audit_failure)\b[^\n]{0,200}(?:\n[ \t]+[^\n]{0,240}){0,12}'
+      - pattern-not-regex: '(?i)\b(notify|alert|incident|breach|report|webhook|page_oncall)\b'
 
   - id: dpdpa.generic.sdf-artifacts-missing
     languages: [generic]

@@ -1,6 +1,6 @@
 # Gitleaks (secrets) mappings (rules.md §6.3).
 version: 1
-pack: dpdpa-2026.10.3
+pack: dpdpa-2026.10.4
 
 mappings:
   - scanner: gitleaks

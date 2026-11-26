@@ -1,7 +1,7 @@
 {
   "description": "Pinned scanner rule catalog for the P4-13 mapping guard. A mapping may only reference a rule ID listed here; adding or renaming a mapping therefore requires a deliberate catalog review and a CHANGELOG entry. This file is a CI reference, not part of the signed runtime pack.",
   "version": 1,
-  "pack": "dpdpa-2026.10.3",
+  "pack": "dpdpa-2026.10.4",
   "scanners": {
     "checkov": {
       "version": "3.2.0",

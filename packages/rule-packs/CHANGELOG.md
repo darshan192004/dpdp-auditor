@@ -1,5 +1,16 @@
 # Rule pack changelog
 
+## 2026.10.4 — 2026-11-26
+
+- Patch bump for advisory Semgrep exclusion hardening only; controls, weights,
+  and the scoring formula are unchanged. Historical scans are never re-scored.
+- JS lawful-basis and breach-alert exclusions now ignore braces inside strings
+  and comments and span assigned handlers and arrow callbacks, so quoted `}` and
+  `window.onerror` / `security_event(() => ...)` forms no longer produce false
+  positives that can fail the mapped scored controls.
+- `tests/semgrep/dpdpa.handlers.js` covers both forms with and without a marker
+  or notification hook.
+
 ## 2026.10.3 — 2026-11-26
 
 - Patch bump for advisory Semgrep rule exclusions only; controls, weights, and
