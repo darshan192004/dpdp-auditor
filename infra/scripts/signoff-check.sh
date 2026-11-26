@@ -796,6 +796,10 @@ YAML
     note "scratch Postgres did not become accepting connections"
     return 1
   }
+  # The dump preserves table ownership from the live DB; the scratch cluster
+  # only creates POSTGRES_USER, so recreate the owner role before restoring.
+  kubectl -n dpdpa exec "$RESTORE_POD" -- \
+    psql -U dpdpa -d scratch -c 'CREATE ROLE dpdpa_migrate;' >/dev/null 2>&1 || true
 
   dump=$(kubectl -n dpdpa exec "$RESTORE_POD" -- \
     sh -c 'ls -1 /backups/dpdpa-*.sql.gz 2>/dev/null | sort | tail -n 1' 2>/dev/null | tr -d '\r') || dump=''

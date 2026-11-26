@@ -11,8 +11,19 @@ FROM ${NODE_IMAGE} AS build
 # distroless runtime is Debian 13 (OpenSSL 3.x) and would try to download the
 # correct engine at runtime, which default-deny egress forbids.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends openssl \
+ && apt-get install -y --no-install-recommends openssl git \
  && rm -rf /var/lib/apt/lists/*
+# Repo resolution runs `git ls-remote --symref` over HTTPS. Stage the helper's
+# shared libraries separately; the distroless runtime already provides libc,
+# libssl, libz and libzstd, which must not be replaced with Debian 12 copies.
+RUN mkdir -p /gitlibs \
+ && for lib in $(ldd /usr/bin/git /usr/lib/git-core/git-remote-https \
+      | awk '/=> \/lib/{print $3}' | sort -u); do \
+      case "$lib" in \
+        /lib/x86_64-linux-gnu/libc.so.6|/lib/x86_64-linux-gnu/libcrypto.so.3|/lib/x86_64-linux-gnu/libssl.so.3|/lib/x86_64-linux-gnu/libz.so.1|/lib/x86_64-linux-gnu/libzstd.so.1) ;; \
+        *) cp -L "$lib" /gitlibs/ ;; \
+      esac; \
+    done
 ENV PNPM_HOME=/pnpm \
     PATH=/pnpm:$PATH \
     HUSKY=0
@@ -41,7 +52,8 @@ RUN mkdir -p apps/orchestrator/node_modules packages/contracts/node_modules pack
 
 FROM gcr.io/distroless/nodejs22-debian13:nonroot@sha256:34985bab6fd6981259f18ab7555995a911ca3bee4b0d38bacdc63932df1dc6cb AS runtime
 ENV NODE_ENV=production \
-    PORT=3001
+    PORT=3001 \
+    LD_LIBRARY_PATH=/gitlibs
 WORKDIR /app
 # Copy the workspace layout verbatim: pnpm's relative symlinks only resolve
 # when node_modules and the workspace packages keep their original paths.
@@ -62,6 +74,10 @@ COPY --from=build --chown=nonroot:nonroot /repo/packages/observability/node_modu
 # The rule-pack loader reads and hash-verifies every YAML file in this
 # directory at startup; without it the API exits with RULE_PACK_MISSING.
 COPY --from=build --chown=nonroot:nonroot /repo/packages/rule-packs ./packages/rule-packs
+# Anonymous `git ls-remote` is part of public-repo validation.
+COPY --from=build --chown=nonroot:nonroot /usr/bin/git /usr/bin/git
+COPY --from=build --chown=nonroot:nonroot /usr/lib/git-core /usr/lib/git-core
+COPY --from=build --chown=nonroot:nonroot /gitlibs /gitlibs
 USER nonroot
 EXPOSE 3001
 CMD ["apps/orchestrator/dist/main.js"]
