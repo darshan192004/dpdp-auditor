@@ -58,7 +58,7 @@ import { hashPassword, PASSWORD_MIN_LENGTH, verifyPassword } from '../src/module
 describe('password hashing', () => {
   it('hashes with argon2id and verifies the same password', async () => {
     const hash = await hashPassword('correct horse battery staple');
-    expect(hash).toMatch(/^\$argon2id\$m=19456,t=2,p=1\$/);
+    expect(hash).toMatch(/^\$argon2id\$v=19\$m=19456,t=2,p=1\$/);
     expect(await verifyPassword(hash, 'correct horse battery staple')).toBe(true);
   });
 
