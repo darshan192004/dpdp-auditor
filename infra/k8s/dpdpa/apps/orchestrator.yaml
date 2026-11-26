@@ -38,7 +38,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: orchestrator
-          image: registry.dpdpa.svc.cluster.local:5000/dpdpa/orchestrator:1.0.0-pilot.1
+          image: registry.dpdpa.svc.cluster.local:5000/dpdpa/orchestrator@sha256:45593dc2577944da074810e32ef9c883b4a80eb302a8050d279beef2e3412b64
           ports:
             - name: http
               containerPort: 3001
@@ -85,14 +85,14 @@ spec:
               value: kubernetes
             - name: SCANNERS_NAMESPACE
               value: dpdpa-scanners
-            # Task 9 replaces REPLACE_WITH_RUNNER_DIGEST with the resolved
-            # 64-hex digest of dpdpa/scan-runner:1.0.0-pilot.1.
+            # Task 9 replaces registry.dpdpa.svc.cluster.local:5000/dpdpa/scan-runner@sha256:97aca88c0c5a51e87683ee812e45d2da5c97a1a4d9154ad0f71d012c25d7b517 with the resolved
+            # 64-hex digest of dpdpa/scan-runner@sha256:97aca88c0c5a51e87683ee812e45d2da5c97a1a4d9154ad0f71d012c25d7b517
             - name: RUNNER_IMAGE
-              value: registry.dpdpa.svc.cluster.local:5000/dpdpa/scan-runner@sha256:REPLACE_WITH_RUNNER_DIGEST
+              value: registry.dpdpa.svc.cluster.local:5000/dpdpa/scan-runner@sha256:97aca88c0c5a51e87683ee812e45d2da5c97a1a4d9154ad0f71d012c25d7b517
             - name: ORCHESTRATOR_CALLBACK_URL
               value: http://orchestrator.dpdpa.svc.cluster.local:3001
             - name: REPORTS_BROWSER_WS_ENDPOINT
-              value: ws://renderer.dpdpa.svc.cluster.local:3000
+              value: ws://renderer.dpdpa.svc.cluster.local:9222
             - name: S3_ENDPOINT
               value: http://minio:9000
             - name: S3_BUCKET

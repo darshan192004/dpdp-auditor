@@ -20,7 +20,7 @@ spec:
         workload: scanner
       containers:
         - name: migrate
-          image: registry.dpdpa.svc.cluster.local:5000/dpdpa/orchestrator:1.0.0-pilot.1
+          image: registry.dpdpa.svc.cluster.local:5000/dpdpa/orchestrator@sha256:45593dc2577944da074810e32ef9c883b4a80eb302a8050d279beef2e3412b64
           command:
             [
               'node',

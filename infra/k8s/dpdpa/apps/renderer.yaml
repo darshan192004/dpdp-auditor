@@ -1,7 +1,10 @@
 # Dedicated headless Chromium for report-render.worker.ts (ADR-008).
 # There is no apps/renderer source tree: the orchestrator connects to the
-# DevTools WebSocket at this Service's port 3000. Task 9 replaces the digest
-# placeholder with the resolved dpdpa/chromium image digest.
+# DevTools WebSocket at this Service's port 9222. The pinned image's s6
+# service starts Chromium with CHROMIUM_ARGS and socat-forwards 9222 to the
+# browser's loopback debug port 9223 (newer Chromium ignores
+# --remote-debugging-address and cannot be exposed on 0.0.0.0 directly).
+# Task 9 replaces the digest placeholder with the resolved dpdpa/chromium digest.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -25,27 +28,19 @@ spec:
       nodeSelector:
         workload: scanner
       securityContext:
-        runAsNonRoot: true
-        runAsUser: 10001
-        runAsGroup: 10001
+        # The image's s6 init starts as root, then drops to the chrome user;
+        # forcing runAsUser would prevent s6 from starting the browser.
         seccompProfile:
           type: RuntimeDefault
       containers:
         - name: chromium
-          image: registry.dpdpa.svc.cluster.local:5000/dpdpa/chromium@sha256:REPLACE_WITH_CHROMIUM_DIGEST
-          command: ['/bin/sh', '-c']
-          args:
-            - |
-              exec "$(command -v chromium || command -v chromium-browser || command -v google-chrome)" \
-                --headless=new \
-                --no-sandbox \
-                --disable-dev-shm-usage \
-                --remote-debugging-address=0.0.0.0 \
-                --remote-debugging-port=3000 \
-                --user-data-dir=/tmp/chromium
+          image: registry.dpdpa.svc.cluster.local:5000/dpdpa/chromium@sha256:783c7c72f8dc1c85a7671c1f5b13dcd8eb0443bb115126654cd65dfe8eaa1594
+          env:
+            - name: CHROMIUM_ARGS
+              value: '--headless --no-sandbox --disable-dev-shm-usage --disable-crash-reporter --no-crashpad --remote-debugging-port=9223'
           ports:
             - name: ws
-              containerPort: 3000
+              containerPort: 9222
           readinessProbe:
             httpGet:
               path: /json/version
@@ -95,6 +90,6 @@ spec:
     app: renderer
   ports:
     - name: ws
-      port: 3000
+      port: 9222
       targetPort: ws
       protocol: TCP
