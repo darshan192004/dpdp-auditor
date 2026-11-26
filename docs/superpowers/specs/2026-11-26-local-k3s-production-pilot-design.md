@@ -49,7 +49,9 @@ Two namespaces on the k3s cluster:
 - `dpdpa` — `web`, `orchestrator`, `renderer`, in-cluster registry, Postgres, Redis, MinIO, Prometheus, Alertmanager.
 - `dpdpa-scanners` — short-lived `scan-runner` Jobs and their per-scan Secrets.
 
-Deployments at one replica each for the pilot. `web` (Nuxt/Nitro) is the only ingress-facing service. `orchestrator` runs BullMQ workers in-process (ADR-007). `renderer` is a separate Deployment (ADR-008). The registry is a Deployment with a PVC. `scan-runner` exists only as Jobs created by the orchestrator's existing Kubernetes driver.
+Deployments at one replica each for the pilot. `web` (Nuxt/Nitro) is the only ingress-facing service. `orchestrator` runs BullMQ workers in-process (ADR-007). The registry is a Deployment with a PVC. `scan-runner` exists only as Jobs created by the orchestrator's existing Kubernetes driver.
+
+Implementation clarification for the `renderer` workload: the repository has no `apps/renderer` source tree. PDF rendering is an in-process orchestrator worker (`apps/orchestrator/src/modules/reports/report-render.worker.ts`) that connects to a browser over `REPORTS_BROWSER_WS_ENDPOINT`. The separate `renderer` Deployment is therefore a dedicated headless Chromium pod, which isolates the memory-hungry browser process per ADR-008 without introducing a new application service. The worker uploads the finished PDF; no report-storage code changes are needed.
 
 A single Ingress terminates TLS on `dpdpa.pride.improwised.dev`. The certificate is issued by a self-signed CA generated for this pilot; the CA certificate is exported to internal clients so they can trust it. No LoadBalancer or NodePort is exposed outside the internal network.
 
@@ -57,7 +59,7 @@ Default-deny NetworkPolicies in both namespaces, with explicit allows only for:
 
 - ingress controller → `web` on port 3000;
 - `web` → `orchestrator` on port 3001;
-- `renderer` → `orchestrator` (internal view-model API);
+- `orchestrator` → `renderer` (headless Chromium WebSocket on port 3000);
 - `orchestrator` → Postgres, Redis, and the registry;
 - `scan-runner` Jobs → `orchestrator` findings callback;
 - `scan-runner` Jobs → `github.com` egress only.
@@ -76,7 +78,7 @@ k3s ships with the `local-path` provisioner, so PVCs are node-bound. All statefu
 | MinIO | PVC `minio-data` | 50 Gi | Private bucket for PDF reports; 30-day lifecycle |
 | Registry | PVC `registry-data` | 20 Gi | Immutable image layers |
 
-Reports stay S3-compatible: a single-node MinIO deployment preserves the existing architecture contract where `renderer` uploads a PDF and `web` issues a short-lived signed URL. No report-storage code changes are needed.
+Reports stay S3-compatible: a single-node MinIO deployment preserves the existing architecture contract where the orchestrator render worker uploads a PDF and `web` issues a short-lived signed URL. No report-storage code changes are needed.
 
 Secrets — Postgres/Redis/MinIO passwords, HMAC keys, the TLS private key, and seed-account records — are Kubernetes Secrets generated at deploy time. No secret value is committed to git.
 
