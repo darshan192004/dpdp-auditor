@@ -305,8 +305,26 @@ discover_org_id() {
 # Gate 2: fresh real scan with Standard profile and blank ref (default branch).
 # ---------------------------------------------------------------------------
 
+# A prior run can leave a queued/scanning Job holding the one-scan-at-a-time
+# slot. Cancel those stale scans before reserving the sign-off scan.
+cancel_stale_scans() {
+  local body id cancelled=0 path
+  api_call GET '/internal/v1/scans?status=queued&status=cloning&status=scanning&status=mapping&pageSize=100' 200 || return 1
+  while IFS= read -r id; do
+    [ -n "$id" ] || continue
+    body=$(jq -nc '{reason:"superseded by k3s launch sign-off"}')
+    api_call POST "/internal/v1/scans/${id}/cancel" 202 "$body" || {
+      note "could not cancel stale scan ${id}"
+      return 1
+    }
+    cancelled=$((cancelled + 1))
+  done < <(jq -r '.data[]? | .id // empty' "$TMP_DIR/api-response.json")
+  note "cancelled ${cancelled} stale active scan(s)"
+}
+
 verify_fresh_scan() {
   local body idempotency_key status deadline repo_id default_branch scan_ref full_name
+  cancel_stale_scans || return 1
   idempotency_key=$(uuid)
   body=$(jq -nc --arg org "$ORG_ID" --arg repo "$TARGET_REPO_URL" --arg user "$USER_ID" --arg key "$idempotency_key" \
     '{orgId:$org,githubUrl:$repo,profile:"standard",requestedBy:(if $user == "" then null else $user end),idempotencyKey:$key}')
