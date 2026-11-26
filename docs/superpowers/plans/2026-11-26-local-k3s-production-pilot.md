@@ -579,13 +579,13 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 401, statusMessage: 'Invalid email or password.' });
   }
 
-  await replaceUserSession(event, {
-    sessionId: data.sessionId,
-    user: {
-      id: data.user.id, name: data.user.name,
-      email: data.user.email, avatarUrl: data.user.avatarUrl ?? null,
-    },
-  });
+  // Task 5: a variable avoids excess-property checks on auth-utils' User type.
+  const sessionUser = {
+    id: data.user.id, name: data.user.name,
+    email: data.user.email, avatarUrl: data.user.avatarUrl ?? null,
+    mustChangePassword: data.mustChangePassword,
+  };
+  await replaceUserSession(event, { sessionId: data.sessionId, user: sessionUser });
   if ((await fetchResolvedSession(event, data.sessionId)) === null) {
     await clearUserSession(event);
     throw createError({ statusCode: 503, statusMessage: 'The audit service is unavailable. Try again shortly.' });
@@ -687,11 +687,16 @@ git commit -m "feat(web): add password login form and route"
 - Create: `apps/orchestrator/src/modules/identity/seed-users.ts`
 - Create: `apps/orchestrator/src/commands/seed-users.ts`
 - Create: `infra/k8s/dpdpa/jobs/seed-users.yaml`
-- Test: `apps/orchestrator/test/seed-users.test.ts`
+- Create: `apps/web/server/api/auth/password/change.post.ts`
+- Create: `apps/web/app/pages/change-password.vue`
+- Modify: `apps/orchestrator/src/modules/identity/password-login.service.ts`, `identity.schemas.ts`, `users.repository.ts`, `internal-identity.controller.ts`, `identity.module.ts`
+- Modify: `apps/web/server/api/auth/password/login.post.ts`, `apps/web/server/middleware/session.ts`, `apps/web/app/middleware/auth.global.ts`, `apps/web/shared/auth.ts`, `apps/web/app/utils/password-login.ts`
+- Test: `apps/orchestrator/test/seed-users.test.ts`, `apps/orchestrator/test/password-rotation.test.ts`, `apps/web/test/password-login.test.ts`
 
 **Interfaces:**
-- Consumes: `hashPassword` (Task 1), `User.passwordHash` (Task 2), `IdentityService.addMember`, `PasswordLoginService` result flag.
+- Consumes: `hashPassword` (Task 1), `User.passwordHash` and `mustChangePassword` (Task 2), `PasswordLoginService` login/rotation flags, `clientIp` and `fetchResolvedSession` on the web side.
 - Produces: CLI `node dist/commands/seed-users.js` reading `SEED_USERS_JSON`; Kubernetes Job `seed-users`. Seed JSON shape: `[{ "email": string, "name": string, "password": string, "orgSlug": string, "role": "owner" | "admin" | "auditor" }]`.
+- Design §6/§8 require *forced* first-login rotation, which the original task steps only flagged. This task therefore also adds `POST /internal/v1/identity/password/change` and `POST /api/auth/password/change`, seals `mustChangePassword` into the session, and blocks other APIs plus app routes until rotation completes.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -706,7 +711,7 @@ describe('seed user parsing', () => {
     const parsed = parseSeedUsers(JSON.stringify([
       { email: 'a@b.test', name: 'A', password: 'correct horse battery staple', orgSlug: 'internal', role: 'owner' },
     ]));
-    expect(parsed[0].role).toBe('owner');
+    expect(parsed[0]?.role).toBe('owner');
   });
 
   it('rejects a short temporary password', () => {
@@ -743,26 +748,35 @@ export function parseSeedUsers(json: string) {
 }
 ```
 
-In `apps/orchestrator/src/commands/seed-users.ts`, read `process.env.SEED_USERS_JSON`, call `parseSeedUsers`, and for each entry `hashPassword`, upsert the user by email, set `passwordHash` and `mustChangePassword: true`, ensure the organisation exists, and call `IdentityService.addMember(orgId, userId, role)`. Exit non-zero on any failure so the Job retries.
+In `apps/orchestrator/src/commands/seed-users.ts`, read `process.env.SEED_USERS_JSON`, call `parseSeedUsers`, and for each entry `hashPassword`, upsert the user by email, set `passwordHash` and `mustChangePassword: true` only when the user has no existing credential, upsert the organisation by slug, and upsert an active membership with the requested role. Direct Prisma upserts (rather than `IdentityService.addMember`, which rejects existing members) make repeated Job runs safe. Exit non-zero on any failure so the Job retries.
 
 - [ ] **Step 4: Define the Job manifest**
 
 `infra/k8s/dpdpa/jobs/seed-users.yaml` must: run in namespace `dpdpa`; mount Secret `dpdpa-seed-users` as env `SEED_USERS_JSON`; use image `registry.dpdpa.svc.cluster.local:5000/dpdpa/orchestrator:1.0.0-pilot.1`; `restartPolicy: Never`; `backoffLimit: 0`. The deploy runbook documents deleting the Secret only after the Job succeeds.
 
-- [ ] **Step 5: Run tests and typecheck**
+- [ ] **Step 5: Implement forced first-login rotation**
+
+Add `passwordChangeSchema` (`userId` uuid, `currentPassword`, `newPassword` ≥ 12, optional `userAgent`/`ip`) and `PasswordLoginService.changePassword()`, which re-verifies the current password against a real argon2id hash, rate-limits at 5/user/15 min via the same `consume` gate, hashes the new password, clears `mustChangePassword`, and records `auth.password_changed`. Add `UsersRepository.updateCredentials` and a `HASH_PASSWORD` DI token. Wire `POST /internal/v1/identity/password/change`.
+
+On the web side add `POST /api/auth/password/change` (resolves the caller's session via `fetchResolvedSession`, delegates to the orchestrator, re-seals the cookie with `mustChangePassword: false`) and the `/change-password` page. The login route now seals the flag too. `server/middleware/session.ts` rejects all `/api/` calls except `/api/v1/me` while rotation is pending; `app/middleware/auth.global.ts` redirects to `/change-password`. Test files: `apps/orchestrator/test/password-rotation.test.ts` and the added case in `apps/web/test/password-login.test.ts`.
+
+- [ ] **Step 6: Run tests and typecheck**
 
 ```bash
-pnpm --filter @dpdpa/orchestrator test -- seed-users.test.ts
+pnpm --filter @dpdpa/orchestrator test -- seed-users.test.ts password-rotation.test.ts password-login.service.test.ts internal-identity.controller.test.ts bootstrap.test.ts
 pnpm --filter @dpdpa/orchestrator typecheck
+pnpm --filter @dpdpa/web test -- password-login.test.ts
+pnpm typecheck
+pnpm --filter @dpdpa/web lint
 kubectl apply --dry-run=client -f infra/k8s/dpdpa/jobs/seed-users.yaml
 ```
-Expected: PASS; manifest validates.
+Expected: PASS; manifest validates. (If no cluster is reachable, parse the manifest with the repo's `yaml` package as a client-side syntax check and re-run the kubectl dry-run at Task 6.)
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add apps/orchestrator/src/modules/identity/seed-users.ts apps/orchestrator/src/commands/seed-users.ts apps/orchestrator/test/seed-users.test.ts infra/k8s/dpdpa/jobs/seed-users.yaml
-git commit -m "feat(identity): add seed-account import Job"
+git add apps/orchestrator/src/modules/identity/seed-users.ts apps/orchestrator/src/commands/seed-users.ts apps/orchestrator/test/seed-users.test.ts apps/orchestrator/test/password-rotation.test.ts infra/k8s/dpdpa/jobs/seed-users.yaml apps/orchestrator/src/modules/identity apps/orchestrator/test/internal-identity.controller.test.ts apps/web/server/api/auth/password apps/web/app/pages/change-password.vue apps/web/server/middleware/session.ts apps/web/app/middleware/auth.global.ts apps/web/shared/auth.ts apps/web/app/utils/password-login.ts apps/web/server/api/auth/password/login.post.ts apps/web/test/password-login.test.ts docs/superpowers/plans/2026-11-26-local-k3s-production-pilot.md
+git commit -m "feat(identity): add seed-account import Job and forced rotation"
 ```
 
 ---

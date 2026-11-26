@@ -1,0 +1,40 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: dpdpa-seed-users
+  namespace: dpdpa
+  labels:
+    app.kubernetes.io/name: dpdpa
+    app.kubernetes.io/component: seed-users
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: dpdpa
+        app.kubernetes.io/component: seed-users
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: seed-users
+          image: registry.dpdpa.svc.cluster.local:5000/dpdpa/orchestrator:1.0.0-pilot.1
+          command: ['node', 'dist/commands/seed-users.js']
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: dpdpa-db
+                  key: DATABASE_URL
+            - name: SEED_USERS_JSON
+              valueFrom:
+                secretKeyRef:
+                  name: dpdpa-seed-users
+                  key: SEED_USERS_JSON
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ['ALL']

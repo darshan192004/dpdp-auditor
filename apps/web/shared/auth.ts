@@ -3,6 +3,9 @@
  * context that hydrates from it (design §7.6). Shared so the server handler,
  * the client plugin, and their tests agree on one contract.
  */
+/** Internal pilot: minimum length for a newly chosen password. */
+export const NEW_PASSWORD_MIN_LENGTH = 12;
+
 export interface MeUser {
   id: string;
   name: string | null;

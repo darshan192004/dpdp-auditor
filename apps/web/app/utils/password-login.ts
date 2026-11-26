@@ -6,3 +6,15 @@
 export function passwordLoginError(_code: string): string {
   return 'Invalid email or password.';
 }
+
+export { NEW_PASSWORD_MIN_LENGTH } from '~~/shared/auth';
+import { NEW_PASSWORD_MIN_LENGTH } from '~~/shared/auth';
+
+/** Client-side checks before posting a first-login password rotation. */
+export function passwordChangeError(newPassword: string, confirm: string): string | null {
+  if (newPassword.length < NEW_PASSWORD_MIN_LENGTH) {
+    return `New password must be at least ${NEW_PASSWORD_MIN_LENGTH} characters.`;
+  }
+  if (newPassword !== confirm) return 'Passwords do not match.';
+  return null;
+}

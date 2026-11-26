@@ -15,6 +15,7 @@ import { FeatureFlagsService } from '../feature-flags/feature-flags.service.js';
 import { InternalHmacGuard } from '../internal-auth/internal-hmac.guard.js';
 import { IdentityService } from './identity.service.js';
 import {
+  passwordChangeSchema,
   passwordLoginSchema,
   type AddMemberByEmailInput,
   type ChangeRoleInput,
@@ -63,6 +64,14 @@ export class InternalIdentityController {
       userAgent: input.userAgent ?? 'password-login',
     });
     return { data: { ...result, sessionId: session.id } };
+  }
+
+  /** First-login password rotation for seeded accounts. */
+  @Post('password/change')
+  @HttpCode(200)
+  async passwordChange(@Body() body: unknown) {
+    const input = passwordChangeSchema.parse(body);
+    return { data: await this.passwords.changePassword(input) };
   }
 
   /** GitHub profile → user; safe to replay on every sign-in. */

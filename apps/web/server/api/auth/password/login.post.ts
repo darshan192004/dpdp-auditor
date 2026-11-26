@@ -64,15 +64,14 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 401, statusMessage: 'Invalid email or password.' });
   }
 
-  await replaceUserSession(event, {
-    sessionId: data.sessionId,
-    user: {
-      id: data.user.id,
-      name: data.user.name,
-      email: data.user.email,
-      avatarUrl: data.user.avatarUrl ?? null,
-    },
-  });
+  const sessionUser = {
+    id: data.user.id,
+    name: data.user.name,
+    email: data.user.email,
+    avatarUrl: data.user.avatarUrl ?? null,
+    mustChangePassword: data.mustChangePassword,
+  };
+  await replaceUserSession(event, { sessionId: data.sessionId, user: sessionUser });
 
   // Fail closed if the newly minted cookie cannot be resolved.
   if ((await fetchResolvedSession(event, data.sessionId)) === null) {

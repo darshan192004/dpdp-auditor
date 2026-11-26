@@ -3,7 +3,12 @@ import { Inject, Injectable } from '@nestjs/common';
 import { ApiError } from '../../common/api-error.js';
 import { AuditService } from '../audit/audit.service.js';
 import { UsersRepository } from './users.repository.js';
-import { passwordLoginSchema, type PasswordLoginInput } from './identity.schemas.js';
+import {
+  passwordChangeSchema,
+  passwordLoginSchema,
+  type PasswordChangeInput,
+  type PasswordLoginInput,
+} from './identity.schemas.js';
 import { hashPassword, verifyPassword } from './password.js';
 
 export interface RateLimitGate {
@@ -14,6 +19,7 @@ export interface RateLimitGate {
 /** DI tokens: interfaces/functions disappear at runtime, so Nest needs explicit keys. */
 export const RATE_LIMIT_GATE = Symbol('RATE_LIMIT_GATE');
 export const VERIFY_PASSWORD = Symbol('VERIFY_PASSWORD');
+export const HASH_PASSWORD = Symbol('HASH_PASSWORD');
 
 export interface PasswordLoginResult {
   user: { id: string; email: string; name: string | null; avatarUrl: string | null };
@@ -42,6 +48,8 @@ export class PasswordLoginService {
     @Inject(RATE_LIMIT_GATE) private readonly limits: RateLimitGate,
     @Inject(VERIFY_PASSWORD)
     private readonly verify: (hash: string, plain: string) => Promise<boolean> = verifyPassword,
+    @Inject(HASH_PASSWORD)
+    private readonly hash: (plain: string) => Promise<string> = hashPassword,
   ) {}
 
   async login(raw: PasswordLoginInput): Promise<PasswordLoginResult> {
@@ -89,5 +97,41 @@ export class PasswordLoginService {
       },
       mustChangePassword: user.mustChangePassword,
     };
+  }
+
+  /**
+   * First-login rotation for seeded accounts. The current password is checked
+   * against a real argon2id hash on every path so a missing user cannot be
+   * distinguished from a wrong password by timing.
+   */
+  async changePassword(raw: PasswordChangeInput): Promise<{ ok: true }> {
+    const input = passwordChangeSchema.parse(raw);
+    if (!(await this.limits.consume(`pw-change:user:${input.userId}`, 5, WINDOW_SECONDS))) {
+      throw new ApiError('RATE_LIMITED', 'Too many password change attempts. Try again shortly.');
+    }
+
+    const user = await this.users.findById(input.userId);
+    const storedHash = user?.passwordHash ?? null;
+    const ok = await this.verify(storedHash ?? DUMMY_HASH, input.currentPassword);
+    if (!user || user.deletedAt || !storedHash || !ok) {
+      throw new ApiError('UNAUTHENTICATED', 'Current password is incorrect.');
+    }
+
+    await this.users.updateCredentials(input.userId, {
+      passwordHash: await this.hash(input.newPassword),
+      mustChangePassword: false,
+    });
+    await this.audit.record({
+      orgId: null,
+      actorType: 'user',
+      actorUserId: user.id,
+      action: 'auth.password_changed',
+      resourceType: 'user',
+      resourceId: user.id,
+      ip: input.ip ?? null,
+      userAgent: input.userAgent ?? null,
+      metadata: {},
+    });
+    return { ok: true };
   }
 }

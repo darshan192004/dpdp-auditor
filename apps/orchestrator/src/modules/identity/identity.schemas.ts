@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { PASSWORD_MIN_LENGTH } from './password.js';
+
 /** database.md §4.3: member_role. */
 export const memberRoleSchema = z.enum(['owner', 'admin', 'auditor', 'viewer']);
 export type MemberRole = z.infer<typeof memberRoleSchema>;
@@ -91,3 +93,13 @@ export const passwordLoginSchema = z.strictObject({
   ip: z.union([z.ipv4(), z.ipv6()]).nullable().optional(),
 });
 export type PasswordLoginInput = z.input<typeof passwordLoginSchema>;
+
+/** Internal-pilot password rotation, required at first login for seeded users. */
+export const passwordChangeSchema = z.strictObject({
+  userId: z.uuid(),
+  currentPassword: z.string().min(1).max(200),
+  newPassword: z.string().min(PASSWORD_MIN_LENGTH).max(200),
+  userAgent: z.string().trim().max(512).nullable().optional(),
+  ip: z.union([z.ipv4(), z.ipv6()]).nullable().optional(),
+});
+export type PasswordChangeInput = z.input<typeof passwordChangeSchema>;

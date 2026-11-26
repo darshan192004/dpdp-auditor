@@ -65,6 +65,7 @@ function make() {
   const flags = { all: vi.fn().mockReturnValue({ auditExport: true }) };
   const passwords = {
     login: vi.fn().mockResolvedValue({ user: USER, mustChangePassword: false }),
+    changePassword: vi.fn().mockResolvedValue({ ok: true }),
   };
 
   return {
@@ -100,6 +101,19 @@ describe('InternalIdentityController', () => {
       ip: '127.0.0.1',
       userAgent: 'test-agent',
     });
+  });
+
+  it('rotates a seeded password and returns success', async () => {
+    const { controller, passwords } = make();
+    const body = {
+      userId: USER_ID,
+      currentPassword: 'temporary-passphrase',
+      newPassword: 'a-brand-new-passphrase',
+      userAgent: 'test-agent',
+      ip: '127.0.0.1',
+    };
+    await expect(controller.passwordChange(body)).resolves.toEqual({ data: { ok: true } });
+    expect(passwords.changePassword).toHaveBeenCalledWith(body);
   });
 
   it('upserts the GitHub profile and returns the user', async () => {
