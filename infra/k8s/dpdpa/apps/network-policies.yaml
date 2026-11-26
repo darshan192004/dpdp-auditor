@@ -300,6 +300,14 @@ spec:
       ports:
         - protocol: TCP
           port: 3001
+    # The callback URL uses the private ingress hostname, which resolves to
+    # the hostNetwork ingress controller on the node IP.
+    - to:
+        - ipBlock:
+            cidr: 10.0.15.186/32
+      ports:
+        - protocol: TCP
+          port: 443
     # GitHub web/git smart-HTTP range from the existing runner allowlist
     # (docs/security.md §5.2; update with the documented CIDR when it changes).
     - to:
