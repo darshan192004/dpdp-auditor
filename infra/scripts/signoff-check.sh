@@ -783,6 +783,19 @@ YAML
     note "restore-drill Pod did not become Ready"
     return 1
   }
+  # Ready only means the container started; wait for the embedded server.
+  local ready=false
+  for _ in $(seq 1 60); do
+    if kubectl -n dpdpa exec "$RESTORE_POD" -- pg_isready -U dpdpa -d scratch -q >/dev/null 2>&1; then
+      ready=true
+      break
+    fi
+    sleep 1
+  done
+  [ "$ready" = true ] || {
+    note "scratch Postgres did not become accepting connections"
+    return 1
+  }
 
   dump=$(kubectl -n dpdpa exec "$RESTORE_POD" -- \
     sh -c 'ls -1 /backups/dpdpa-*.sql.gz 2>/dev/null | sort | tail -n 1' 2>/dev/null | tr -d '\r') || dump=''
