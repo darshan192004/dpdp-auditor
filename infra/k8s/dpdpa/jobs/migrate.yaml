@@ -37,8 +37,9 @@ spec:
                   name: dpdpa-db
                   key: DATABASE_URL
           securityContext:
-            runAsNonRoot: true
-            runAsUser: 10001
+            # Prisma CLI needs to write its engine cache at startup; the
+            # distroless image's engine directory is root-owned.
+            runAsUser: 0
             allowPrivilegeEscalation: false
             capabilities:
               drop: ['ALL']
