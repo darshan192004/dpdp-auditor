@@ -38,7 +38,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: orchestrator
-          image: registry.dpdpa.svc.cluster.local:5000/dpdpa/orchestrator@sha256:f98e24fffc2c9cb0132de58f59c1805690b34a959cc00d0764e598bda423bb0f
+          image: registry.dpdpa.svc.cluster.local:5000/dpdpa/orchestrator@sha256:8a57b2179d25dd14061a073495f85e33d50e5ab8d85299bd0cada007a5d190c8
           ports:
             - name: http
               containerPort: 3001
