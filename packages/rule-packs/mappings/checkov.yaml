@@ -1,6 +1,6 @@
 # Checkov (IaC) mappings (rules.md §6.1).
 version: 1
-pack: dpdpa-2026.10.1
+pack: dpdpa-2026.10.6
 
 mappings:
   - scanner: checkov
@@ -130,3 +130,153 @@ mappings:
       A privileged container can escape its isolation and reach other workloads.
     remediationTemplate: >-
       Drop privileged mode and grant only the capabilities the workload needs.
+
+  - scanner: checkov
+    ruleId: CKV2_GHA_1
+    control: DPDPA-8.4-ACCESS-01
+    confidence: inferred
+    rationale: >-
+      A top-level write-all workflow token gives every job repository write
+      access, widening the identities that can alter processing code or read
+      secrets used by personal-data workflows.
+    remediationTemplate: >-
+      Set top-level permissions to contents: read and grant each job only the
+      scoped permissions it needs.
+
+  - scanner: checkov
+    ruleId: CKV_DOCKER_2
+    control: DPDPA-8.4-MON-01
+    confidence: advisory
+    rationale: >-
+      A container image without a HEALTHCHECK gives no runtime signal when the
+      service handling personal data becomes unhealthy.
+    remediationTemplate: >-
+      Add a HEALTHCHECK instruction that probes the service endpoint.
+
+  - scanner: checkov
+    ruleId: CKV_DOCKER_3
+    control: DPDPA-8.4-ACCESS-01
+    confidence: inferred
+    rationale: >-
+      A container running as root gives a compromised process unrestricted
+      access to mounted personal data and credentials.
+    remediationTemplate: >-
+      Create a dedicated non-root user in the image and switch to it with USER.
+
+  - scanner: checkov
+    ruleId: CKV_DOCKER_7
+    control: DPDPA-8.4-ACCESS-01
+    confidence: advisory
+    rationale: >-
+      A floating latest base image tag can be replaced upstream, allowing
+      unreviewed code into the runtime that processes personal data.
+    remediationTemplate: >-
+      Pin the base image to an immutable digest and review upgrades explicitly.
+
+  - scanner: checkov
+    ruleId: CKV_OPENAPI_1
+    control: DPDPA-8.4-ACCESS-01
+    confidence: direct
+    rationale: >-
+      An OpenAPI 2.0 document with no securityDefinitions leaves the
+      authentication requirements for personal-data endpoints unspecified.
+    remediationTemplate: >-
+      Define security schemes in securityDefinitions and apply them to
+      endpoints that handle personal data.
+
+  - scanner: checkov
+    ruleId: CKV_OPENAPI_4
+    control: DPDPA-8.4-ACCESS-01
+    confidence: direct
+    rationale: >-
+      Without a global security field, endpoints inherit no authentication
+      requirement and may be reachable anonymously.
+    remediationTemplate: >-
+      Add a global security requirement, overriding it only for public health
+      or documentation endpoints.
+
+  - scanner: checkov
+    ruleId: CKV_OPENAPI_5
+    control: DPDPA-8.4-ACCESS-01
+    confidence: direct
+    rationale: >-
+      An operation with empty security permits unauthenticated access to a
+      personal-data endpoint.
+    remediationTemplate: >-
+      Attach at least one security scheme to every operation that reads or
+      writes personal data.
+
+  - scanner: checkov
+    ruleId: CKV_OPENAPI_6
+    control: DPDPA-8.4-ACCESS-01
+    confidence: inferred
+    rationale: >-
+      A security requirement referencing an undefined scheme cannot be
+      enforced, so the documented access control is ineffective.
+    remediationTemplate: >-
+      Define every referenced scheme in securityDefinitions and verify the
+      runtime enforces it.
+
+  - scanner: checkov
+    ruleId: CKV_OPENAPI_7
+    control: DPDPA-8.4-TLS-01
+    confidence: direct
+    rationale: >-
+      A path scheme supporting plaintext HTTP exposes personal data in transit
+      to interception.
+    remediationTemplate: >-
+      Allow only https in the scheme list and redirect plaintext traffic.
+
+  - scanner: checkov
+    ruleId: CKV_OPENAPI_18
+    control: DPDPA-8.4-TLS-01
+    confidence: direct
+    rationale: >-
+      A global http scheme documents plaintext transport for personal-data
+      endpoints.
+    remediationTemplate: >-
+      Replace http with https in the global schemes list.
+
+  - scanner: checkov
+    ruleId: CKV_OPENAPI_21
+    control: DPDPA-6-MIN-01
+    confidence: advisory
+    rationale: >-
+      An unbounded array permits an unlimited number of personal-data records
+      in a single request or response, exceeding the stated purpose.
+    remediationTemplate: >-
+      Set maxItems on personal-data arrays to the smallest value the purpose
+      requires.
+
+  - scanner: checkov
+    ruleId: CKV_OPENAPI_16
+    control: DPDPA-6-MIN-01
+    confidence: advisory
+    rationale: >-
+      A GET operation without a produces field leaves the personal-data fields
+      returned by the endpoint undeclared and unverifiable against the purpose.
+    remediationTemplate: >-
+      Declare produces content types and document the fields returned for each
+      operation.
+
+  - scanner: checkov
+    ruleId: CKV_OPENAPI_17
+    control: DPDPA-6-MIN-01
+    confidence: advisory
+    rationale: >-
+      A write operation without a consumes field leaves submitted personal-data
+      fields undeclared and unverifiable against the purpose.
+    remediationTemplate: >-
+      Declare consumes content types and document the fields accepted for each
+      write operation.
+
+  - scanner: checkov
+    ruleId: CKV_SECRET_4
+    control: DPDPA-8.4-SECRET-01
+    confidence: direct
+    rationale: >-
+      Basic authentication credentials committed in configuration are readable
+      by anyone with repository access.
+    remediationTemplate: >-
+      Revoke the credentials, rotate them, and load them from a managed secret
+      store at deployment time.

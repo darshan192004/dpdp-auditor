@@ -1,5 +1,73 @@
 # Rule pack changelog
 
+## 2026.10.6 — 2026-11-26
+
+- Patch bump for advisory Semgrep rule exclusions only; controls, weights, and
+  the scoring formula are unchanged. Historical scans are never re-scored.
+- The breach-alert positive span no longer limits how far into a line a handler
+  keyword may appear, tolerates mixed indentation and blank lines inside a
+  handler, and starts a fresh match for a nested handler. String or comment text
+  cannot fake a handler header.
+- Breach-alert suppression is case-insensitive, accepts a hook passed by
+  function reference as well as a call, and ignores hook-like words in strings
+  and comments. A one-line handler with a real notification hook is suppressed.
+- The JS lawful-basis exclusion no longer consumes marker-bearing comments as
+  ordinary comments while skipping braces, so a visible `lawful_basis` comment
+  beside a write suppresses the finding.
+- Regression fixtures cover every case above on the pinned runner Semgrep and
+  the CI image.
+
+## 2026.10.5 — 2026-11-26
+
+- Patch bump for advisory Semgrep breach-alert exclusion correctness only;
+  controls, weights, and the scoring formula are unchanged. Historical scans
+  are never re-scored.
+- The exclusion now requires an actual notification call outside strings and
+  comments, so a word such as `report` in `logger.error("report failed")` can no
+  longer silently suppress a breach-alert finding for the scored §8(5) control.
+- The positive range spans the handler's own body instead of a 12-line budget,
+  stopping at a sibling handler by requiring stricter indentation on each
+  continued line. A real hook beyond the old budget still counts without one
+  handler's hook silencing its neighbours. Regression fixtures cover both cases
+  on the pinned runner Semgrep and the CI image.
+
+## 2026.10.4 — 2026-11-26
+
+- Patch bump for advisory Semgrep exclusion hardening only; controls, weights,
+  and the scoring formula are unchanged. Historical scans are never re-scored.
+- JS lawful-basis and breach-alert exclusions now ignore braces inside strings
+  and comments and span assigned handlers and arrow callbacks, so quoted `}` and
+  `window.onerror` / `security_event(() => ...)` forms no longer produce false
+  positives that can fail the mapped scored controls.
+- `tests/semgrep/dpdpa.handlers.js` covers both forms with and without a marker
+  or notification hook.
+
+## 2026.10.3 — 2026-11-26
+
+- Patch bump for advisory Semgrep rule exclusions only; controls, weights, and
+  the scoring formula are unchanged. Historical scans are never re-scored.
+- Scoped the three Semgrep rule exclusions to the processing operation, exception
+  handler, and Markdown document respectively, so an unrelated marker elsewhere
+  in a file no longer suppresses a finding.
+- `tests/semgrep/check.py` verifies the scoping cases in CI.
+
+## 2026.10.2 — 2026-11-25
+
+- Minor pack bump for new mappings only; control definitions, weights, and the
+  scoring formula are unchanged. Historical scans are never re-scored.
+- Added the 14 Checkov rule IDs that the runner already emitted but the pinned
+  catalog did not review (`CKV2_GHA_1`, `CKV_DOCKER_2/3/7`,
+  `CKV_OPENAPI_1/4/5/6/7/16/17/18/21`, `CKV_SECRET_4`). They now map to access
+  control, transport encryption, minimisation, monitoring, and secret controls,
+  so whole-repository scans no longer drop real findings as unmapped.
+- Added three advisory Semgrep rules so every scored control can fail:
+  `dpdpa.generic.lawful-basis-missing` (§7),
+  `dpdpa.generic.breach-alert-missing` (§8(5)), and
+  `dpdpa.generic.sdf-artifacts-missing` (§10). DPDPA §8(4) transport encryption
+  is now evidenced by the mapped `CKV_OPENAPI_7` and `CKV_OPENAPI_18` rules.
+- Section scores include unassessed sections as `null`, and reports label
+  unmapped findings explicitly instead of showing `-`.
+
 ## 2026.10.1 — 2026-11-12
 
 - Initial pack: 19 controls from `docs/rules.md` §4, 33 scanner mappings

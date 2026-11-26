@@ -14,7 +14,7 @@ import {
 } from '../src/modules/rule-pack/rule-pack.loader.js';
 
 const PACK_DIR = fileURLToPath(new URL('../../../packages/rule-packs', import.meta.url));
-const PACK = 'dpdpa-2026.10.1';
+const PACK = 'dpdpa-2026.10.6';
 
 const roots: string[] = [];
 
@@ -42,12 +42,22 @@ describe('loadRulePack (P4-01, P4-02)', () => {
     expect(pack.effectiveFrom).toBe('2026-10-15');
     expect(pack.scoringVersion).toBe('1.0.0');
     expect(pack.controls).toHaveLength(19);
-    expect(pack.mappings).toHaveLength(33);
+    expect(pack.mappings).toHaveLength(50);
     expect(pack.suppressions).toEqual([]);
     expect(pack.sectionWeights['8(4)']).toBe(30);
     expect(pack.grades.map((grade) => grade.grade)).toEqual(['A', 'B', 'C', 'D', 'F']);
     expect(pack.controlsByCode.get('DPDPA-8.4-ENC-01')?.weight).toBe(5);
     expect(pack.controlsByCode.get('DPDPA-12-ACCESS-01')?.scored).toBe(false);
+  });
+
+  it('gives every scored control at least one scanner mapping', async () => {
+    const pack = await loadRulePack(PACK_DIR);
+    const mapped = new Set(pack.mappings.map((mapping) => mapping.controlCode));
+    const unmapped = pack.controls
+      .filter((control) => control.scored && !mapped.has(control.code))
+      .map((control) => control.code);
+
+    expect(unmapped).toEqual([]);
   });
 
   it('maps every bundled DPDPA Semgrep rule to a control', async () => {

@@ -103,7 +103,8 @@ function extractText(buffer: Buffer): string {
     for (let index = 0; index < hex.length; index += 2) {
       decoded += String.fromCharCode(Number.parseInt(hex.slice(index, index + 2), 16));
     }
-    return decoded;
+    // PDFKit encodes the em dash as WinAnsi 0x97 in Helvetica.
+    return decoded.replaceAll('\u0097', '—');
   };
 
   const content = parts
@@ -199,6 +200,25 @@ describe('renderReportPdf (real PDF rendering)', () => {
     ]) {
       expect(raw, `missing text: ${expected}`).toContain(expected);
     }
+  });
+
+  it('renders the unassessed executive score on one line before the repository row', async () => {
+    const base = model();
+    const pages = pageTexts(await pdf({ scan: { ...base.scan, score: null, grade: null } }));
+    const summary = pages.find((page) => page.includes('Executive summary'));
+    expect(summary).toMatch(/\nNot assessed\s*\n[\s\S]*REPOSITORY/);
+  });
+
+  it('labels unmapped findings and unassessed sections', async () => {
+    const base = model();
+    const raw = extractText(
+      await pdf({
+        scan: { ...base.scan, sectionScores: { ...base.scan.sectionScores, '12': null } },
+        topFindings: [{ ...base.topFindings[0]!, dpdpa: null }],
+      }),
+    );
+    expect(raw).toContain('Unmapped — no DPDPA control');
+    expect(raw).toContain('Not assessed');
   });
 
   it('writes a generated sample when RUN_PDF_SAMPLE is set', async () => {

@@ -88,16 +88,23 @@ export function scoreScan(input: ScoreInput): ScoreResult {
   }
 
   const sectionWeights = input.sectionWeights ?? DEFAULT_SECTION_WEIGHTS;
-  const sections: SectionResult[] = [...buckets.entries()]
-    .map(([section, bucket]) => ({
-      section,
-      score: bucket.applicable === 0 ? null : round2(100 * (1 - bucket.failed / bucket.applicable)),
-      applicableWeight: bucket.applicable,
-      failedWeight: bucket.failed,
-      sectionWeight: sectionWeights[section] ?? 0,
-      assessed: bucket.applicable > 0,
-    }))
-    .sort((a, b) => (a.section < b.section ? -1 : 1));
+  // A section exists in the report even when no scored control in it applies:
+  // its score is null ("not assessed"), never 100 and never omitted (§9.2).
+  const sectionCodes = [...new Set(input.controls.map((control) => control.section))];
+  const sections: SectionResult[] = sectionCodes
+    .map((section) => {
+      const bucket = buckets.get(section) ?? { applicable: 0, failed: 0 };
+      return {
+        section,
+        score:
+          bucket.applicable === 0 ? null : round2(100 * (1 - bucket.failed / bucket.applicable)),
+        applicableWeight: bucket.applicable,
+        failedWeight: bucket.failed,
+        sectionWeight: sectionWeights[section] ?? 0,
+        assessed: bucket.applicable > 0,
+      };
+    })
+    .sort((a, b) => a.section.localeCompare(b.section));
 
   const sectionScores: Record<string, number | null> = {};
   for (const section of sections) {

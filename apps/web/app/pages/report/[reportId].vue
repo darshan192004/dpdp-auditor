@@ -8,6 +8,11 @@ import { computed } from 'vue';
 
 import DsSkeleton from '~/components/ds/DsSkeleton.vue';
 import DownloadButton from '~/components/report/DownloadButton.vue';
+import {
+  formatFindingControl,
+  formatSectionScore,
+  type ReportFindingControl,
+} from '~/utils/report-format';
 
 definePageMeta({ layout: 'print' });
 
@@ -46,7 +51,7 @@ interface ReportViewModel {
     message: string;
     severity: string;
     scanner: string;
-    section: string | null;
+    dpdpa: ReportFindingControl | null;
     status: string;
   }>;
   methodology: { scoringVersion: string | null; rulePackVersion: string | null; summary: string };
@@ -161,7 +166,7 @@ const severityClass = (s: string) => {
                 class="border-ink-100 border-b"
               >
                 <td class="py-2 font-medium">{{ section }}</td>
-                <td class="py-2 text-right">{{ score ?? '—' }}</td>
+                <td class="py-2 text-right">{{ formatSectionScore(score) }}</td>
               </tr>
             </tbody>
           </table>
@@ -176,7 +181,7 @@ const severityClass = (s: string) => {
                 <th class="pb-2">Severity</th>
                 <th class="pb-2">Message</th>
                 <th class="pb-2">Scanner</th>
-                <th class="pb-2">Section</th>
+                <th class="pb-2">DPDPA control</th>
                 <th class="pb-2">Status</th>
               </tr>
             </thead>
@@ -191,7 +196,7 @@ const severityClass = (s: string) => {
                 </td>
                 <td class="py-2">{{ f.message }}</td>
                 <td class="py-2 font-mono text-xs">{{ f.scanner }}</td>
-                <td class="py-2">{{ f.section ?? '—' }}</td>
+                <td class="py-2">{{ formatFindingControl(f.dpdpa) }}</td>
                 <td class="py-2">{{ f.status }}</td>
               </tr>
             </tbody>

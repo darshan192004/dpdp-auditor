@@ -1,6 +1,6 @@
 # Semgrep (application code) mappings (rules.md §6.2).
 version: 1
-pack: dpdpa-2026.10.1
+pack: dpdpa-2026.10.6
 
 mappings:
   - scanner: semgrep
@@ -121,3 +121,39 @@ mappings:
       shared layout.
     remediationTemplate: >-
       Link the privacy notice from the collection endpoint.
+
+  - scanner: semgrep
+    ruleId: dpdpa.generic.lawful-basis-missing
+    control: DPDPA-7-LAWFUL-01
+    confidence: advisory
+    rationale: >-
+      A path persists personal data without a visible lawful-basis marker. The
+      processing may be lawful outside the repository, but no basis is recorded
+      in the code that performs it.
+    remediationTemplate: >-
+      Record the lawful basis or legitimate use beside the processing path and
+      include it in the data inventory.
+
+  - scanner: semgrep
+    ruleId: dpdpa.generic.breach-alert-missing
+    control: DPDPA-8.5-BREACH-01
+    confidence: advisory
+    rationale: >-
+      A security or error event path has no notification hook, so a personal
+      data breach may not be escalated to the response process.
+    remediationTemplate: >-
+      Route security events to an alerting channel and document the breach
+      notification runbook.
+
+  - scanner: semgrep
+    ruleId: dpdpa.generic.sdf-artifacts-missing
+    control: DPDPA-10-SDF-01
+    confidence: advisory
+    rationale: >-
+      Documentation discusses personal-data processing without referencing a
+      DPO, impact assessment, or audit record. SDF status is a legal
+      designation, so this is advisory evidence only.
+    remediationTemplate: >-
+      Link the DPO contact, DPIA, and audit records from the repository
+      documentation if the organisation is designated a Significant Data
+      Fiduciary.

@@ -49,7 +49,7 @@ function iso(value: Date | string | null | undefined): string {
 }
 
 function score(value: number | null): string {
-  return value === null ? '-' : value.toFixed(1);
+  return value === null ? 'Not assessed' : value.toFixed(1);
 }
 
 function duration(ms: number | null): string {
@@ -196,8 +196,13 @@ class ReportWriter {
         characterSpacing: 0.9,
         lineBreak: false,
       });
+      const valueWidth = width - 10;
       this.setText('Helvetica-Bold', 22);
-      this.doc.text(item.value, x, this.y + 13, { width: width - 10, lineBreak: false });
+      const measured = this.doc.widthOfString(item.value);
+      if (measured > valueWidth) {
+        this.doc.fontSize(Math.floor((22 * valueWidth) / measured));
+      }
+      this.doc.text(item.value, x, this.y + 13, { lineBreak: false });
     });
     this.y += 44;
   }
@@ -356,8 +361,8 @@ class ReportWriter {
         ['Severity', 'Control', 'Finding', 'Location'],
         model.topFindings.map((finding) => [
           finding.severity,
-          finding.dpdpa?.section ?? '-',
-          `${finding.message}\n${finding.dpdpa?.title ?? finding.scanner}`,
+          finding.dpdpa?.section ?? 'Unmapped',
+          `${finding.message}\n${finding.dpdpa?.title ?? 'Unmapped — no DPDPA control'}`,
           `${finding.filePath}:${finding.lineStart}`,
         ]),
         [CONTENT_WIDTH * 0.12, CONTENT_WIDTH * 0.12, CONTENT_WIDTH * 0.53, CONTENT_WIDTH * 0.23],
@@ -375,7 +380,7 @@ class ReportWriter {
         this.paragraph(
           finding.dpdpa
             ? `Control ${finding.dpdpa.code}: ${finding.dpdpa.title}`
-            : `Scanner: ${finding.scanner}`,
+            : `Unmapped finding from ${finding.scanner}`,
           8.5,
         );
         this.bullets(finding.remediation?.steps ?? []);

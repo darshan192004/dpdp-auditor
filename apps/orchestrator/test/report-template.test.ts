@@ -104,6 +104,18 @@ describe('renderReportHtml (P5-18)', () => {
     expect(html).toContain('non-compliant');
   });
 
+  it('labels unassessed sections and unmapped findings explicitly', () => {
+    const base = model();
+    const html = renderReportHtml(
+      model({
+        topFindings: [{ ...base.topFindings[0]!, dpdpa: null }],
+      }),
+    );
+    expect(html).toContain('Not assessed');
+    expect(html).toContain('Unmapped — no DPDPA control');
+    expect(html).toContain('Unmapped finding from semgrep');
+  });
+
   it('withholds the grade when the scan has none', () => {
     const html = renderReportHtml(model({ scan: { ...model().scan, grade: null, score: 74.1 } }));
     expect(html).toContain('withheld');

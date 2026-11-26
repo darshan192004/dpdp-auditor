@@ -93,7 +93,7 @@ function iso(value: Date | string | null | undefined): string {
 }
 
 function score(value: number | null): string {
-  return value === null ? '-' : value.toFixed(1);
+  return value === null ? 'Not assessed' : value.toFixed(1);
 }
 
 function duration(ms: number | null): string {
@@ -149,7 +149,7 @@ function findingRows(model: ReportTemplateModel): string {
           <br /><span class="muted">${esc(finding.filePath)}:${finding.lineStart}</span>
         </td>
         <td class="cap">${esc(finding.severity)}</td>
-        <td>${esc(finding.dpdpa ? `${finding.dpdpa.section} ${finding.dpdpa.title}` : '-')}</td>
+        <td>${esc(finding.dpdpa ? `${finding.dpdpa.section} ${finding.dpdpa.title}` : 'Unmapped — no DPDPA control')}</td>
         <td>${esc(finding.scanner)}</td>
       </tr>`,
     )
@@ -170,7 +170,7 @@ function remediationItems(model: ReportTemplateModel): string {
       return `
       <div class="finding">
         <h3><span class="cap">${esc(finding.severity)}</span> ${esc(finding.remediation?.summary ?? finding.message)}</h3>
-        <p class="muted">${esc(finding.dpdpa ? `Control ${finding.dpdpa.code}: ${finding.dpdpa.title}` : finding.scanner)}</p>
+        <p class="muted">${esc(finding.dpdpa ? `Control ${finding.dpdpa.code}: ${finding.dpdpa.title}` : `Unmapped finding from ${finding.scanner}`)}</p>
         <ol>${steps}</ol>
       </div>`;
     })
