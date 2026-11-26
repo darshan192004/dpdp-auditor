@@ -804,8 +804,9 @@ YAML
   }
   # The dump preserves table ownership from the live DB; the scratch cluster
   # only creates POSTGRES_USER, so recreate the owner roles before restoring.
-  for role in $(kubectl -n dpdpa exec "$RESTORE_POD" -- sh -c 'gzip -dc "$1"' sh "$dump" \
-    | grep -oE 'OWNER TO [^;]+|FOR ROLE [^ ]+' | awk '{print $NF}' | tr -d '"' | sort -u); do
+  for role in $( { kubectl -n dpdpa exec "$RESTORE_POD" -- sh -c 'gzip -dc "$1"' sh "$dump" \
+    | grep -oE 'OWNER TO [^;]+|FOR ROLE [^ ]+|TO [a-z_]+' | awk '{print $NF}' | tr -d '"';
+    printf '%s\n' dpdpa_migrate dpdpa_runtime; } | sort -u); do
     [ "$role" = dpdpa ] && continue
     kubectl -n dpdpa exec "$RESTORE_POD" -- \
       psql -U dpdpa -d scratch -c "CREATE ROLE \"$role\";" >/dev/null 2>&1 || true
