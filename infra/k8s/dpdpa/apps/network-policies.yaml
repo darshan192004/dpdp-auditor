@@ -131,6 +131,8 @@ spec:
     - to:
         - ipBlock:
             cidr: 140.82.112.0/20
+        - ipBlock:
+            cidr: 20.207.73.0/24
       ports:
         - protocol: TCP
           port: 443
@@ -412,11 +414,13 @@ spec:
       ports:
         - protocol: TCP
           port: 443
-    # GitHub web/git smart-HTTP range from the existing runner allowlist
-    # (docs/security.md §5.2; update with the documented CIDR when it changes).
+    # GitHub web/git smart-HTTP ranges. api/github.com and codeload currently
+    # resolve into 20.207.73.0/24; keep the legacy range for failover.
     - to:
         - ipBlock:
             cidr: 140.82.112.0/20
+        - ipBlock:
+            cidr: 20.207.73.0/24
       ports:
         - protocol: TCP
           port: 443
