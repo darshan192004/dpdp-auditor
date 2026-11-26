@@ -20,9 +20,10 @@ RUN pnpm exec turbo build --filter=@dpdpa/orchestrator...
 # install also keeps the web workspace's runtime deps (Nuxt modules and their
 # bundled binaries) in the shared store, which bloats this image and drags in
 # unrelated CVEs.
-# --ignore-scripts skips the root `prepare: husky` hook (husky is a dev dep).
+# Scripts must run: @prisma/engines' postinstall places the query/schema
+# engines in the image. HUSKY=0 above neutralises the root prepare hook.
 RUN rm -rf node_modules apps/*/node_modules packages/*/node_modules
-RUN pnpm install --prod --frozen-lockfile --ignore-scripts --filter=@dpdpa/orchestrator...
+RUN pnpm install --prod --frozen-lockfile --filter=@dpdpa/orchestrator...
 RUN pnpm --filter @dpdpa/orchestrator exec prisma generate
 # `pnpm install --prod` only creates node_modules for workspaces that still have
 # runtime dependencies. @dpdpa/observability has none, so its directory is
