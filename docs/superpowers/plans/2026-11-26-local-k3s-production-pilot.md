@@ -791,7 +791,7 @@ git commit -m "feat(identity): add seed-account import Job and forced rotation"
 
 **Interfaces:**
 - Consumes: k3s cluster access via `kubectl`.
-- Produces: namespaces `dpdpa`, `dpdpa-scanners`; `RuntimeClass gvisor`; node label `workload=scanner` and taint `workload=scanner:NoSchedule`; Secret `dpdpa-tls` of type `kubernetes.io/tls`; CA cert file for client distribution.
+- Produces: namespaces `dpdpa`, `dpdpa-scanners`; `RuntimeClass gvisor`; node label `workload=scanner`; Secret `dpdpa-tls` of type `kubernetes.io/tls`; CA cert file for client distribution. The `workload=scanner:NoSchedule` taint is deliberately omitted on this single-node cluster — see implementation notes.
 
 - [ ] **Step 1: Write the validation script**
 
@@ -845,7 +845,8 @@ kubectl apply -f infra/k8s/dpdpa/namespaces.yaml
 
 ```bash
 kubectl label node imperator.pride.improwised.dev workload=scanner --overwrite
-kubectl taint node imperator.pride.improwised.dev workload=scanner:NoSchedule --overwrite
+# No taint on the single-node pilot: coredns, local-path-provisioner and the
+# media-system pods share this node. Scanner Jobs select the node by label.
 ```
 
 - [ ] **Step 5: Generate the CA and TLS secret**
@@ -872,6 +873,32 @@ Expected: prints `cluster preparation verified`.
 git add infra/k8s/dpdpa/namespaces.yaml infra/scripts/generate-ca.sh infra/scripts/prepare-scanner-node.sh infra/scripts/validate-cluster-prep.sh
 git commit -m "infra(k3s): prepare namespaces, gVisor runtime and private TLS"
 ```
+
+**Implementation notes (execution against the live cluster):**
+- gVisor is pinned to `release-20261123.1`; the x86_64 archive SHA-256 is
+  `d1d9ee716905c9fd8482d9e5bd7e58638e2f8b7c325c8916771239d0a8171550`. A
+  sandbox smoke test initially failed with `stat /usr/local/bin/gvisor-bin/gvisor_sentry:
+  no such file or directory`; this release requires the whole `gvisor-bin/` sidecar
+  directory next to `runsc`, so the install script copies it with root ownership.
+  After that, a `runtimeClassName: gvisor` pod in `dpdpa-scanners` reached
+  `Succeeded` and logged `Starting gVisor...`.
+- The k3s systemd unit pins `--node-ip 10.0.15.186 --flannel-iface eno1`. The wired
+  interface had lost its DHCP lease, so the first restart could not start the
+  API server. `10.0.15.186/24` was restored on `eno1` for the pilot; the runbook
+  must record this prerequisite, and the script retries the post-restart API calls.
+- CA SHA-256 is `e95277810172eba2e471ba0717530ccb15a6594d8b7fdee13685f3fdc5bc1a51`.
+  Generated material lives in gitignored `infra/certs/`; Task 10 records the
+  fingerprint in the runbook.
+- **Decision (2026-11-26):** the approved `workload=scanner:NoSchedule` taint was
+  removed from the single-node cluster. It made coredns unschedulable
+  (`0/1 nodes had untolerated taint(s)`) and broke in-cluster DNS. The node keeps
+  only the `workload=scanner` label; scanner Jobs already carry a matching
+  `nodeSelector`, so isolation is preserved at the selection layer without
+  evicting system workloads. An in-pod `nslookup kubernetes.default.svc.cluster.local`
+  succeeded after the change.
+- Pre-existing `CreateContainerError` on `dex` and `worker` in `media-system` (stale
+  container-name reservations, 30+ failures over weeks) remains unrelated to the
+  pilot. `coredns` itself is now healthy (`1/1 Running`).
 
 ---
 

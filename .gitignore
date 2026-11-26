@@ -38,6 +38,9 @@ test-results/
 
 # Harness session artifacts (SDD ledger, etc.) — never commit
 .superpowers/
+
+# Deploy-time generated CA/keys — never commit
+infra/certs/
 # Local-only config using the installed Chrome channel (bundled Chromium blocked)
 apps/web/playwright.local.config.ts
 

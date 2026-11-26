@@ -96,7 +96,9 @@ The orchestrator's existing Kubernetes driver is used unchanged. Configuration:
 - `SCANNERS_NAMESPACE=dpdpa-scanners`
 - `RUNNER_IMAGE` set to the digest reference resolved from the pushed `1.0.0-pilot.1` tag, in the form `registry.dpdpa.svc.cluster.local:5000/dpdpa/scan-runner@sha256:<64-hex digest>`
 
-`kubernetes-scan-executor.ts` hardcodes `runtimeClassName: gvisor` plus a `workload=scanner` node selector and toleration. The deployment therefore provisions `runsc`, creates a `RuntimeClass` named `gvisor`, and labels/taints the node `workload=scanner:NoSchedule`. No code change to the Job spec is made.
+`kubernetes-scan-executor.ts` hardcodes `runtimeClassName: gvisor` plus a `workload=scanner` node selector and toleration. The deployment therefore provisions `runsc`, creates a `RuntimeClass` named `gvisor`, and labels the node `workload=scanner`. No code change to the Job spec is made.
+
+**Local pilot exception (2026-11-26):** the `workload=scanner:NoSchedule` taint described for multi-node production is not applied here. This k3s cluster has a single node that also runs coredns, local-path-provisioner and pre-existing media-system pods; the taint made DNS unschedulable. Scanner isolation is achieved with the `workload=scanner` node selector and `gvisor` RuntimeClass instead. The Job toleration remains harmless and is kept unchanged.
 
 Job guarantees are retained as-is: `backoffLimit: 0`, `activeDeadlineSeconds: 900`, `ttlSecondsAfterFinished: 300`, `runAsUser: 10001`, read-only root filesystem, dropped capabilities, three `emptyDir` volumes, a per-scan Secret with an `ownerReference` to the Job, and a namespace-scoped ServiceAccount limited to Jobs and Secrets.
 
