@@ -6,6 +6,13 @@
 ARG NODE_IMAGE=node:22-bookworm-slim@sha256:5ec23b7c622b00547753bc6ffd78085dd868a68aeb41c8e0a1418f033e13d96d
 
 FROM ${NODE_IMAGE} AS build
+# Prisma's postinstall detects the platform with `openssl version`. The slim
+# base has no openssl CLI, so it silently downloads the 1.1.x engine; the
+# distroless runtime is Debian 13 (OpenSSL 3.x) and would try to download the
+# correct engine at runtime, which default-deny egress forbids.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends openssl \
+ && rm -rf /var/lib/apt/lists/*
 ENV PNPM_HOME=/pnpm \
     PATH=/pnpm:$PATH \
     HUSKY=0
@@ -24,6 +31,9 @@ RUN pnpm exec turbo build --filter=@dpdpa/orchestrator...
 RUN rm -rf node_modules apps/*/node_modules packages/*/node_modules
 RUN pnpm install --prod --frozen-lockfile --ignore-scripts --filter=@dpdpa/orchestrator...
 RUN pnpm --filter @dpdpa/orchestrator exec prisma generate
+# Fail the build here rather than let `prisma migrate deploy` attempt a
+# runtime download of the matching engine under default-deny egress.
+RUN test -f node_modules/.pnpm/@prisma+engines@7.10.1/node_modules/@prisma/engines/schema-engine-debian-openssl-3.0.x
 # `pnpm install --prod` only creates node_modules for workspaces that still have
 # runtime dependencies. @dpdpa/observability has none, so its directory is
 # absent and the COPY below would fail; create it explicitly.
@@ -52,13 +62,6 @@ COPY --from=build --chown=nonroot:nonroot /repo/packages/observability/node_modu
 # The rule-pack loader reads and hash-verifies every YAML file in this
 # directory at startup; without it the API exits with RULE_PACK_MISSING.
 COPY --from=build --chown=nonroot:nonroot /repo/packages/rule-packs ./packages/rule-packs
-# The prod install above skips lifecycle scripts, so @prisma/engines has no
-# platform binary. Copy the schema engine downloaded by the full build-stage
-# install; without it `prisma migrate deploy` tries to download from the
-# internet at runtime and fails under default-deny egress.
-COPY --from=build --chown=nonroot:nonroot \
-  /repo/node_modules/.pnpm/@prisma+engines@7.10.1/node_modules/@prisma/engines/schema-engine-debian-openssl-3.0.x \
-  ./node_modules/.pnpm/@prisma+engines@7.10.1/node_modules/@prisma/engines/
 USER nonroot
 EXPOSE 3001
 CMD ["apps/orchestrator/dist/main.js"]

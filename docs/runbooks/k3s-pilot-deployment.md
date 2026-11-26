@@ -134,6 +134,8 @@ The Chromium image's s6 service launches the browser with `CHROMIUM_ARGS` and fo
 
 The orchestrator image must copy `packages/rule-packs` into `/app/packages/rule-packs`, because `RulePackService.onModuleInit` hash-verifies the manifest at startup; omitting it causes `RULE_PACK_MISSING` and a CrashLoopBackOff. In the distroless image the Node binary is `/nodejs/bin/node`; Jobs must use that absolute path rather than `node` from `$PATH`. The migration Job runs as UID/GID 65532 (the distroless image's `nonroot` owner of the Prisma engine cache). Prisma CLI writes that cache at startup; root with `drop: ALL` lacks `CAP_DAC_OVERRIDE` and fails with `Can't write to .../@prisma/engines`. `allow-dpdpa-jobs-to-stateful-services` grants the one-off `migrate` and `seed-users` Jobs egress to Postgres/Redis under default-deny.
 
+The orchestrator build stage installs the `openssl` CLI before `pnpm install`. Without it Prisma's postinstall defaults to `openssl-1.1.x`; the Debian 13 distroless runtime needs `schema-engine-debian-openssl-3.0.x` and would attempt an internet download at migration time. The Dockerfile asserts the 3.0.x engine exists before producing the runtime image.
+
 Promote an image by changing the manifest to the new immutable `registry.dpdpa.svc.cluster.local:5000/dpdpa/<name>@sha256:<digest>` reference, applying the manifest, and waiting for rollout (never apply `apps/config.yaml`, which is a Secret template containing `REPLACE_AT_DEPLOY`):
 
 ```bash
