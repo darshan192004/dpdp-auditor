@@ -362,7 +362,7 @@ class ReportWriter {
         model.topFindings.map((finding) => [
           finding.severity,
           finding.dpdpa?.section ?? 'Unmapped',
-          `${finding.message}\n${finding.dpdpa?.title ?? `No DPDPA control (${finding.scanner})`}`,
+          `${finding.message}\n${finding.dpdpa?.title ?? 'Unmapped — no DPDPA control'}`,
           `${finding.filePath}:${finding.lineStart}`,
         ]),
         [CONTENT_WIDTH * 0.12, CONTENT_WIDTH * 0.12, CONTENT_WIDTH * 0.53, CONTENT_WIDTH * 0.23],
