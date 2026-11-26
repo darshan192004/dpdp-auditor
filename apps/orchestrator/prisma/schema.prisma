@@ -158,16 +158,19 @@ model Organization {
 }
 
 model User {
-  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email           String    @unique @db.Citext
-  name            String?   @db.Text
-  avatarUrl       String?   @map("avatar_url") @db.Text
-  githubUserId    BigInt?   @unique @map("github_user_id")
-  emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz
-  lastLoginAt     DateTime? @map("last_login_at") @db.Timestamptz
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz
-  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email              String    @unique @db.Citext
+  name               String?   @db.Text
+  avatarUrl          String?   @map("avatar_url") @db.Text
+  githubUserId       BigInt?   @unique @map("github_user_id")
+  emailVerifiedAt    DateTime? @map("email_verified_at") @db.Timestamptz
+  // Internal pilot password identity. Nullable so GitHub-derived users stay valid.
+  passwordHash       String?   @map("password_hash")
+  mustChangePassword Boolean   @default(false) @map("must_change_password")
+  lastLoginAt        DateTime? @map("last_login_at") @db.Timestamptz
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+  deletedAt          DateTime? @map("deleted_at") @db.Timestamptz
 
   memberships           Membership[]
   membershipsInvited    Membership[]       @relation("MembershipInvitedBy")

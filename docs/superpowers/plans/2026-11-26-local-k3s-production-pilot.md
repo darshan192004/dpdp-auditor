@@ -158,8 +158,8 @@ describe('password auth migration', () => {
       new URL('../prisma/migrations/20261127000000_password_auth/migration.sql', import.meta.url),
       'utf8',
     );
-    expect(sql).toContain('"passwordHash" TEXT');
-    expect(sql).toContain('"mustChangePassword" BOOLEAN NOT NULL DEFAULT false');
+    expect(sql).toContain('"password_hash" TEXT');
+    expect(sql).toContain('"must_change_password" BOOLEAN NOT NULL DEFAULT false');
   });
 });
 ```
@@ -184,8 +184,8 @@ Create `apps/orchestrator/prisma/migrations/20261127000000_password_auth/migrati
 
 ```sql
 -- Add password credentials for the internal pilot. Nullable so GitHub-derived users remain valid.
-ALTER TABLE "users" ADD COLUMN "passwordHash" TEXT;
-ALTER TABLE "users" ADD COLUMN "mustChangePassword" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "users" ADD COLUMN "password_hash" TEXT;
+ALTER TABLE "users" ADD COLUMN "must_change_password" BOOLEAN NOT NULL DEFAULT false;
 ```
 
 - [ ] **Step 4: Generate the client and run the migration locally**
