@@ -318,7 +318,7 @@ cancel_stale_scans() {
       return 1
     }
     cancelled=$((cancelled + 1))
-  done < <(jq -r '.data[]? | .id // empty' "$TMP_DIR/api-response.json")
+  done < <(jq -r '.data.items[]? | .id // empty' "$TMP_DIR/api-response.json")
   note "cancelled ${cancelled} stale active scan(s)"
 }
 
@@ -794,7 +794,7 @@ YAML
   if ! kubectl -n dpdpa exec -i "$RESTORE_POD" -- \
     sh -c 'gunzip -c "$1" | psql -U dpdpa -d scratch -v ON_ERROR_STOP=1' sh "$dump" \
     >"$TMP_DIR/restore.log" 2>&1; then
-    note "restore of $(basename "$dump") failed (see restore-drill Pod logs)"
+    note "restore of $(basename "$dump") failed: $(tail -n 3 "$TMP_DIR/restore.log" 2>/dev/null | tr '\n' ' ')"
     return 1
   fi
 
