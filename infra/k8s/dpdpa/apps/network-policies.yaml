@@ -23,7 +23,11 @@ spec:
   policyTypes: [Ingress]
   ingress:
     - from:
-        # ingress-nginx controller namespace (adjust if installed elsewhere).
+        # The pilot ingress controller runs with hostNetwork on the single node,
+        # so its traffic arrives from the node IP rather than a pod IP.
+        - ipBlock:
+            cidr: 10.0.15.186/32
+        # Pod-based controllers (multi-node production) match by namespace.
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: ingress-nginx
