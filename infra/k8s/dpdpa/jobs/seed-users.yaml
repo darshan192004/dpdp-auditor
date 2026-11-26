@@ -19,7 +19,7 @@ spec:
       containers:
         - name: seed-users
           image: registry.dpdpa.svc.cluster.local:5000/dpdpa/orchestrator:1.0.0-pilot.1
-          command: ['node', 'dist/commands/seed-users.js']
+          command: ['node', 'apps/orchestrator/dist/commands/seed-users.js']
           env:
             - name: DATABASE_URL
               valueFrom:
