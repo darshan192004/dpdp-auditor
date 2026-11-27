@@ -18,5 +18,10 @@ describe('@dpdpa/contracts package entry', () => {
     expect(srcIndex.FINGERPRINT_VERSION).toBe(1);
     expect(srcIndex.ERROR_CODES.PAGINATION_LIMIT.httpStatus).toBe(422);
     expect(srcIndex.VERSION).toBe('0.1.0');
+    expect(srcIndex.READINESS_VERDICTS).toHaveLength(8);
+    expect(srcIndex.FINDING_KINDS).toHaveLength(5);
+    expect(srcIndex.READINESS_CONFIDENCES).toEqual(['direct', 'inferred', 'advisory']);
+    expect(typeof srcIndex.controlResultSchema.parse).toBe('function');
+    expect(typeof srcIndex.assessmentSummarySchema.parse).toBe('function');
   });
 });
