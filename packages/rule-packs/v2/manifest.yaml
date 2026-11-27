@@ -1,6 +1,6 @@
 version: 1
 pack: dpdpa-2026.11.0
-generatedAt: '2026-11-27T11:27:12.650Z'
+generatedAt: '2026-11-27T11:27:24.327Z'
 files:
   - path: cmp_catalog.yaml
     sha256: 0e8b9137b9b161e30099b71067f450e2bfcfcfafededa2079c84569cf8b6b3fc
@@ -30,5 +30,15 @@ files:
     sha256: 4d45c5a76f17abeccfcaa16e79f951c6c5710dc2be3519ece8ef803ab50b0235
   - path: templates/README.md
     sha256: f988a7237d91e46e341b0b00d14f44a725602ea4d555e98a72ef1145090e459b
+  - path: templates/breach-runbook.md
+    sha256: f688a80df341608db39121dbe25c49e67efeef44e574144da5f8bfcf93767440
+  - path: templates/dsr-sop.md
+    sha256: e5aa19765ed2a251ad1891768b80c8b9aa75f96b72354e6076a3c19f7bf402ae
+  - path: templates/privacy-notice.md
+    sha256: b65479f8b018bf3fc108b477fc8fec078a53675d8a69d8baa7cbe89af9decc67
+  - path: templates/processor-list.md
+    sha256: 36732ff1472ee7f84dc2795de7d275fc8adecc1ad6582ac373060e8136ac41d5
   - path: templates/remediation.md
     sha256: 0e310def48a7b0457931e536e907207b76e6b00f39e4dccc7ec14696ffdf56b6
+  - path: templates/retention-schedule.md
+    sha256: 8ffa9d93b48e220c0c1e6ea8f322cceff9f295152fdcff27812819d5b861fb55
