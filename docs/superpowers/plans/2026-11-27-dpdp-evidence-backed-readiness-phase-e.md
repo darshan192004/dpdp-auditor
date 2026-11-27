@@ -1307,7 +1307,7 @@ git commit -m "feat(readiness): add scoped attestation service"
 - Consumes: `SCORING_V2_VERSION`, `scanAssessmentUpdate`, `assessmentEventFields`, `factsFrom`, and B's `Attestation` rows.
 - Produces: `ScanScoringService.rescoreRepository(orgId, repositoryId, tx)`; `scorePersisted` accepts an optional active-attestation map and rewrites `control_results` for every completed v2 scan; legacy scans are untouched.
 
-- [ ] **Step 1: Write the failing repository-rescore test**
+- [x] **Step 1: Write the failing repository-rescore test**
 
 ```ts
 // apps/orchestrator/test/attestation-rescore.test.ts
@@ -1419,7 +1419,7 @@ describe('attestation-triggered rescore', () => {
 });
 ```
 
-- [ ] **Step 2: Run the failing rescore test and confirm RED**
+- [x] **Step 2: Run the failing rescore test and confirm RED**
 
 ```bash
 pnpm --filter @dpdpa/orchestrator exec vitest run test/attestation-rescore.test.ts
@@ -1432,7 +1432,7 @@ FAIL  test/attestation-rescore.test.ts > attestation-triggered rescore > rescore
 TypeError: service.rescoreRepository is not a function
 ```
 
-- [ ] **Step 3: Add the rescore helper and attestation-aware scoring input**
+- [x] **Step 3: Add the rescore helper and attestation-aware scoring input**
 
 ```ts
 // apps/orchestrator/src/modules/scoring/scan-scoring.service.ts
@@ -1552,7 +1552,7 @@ Change the `scorePersisted` signature and evaluator call:
       }).results;
 ```
 
-- [ ] **Step 4: Run the focused rescore test and confirm GREEN**
+- [x] **Step 4: Run the focused rescore test and confirm GREEN**
 
 ```bash
 pnpm --filter @dpdpa/orchestrator exec vitest run test/attestation-rescore.test.ts
@@ -1566,7 +1566,7 @@ Test Files  1 passed (1)
 Tests  1 passed (1)
 ```
 
-- [ ] **Step 5: Run full gates and commit**
+- [x] **Step 5: Run full gates and commit**
 
 ```bash
 pnpm lint && pnpm typecheck && pnpm test

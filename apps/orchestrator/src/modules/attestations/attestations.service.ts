@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { ApiError } from '../../common/api-error.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
@@ -14,17 +14,6 @@ import {
   type WriteAttestationInput,
 } from './attestation.schemas.js';
 
-// The concrete rescore method lands with the attestation-triggered rescore in
-// Task 6. Binding by the ScanScoringService token keeps this task independently
-// testable and green.
-interface RepositoryRescorer {
-  rescoreRepository(
-    orgId: string,
-    repositoryId: string,
-    tx: Prisma.TransactionClient,
-  ): Promise<void>;
-}
-
 @Injectable()
 export class AttestationsService {
   constructor(
@@ -33,7 +22,7 @@ export class AttestationsService {
     private readonly pack: RulePackService,
     private readonly identity: IdentityService,
     private readonly audit: AuditService,
-    @Inject(ScanScoringService) private readonly scoring: RepositoryRescorer,
+    private readonly scoring: ScanScoringService,
     private readonly prisma: PrismaService,
   ) {}
 
