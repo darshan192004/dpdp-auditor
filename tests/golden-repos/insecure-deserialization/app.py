@@ -23,3 +23,5 @@ def get_report():
     # Insecure: eval() is dangerous
     report_config = eval(report_type)
     return jsonify(generate_report(report_config))
+
+# CANARY_insecure_deserialization_20261127_never_emit

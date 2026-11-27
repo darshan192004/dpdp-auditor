@@ -19,3 +19,5 @@ def index():
 @app.route('/dashboard')
 def dashboard():
     return render_template('dashboard.html')
+
+# CANARY_missing_csp_headers_20261127_never_emit

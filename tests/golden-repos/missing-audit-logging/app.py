@@ -22,3 +22,5 @@ def login():
     # Missing: Log successful/failed login attempts
     user = authenticate(request.json['email'], request.json['password'])
     return jsonify({'token': generate_token(user)})
+
+# CANARY_missing_audit_logging_20261127_never_emit

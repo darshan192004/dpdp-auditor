@@ -30,3 +30,5 @@ app.post('/set-preferences', (req, res) => {
   res.cookie('userEmail', 'test@example.com');
   res.json({ success: true });
 });
+
+// CANARY_insecure_cookies_20261127_never_emit

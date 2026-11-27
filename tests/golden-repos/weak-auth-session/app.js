@@ -33,3 +33,5 @@ app.post('/logout', (req, res) => {
 });
 
 app.listen(3000);
+
+// CANARY_weak_auth_session_20261127_never_emit
