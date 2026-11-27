@@ -2,6 +2,12 @@
 import type { ReadinessAttestation } from '~~/shared/readiness';
 
 defineProps<{ rows: ReadinessAttestation[]; canWrite: boolean }>();
+
+/** A human statement's expiry is state, never code evidence. */
+function expiryLabel(expiresAt: string | null): string {
+  if (expiresAt === null) return 'No expiry recorded';
+  return Date.parse(expiresAt) < Date.now() ? `Expired ${expiresAt}` : `Expires ${expiresAt}`;
+}
 </script>
 
 <template>
@@ -28,6 +34,9 @@ defineProps<{ rows: ReadinessAttestation[]; canWrite: boolean }>();
         <p class="font-mono text-sm">{{ row.key }}</p>
         <p class="text-sm">Attested {{ row.answer ? 'yes' : 'no' }}</p>
         <p class="text-ink-500 text-xs">Recorded {{ row.attestedAt }}</p>
+        <p class="text-ink-500 text-xs" data-testid="attestation-expiry">
+          {{ expiryLabel(row.expiresAt) }}
+        </p>
       </li>
     </ul>
     <p class="text-ink-500 text-xs">

@@ -6,7 +6,7 @@ import { requireIdentity } from '../../../../utils/session';
 
 export default defineEventHandler(async (event) => {
   const scanId = getRouterParam(event, 'scanId');
-  if (fixturesAnswer(event)) return { data: fixtureFixPlan() };
+  if (fixturesAnswer(event)) return { data: fixtureFixPlan(scanId) };
   const identity = requireIdentity(event);
   event.context.orgId = identity.orgId;
   event.context.userId = identity.userId;

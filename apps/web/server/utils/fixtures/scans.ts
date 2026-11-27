@@ -1,6 +1,7 @@
 import {
   FIXTURE_PARTIAL_SCAN_ID,
   FIXTURE_RUNNING_SCAN_ID,
+  FIXTURE_V2_SCAN_ID,
   PARTIAL_FINDING_COUNTS,
 } from '~~/shared/fixtures';
 import {
@@ -11,6 +12,7 @@ import {
   type ScanListPage,
 } from '~~/shared/scan';
 import { FIXTURE_SCAN_ID, FixtureNotFoundError } from './findings';
+import { FIXTURE_V2_EVENTS, fixtureV2Scan } from './v2-walkthrough';
 
 export { FIXTURE_PARTIAL_SCAN_ID, FIXTURE_RUNNING_SCAN_ID };
 
@@ -145,6 +147,7 @@ const RUNNING: ScanDetail = {
 export const FIXTURE_SCANS: readonly ScanDetail[] = [FULL, PARTIAL, RUNNING];
 
 export function getFixtureScan(scanId: string): ScanDetail {
+  if (scanId === FIXTURE_V2_SCAN_ID) return fixtureV2Scan();
   const scan = FIXTURE_SCANS.find((candidate) => candidate.id === scanId);
   if (scan === undefined) throw new FixtureNotFoundError('The scan does not exist.');
   return structuredClone(scan);
@@ -246,6 +249,7 @@ const FIXTURE_SCAN_EVENTS: Record<string, readonly ScanEvent[]> = {
 
 /** `GET /api/v1/scan/:scanId/events` (api.md §3.5), oldest first. */
 export function getFixtureScanEvents(scanId: string): ScanEvent[] {
+  if (scanId === FIXTURE_V2_SCAN_ID) return structuredClone([...FIXTURE_V2_EVENTS]);
   const events = FIXTURE_SCAN_EVENTS[scanId];
   if (events === undefined) throw new FixtureNotFoundError('The scan does not exist.');
   return structuredClone([...events]);

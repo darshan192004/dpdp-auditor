@@ -1,3 +1,6 @@
+import { FIXTURE_V2_REPO_ID } from '~~/shared/fixtures';
+import { fixtureV2Attestations } from './v2-walkthrough';
+
 export interface FixtureAttestation {
   id: string;
   repositoryId: string;
@@ -13,6 +16,7 @@ export interface FixtureAttestation {
 export function fixtureAttestations(
   repositoryId = '0f000000-0000-4000-8000-000000000020',
 ): FixtureAttestation[] {
+  if (repositoryId === FIXTURE_V2_REPO_ID) return fixtureV2Attestations();
   return [
     {
       id: 'att_01J8Z6C3D4E5F6G7H8J9K0M1N2',

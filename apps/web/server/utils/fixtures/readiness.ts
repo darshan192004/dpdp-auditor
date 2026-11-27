@@ -1,4 +1,6 @@
+import { FIXTURE_V2_SCAN_ID } from '~~/shared/fixtures';
 import type { FixPlan, ReadinessGap, ReadinessInventory } from '~~/shared/readiness';
+import { fixtureV2FixPlan, fixtureV2Gaps } from './v2-walkthrough';
 
 export function fixtureInventory(): ReadinessInventory {
   return {
@@ -18,7 +20,8 @@ export function fixtureInventory(): ReadinessInventory {
   };
 }
 
-export function fixtureGaps(): ReadinessGap[] {
+export function fixtureGaps(scanId?: string): ReadinessGap[] {
+  if (scanId === FIXTURE_V2_SCAN_ID) return fixtureV2Gaps();
   return [
     {
       controlCode: 'DPDPA-8.4-SECRET-01',
@@ -31,7 +34,8 @@ export function fixtureGaps(): ReadinessGap[] {
   ];
 }
 
-export function fixtureFixPlan(): FixPlan {
+export function fixtureFixPlan(scanId?: string): FixPlan {
+  if (scanId === FIXTURE_V2_SCAN_ID) return fixtureV2FixPlan();
   return {
     steps: [
       {

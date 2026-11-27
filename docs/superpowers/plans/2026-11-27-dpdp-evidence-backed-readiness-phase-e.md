@@ -5403,6 +5403,106 @@ Exact conflicts and resolutions:
 - Final tip gate results (all logs under `/tmp/opencode/phase-e-final-*.log`, all exit 0): `pnpm lint` clean (`All matched files use Prettier code style!`); `pnpm typecheck` `Tasks: 11 successful, 11 total`; `pnpm test` `Tasks: 12 successful, 12 total`; focused `pnpm --filter @dpdpa/web exec playwright test e2e/phase-e-walkthrough.spec.ts e2e/pdf-parity.spec.ts` `8 passed (21.9s)`; `pnpm --filter @dpdpa/web lint:language` `lint:language: 0 forbidden phrases`; `pnpm --filter @dpdpa/rule-packs test` `pass 14`, `fail 0`, `cancelled 0`, `skipped 0`, `todo 0`; `pnpm --filter @dpdpa/rule-packs validate` `{"pack":"dpdpa-2026.11.0","issues":[]}`; `pnpm test:e2e` `87 passed (1.1m)`; `git diff --check` exit 0. Working tree clean after the final commit.
 - Step 6 remains unchecked and Step 8 is delivered in the final response; no push, PR, merge, deploy, image-pin change, or `infra/` change was performed.
 
+### Rebase onto Phase D HEAD (`ff38e2b`) and synthetic v2 fixture coverage
+
+Pre-rebase tip was `b959ea4` with a clean tree; `git fetch origin main --prune` confirmed
+`origin/main` `ff38e2bc2b1847aad20827550d0c2bdbe3a2ba4c`. `git rebase origin/main` replayed 18
+commits, stopped on two conflicts, and finished with
+`Successfully rebased and updated refs/heads/feat/dpdp-readiness-phase-e.` No `--skip`,
+`--abort`, force-push, or force-add was used. The rebased tip before fixture work was `aa26f22`,
+with merge base `ff38e2b` and a clean tree.
+
+Exact conflicts and resolutions:
+
+1. `290f52a feat(readiness): map v2 attestation keys to controls`:
+   `CONFLICT (content): Merge conflict in packages/rule-packs/v2/controls.yaml`,
+   `CONFLICT (content): Merge conflict in packages/rule-packs/v2/manifest.yaml`,
+   `CONFLICT (content): Merge conflict in packages/rule-packs/test/v2-phase-c-controls.test.mjs`,
+   `error: could not apply 290f52a...`. Kept Phase D's full 49-control catalogue (including its
+   `DPDPA-8.4-SECRET-01` `evidenceMode: violation`, weight 8, and `gitleaks_scan` /
+   `generic-api-key` violation rule), kept Phase D's subset assertions, and added only
+   `attestationKey: secrets.managed_store` to the existing control. Regenerated the checksum with
+   `pnpm --filter @dpdpa/rule-packs manifest:v2` (`manifest.yaml: 20 files for
+   dpdpa-2026.11.0`; controls SHA-256 `daa8f80…4763`). Test-first RED/GREEN:
+   `pnpm --filter @dpdpa/rule-packs exec node --test test/v2-phase-c-controls.test.mjs` RED exit 1,
+   `ℹ tests 2 / ℹ pass 1 / ℹ fail 1`, with
+   `AssertionError [ERR_ASSERTION]: Phase E must map the attestation key onto the existing control`,
+   `+ undefined`, `- 'secrets.managed_store'`; GREEN exit 0 with `ℹ pass 2 / ℹ fail 0`.
+   Rebased as `1147d34`.
+2. `874e9ef feat(readiness): load v2 attestation key mappings`:
+   `CONFLICT (content): Merge conflict in apps/orchestrator/test/rule-pack-v2.loader.test.ts`,
+   `error: could not apply 874e9ef...`. Preserved Phase E's attestation-loader tests (temp-dir
+   checksum drift, source-value rejection, attestation key mapping) and kept Phase D's relaxed
+   mapping-count assertion (`expect(loaded.mappings.length).toBeGreaterThanOrEqual(6)`). Focused
+   orchestrator tests: `Test Files 2 passed (2)`, `Tests 7 passed (7)`. Rebased as `8271405`.
+
+All 18 commits replayed; the formatting-only commit `670750f` was dropped as already upstream.
+Phase D catalogue, evidence rules, golden manifests, detector metadata, and commencement data
+remain present.
+
+Step 6 fixture gap: the legacy v1 scan fixture hid the readiness tiles, attestation verdict,
+owner/admin write control, audit entry, and expiry state from a live fixture session. Added only
+synthetic v2 fixture coverage (no source text, file contents, secrets, or canaries):
+`apps/web/server/utils/fixtures/v2-walkthrough.ts` and two focused test files, wiring them into
+`getFixtureScan`/`getFixtureScanEvents`, `fixtureGaps(scanId)`, `fixtureFixPlan(scanId)`,
+`fixtureAttestations(repoId)`, the audit fixture, the attestation list expiry line, and the
+fixtures-only `?fixtureRole=owner|admin` override. The v2 scan keeps `grade: null` with
+`gradeWithheldReason: insufficient_evidence`; the attestation gap uses verdict `ATTESTED_FAIL`
+with `evidence: []`; missing evidence never becomes `PASS`.
+
+Test-first RED (`pnpm --filter @dpdpa/web exec vitest run test/v2-walkthrough-fixtures.test.ts
+test/v2-walkthrough-ui.test.ts`, exit 1):
+
+```text
+Test Files  2 failed (2)
+     Tests  8 failed | 1 passed (9)
+
+FAIL |nuxt| test/v2-walkthrough-fixtures.test.ts > ... > exposes a scoring-v2 scan with every readiness surface
+FixtureNotFoundError: The scan does not exist.
+FAIL ... > keeps attestation verdicts out of gap evidence ...
+AssertionError: expected 0 to be greater than 0
+FAIL ... > lists the attested control in the fix plan
+AssertionError: expected [ 'DPDPA-8.4-SECRET-01' ] to include 'DPDPA-6-CONSENTGATE-01'
+FAIL ... > exposes expiry state and an owner-written attestation
+AssertionError: expected false to be true
+FAIL ... > records the attestation write in the audit trail
+AssertionError: expected 0 to be greater than 0
+FAIL ... > maps an owner fixture role so the write control is observable
+AssertionError: expected 'undefined' to be 'function'
+FAIL |nuxt| test/v2-walkthrough-ui.test.ts > ... > renders every readiness tile and withholds the letter grade
+FixtureNotFoundError: The scan does not exist.
+FAIL ... > shows the owner/admin write control and expiry state from fixtures
+AssertionError: expected 'AttestationsHuman statements recorded…' to contain 'Expired'
+```
+
+Test-first GREEN (same command, exit 0):
+
+```text
+Test Files  2 passed (2)
+     Tests  9 passed (9)
+```
+
+Full gate on the final code (all logs `/tmp/opencode/phase-e-step6-*.log`): `pnpm lint` exit 0
+(`All matched files use Prettier code style!`; an initial exit 1 flagged only Prettier formatting
+in three new/edited files, fixed with the repo's formatter and rerun clean); `pnpm typecheck` 11
+successful / 11 total; `pnpm test` 12 successful / 12 total; focused Playwright `8 passed (21.0s)`;
+`lint:language: 0 forbidden phrases`; rule-packs `pass 41 / fail 0 / skipped 0 / todo 0`; validate
+`{"pack":"dpdpa-2026.11.0","issues":[]}`; `pnpm test:e2e` `87 passed (47.0s)` (an initial run
+hit the known `scans-list` empty-state navigation flake, `1 failed / 86 passed`; a clean rerun
+passed 87/87). E2E-regenerated `.playwright-mcp` screenshots were restored; `git diff --check`
+clean; working tree clean after the commit.
+
+Live walkthrough surface IDs for the user (no server was started in this phase): scan detail
+`/app/scans/0f000000-0000-4000-8000-0000000000a1` (Score, Evidence coverage 42%, Open gaps 2,
+Consent gating 60%, Attested statements 2, Detectors unavailable gitleaks/checkov, "No letter");
+gaps and fix plan `?scanId=0f000000-0000-4000-8000-0000000000a1`; attestations
+`/app/readiness/attestations?repoId=0f000000-0000-4000-8000-0000000000a2` and the same URL with
+`&fixtureRole=owner` for the write control; audit `actionContains=attestation` shows
+`attestation.upserted`.
+
+Step 6 is **still unchecked**: the user must watch the live walkthrough and decide. No server,
+push, PR, merge, deploy, `infra/` change, or image-pin change was performed.
+
 ## Final review checklist (agent before handoff)
 
 - [ ] Every task has `Files`, `Consumes`/`Produces` interfaces, a failing test, a RED command with expected output, minimal code, a GREEN command with expected output, a full-gate command, and a commit command.
