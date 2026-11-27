@@ -1015,7 +1015,7 @@ describe('scoreScanV2', () => {
     expect(scored.grade).toBeNull();
     expect(scored.gradeWithheldReason).toBe('insufficient_evidence');
     expect(scored.evidenceCoverage).toBe(0);
-    expect(scored.counts.UNKNOWN).toBe(1);
+    expect(scored.verdictCounts.UNKNOWN).toBe(1);
   });
 
   it('gives no credit to a FAIL control', () => {
@@ -1029,7 +1029,7 @@ describe('scoreScanV2', () => {
     expect(scored.score).toBe(0);
     expect(scored.grade).toBe('F');
     expect(scored.gradeWithheldReason).toBeNull();
-    expect(scored.counts.FAIL).toBe(1);
+    expect(scored.verdictCounts.FAIL).toBe(1);
   });
 
   it('caps the grade at C when evidence coverage is below 0.75', () => {
@@ -1152,7 +1152,7 @@ export function scoreScanV2(input: ScoreInputV2): ScoreResultV2 {
       verdicts: {},
     };
 
-    const excluded = result.verdict === 'UNKNOWN' || result.verdict === 'NOT_APPLICABLE' || result.verdict === 'MANUAL';
+    const excluded = result.verdict === 'NOT_APPLICABLE' || result.verdict === 'MANUAL';
     if (!excluded) bucket.applicable += control.weight;
     if (result.verdict === 'MANUAL' || result.verdict === 'NOT_APPLICABLE') {
       buckets.set(control.section, bucket);
@@ -1218,10 +1218,12 @@ export function scoreScanV2(input: ScoreInputV2): ScoreResultV2 {
   let coverageNumerator = 0;
   let coverageDenominator = 0;
   for (const section of sections) {
-    if (!section.assessed) continue;
     const weight = section.sectionWeight;
-    numerator += (section.score ?? 0) * weight;
-    denominator += weight;
+    if (section.assessed) {
+      numerator += (section.score ?? 0) * weight;
+      denominator += weight;
+    }
+    // Applicable sections with no determinable verdict still count as zero coverage.
     if (section.evidenceCoverage !== null) {
       coverageNumerator += section.evidenceCoverage * weight;
       coverageDenominator += weight;
