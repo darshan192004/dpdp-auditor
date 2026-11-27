@@ -963,7 +963,7 @@ git commit -m "feat(scoring): add pure control evaluator"
 - Consumes: `ScoreInput`, `ScoreResult`, `DEFAULT_SECTION_WEIGHTS`, `DEFAULT_GRADES` from `./scoring.engine.js`; `ControlResultLike` from `./control-evaluator.js`.
 - Produces: `SCORING_V2_VERSION`, `LEGACY_SCORING_VERSION`, `scoringVersionForNewScan(enabled: boolean): string`, `isScoringV2(version: string | null | undefined): boolean`, `ScoreResultV2`, `scoreScanVersioned(input: VersionedScoreInput): VersionedScoreResult`.
 
-- [ ] **Step 1: Write the failing v2 tests**
+- [x] **Step 1: Write the failing v2 tests**
 
 ```ts
 // apps/orchestrator/test/scoring.v2.test.ts
@@ -1078,12 +1078,12 @@ describe('scoreScanV2', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `pnpm --filter @dpdpa/orchestrator test -- scoring.v2.test.ts`  
 Expected: FAIL — module missing.
 
-- [ ] **Step 3: Implement scoring v2**
+- [x] **Step 3: Implement scoring v2**
 
 ```ts
 // apps/orchestrator/src/modules/scoring/scoring.v2.ts
@@ -1279,7 +1279,7 @@ function countFindingsV2(findings: ScoreInput['findings']): ScoreCounts {
 }
 ```
 
-- [ ] **Step 4: Add the dispatcher to `scoring.engine.ts`**
+- [x] **Step 4: Add the dispatcher to `scoring.engine.ts`**
 
 Add these imports immediately after the existing imports at the top of the file (ES module imports must stay at the top; the cycle is safe because every value imported from `scoring.v2.ts` is used only when `scoreScanVersioned` is called, after module initialisation):
 
@@ -1321,12 +1321,12 @@ export function scoreScanVersioned(input: VersionedScoreInput): VersionedScoreRe
 
 Keep the existing `scoreScan` body and the legacy test at `scoring.engine.test.ts:104-109` unchanged.
 
-- [ ] **Step 5: Run focused tests**
+- [x] **Step 5: Run focused tests**
 
 Run: `pnpm --filter @dpdpa/orchestrator test -- scoring.v2.test.ts scoring.engine.test.ts`  
 Expected: PASS, including the legacy `100/A` false-pass assertion.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/orchestrator/src/modules/scoring/scoring.v2.ts apps/orchestrator/src/modules/scoring/scoring.engine.ts apps/orchestrator/test/scoring.v2.test.ts apps/orchestrator/test/scoring.engine.test.ts

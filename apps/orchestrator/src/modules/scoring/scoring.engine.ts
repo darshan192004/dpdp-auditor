@@ -1,6 +1,8 @@
 import type { Control, GradeBand, Severity } from '../rule-pack/rule-pack.schemas.js';
 import { isApplicable, type RepoFacts } from './applicability.js';
+import type { ControlResultLike } from './control-evaluator.js';
 import type { FindingStatus, MappedFinding } from './mapping.resolver.js';
+import { scoreScanV2, type ScoreResultV2 } from './scoring.v2.js';
 
 /** rules.md §9.3. Sections 12, 14, and 15 carry no weight. */
 export const DEFAULT_SECTION_WEIGHTS: Record<string, number> = {
@@ -157,4 +159,31 @@ function countFindings(
     if ((finding.status as FindingStatus) === 'accepted_risk') counts.acceptedRisk += 1;
   }
   return counts;
+}
+
+export const LEGACY_SCORING_VERSION = '1.0.0';
+export const SCORING_V2_VERSION = 'scoring-2.0.0';
+
+export function scoringVersionForNewScan(enabled: boolean): string {
+  return enabled ? SCORING_V2_VERSION : LEGACY_SCORING_VERSION;
+}
+
+export function isScoringV2(version: string | null | undefined): boolean {
+  return version === SCORING_V2_VERSION;
+}
+
+export interface VersionedScoreInput extends ScoreInput {
+  scoringVersion?: string | null;
+  results?: readonly ControlResultLike[];
+}
+export type VersionedScoreResult = ScoreResult | ScoreResultV2;
+
+export function scoreScanVersioned(input: VersionedScoreInput): VersionedScoreResult {
+  if (isScoringV2(input.scoringVersion)) {
+    if (!input.results) {
+      throw new Error('scoring v2 requires control results');
+    }
+    return scoreScanV2({ ...input, results: input.results });
+  }
+  return scoreScan(input);
 }
