@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import vectors from './vectors/fingerprint-vectors.json';
 import {
@@ -60,5 +62,14 @@ describe('control code compatibility', () => {
   it('accepts fan-out fingerprints carrying multi-segment control codes', () => {
     const base = computeFingerprint(SHARED_INPUT);
     expect(FINGERPRINT_PATTERN.test(`${base}:DPDPA-5-NOTICE-CONTENT-01`)).toBe(true);
+  });
+
+  it('documents the multi-segment control code format', () => {
+    const rules = readFileSync(
+      join(resolve(process.cwd(), '..', '..'), 'docs', 'rules.md'),
+      'utf8',
+    );
+    expect(rules).toContain('DPDPA-<section>-<domain segments>-<sequence>');
+    expect(rules).toContain('DPDPA-5-NOTICE-CONTENT-01');
   });
 });

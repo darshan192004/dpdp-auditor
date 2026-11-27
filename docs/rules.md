@@ -75,7 +75,7 @@ A single scanner finding may map to multiple controls. The engine emits one pers
 
 ## 4. Control catalog
 
-Controls use the code format `DPDPA-<section>-<domain>-<sequence>`. Weights reflect legal significance and the reliability of code evidence.
+Controls use the code format `DPDPA-<section>-<domain segments>-<sequence>` (for example, `DPDPA-5-NOTICE-CONTENT-01`). Weights reflect legal significance and the reliability of code evidence.
 
 | Code | Section | Title | Severity | Weight | Evidence strength | Scored |
 |---|---|---|---|---|---|---|

@@ -1,0 +1,9 @@
+name: fx-gtm-web
+languages:
+  - terraform
+scanners:
+  - checkov
+expectedFindings: []
+expectedCoverage: full
+tolerances:
+  extraFindings: 0
