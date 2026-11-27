@@ -49,6 +49,31 @@ describe('scoreScanV2', () => {
     expect(scored.verdictCounts.UNKNOWN).toBe(1);
   });
 
+  it('counts only active findings, matching the legacy engine', () => {
+    const scored = scoreScanV2({
+      findings: [
+        { controlCode: 'DPDPA-8.4-SECRET-01', severity: 'critical', status: 'open' },
+        { controlCode: 'DPDPA-8.4-ENC-01', severity: 'high', status: 'false_positive' },
+        { controlCode: null, severity: 'medium', status: 'fixed' },
+      ],
+      controls: [control('DPDPA-8.4-SECRET-01', '8(4)', 10)],
+      facts: { languages: ['java'] },
+      results: [result('DPDPA-8.4-SECRET-01', 'PASS', 'positive_evidence')],
+      coverage: 'full',
+    });
+    expect(scored.counts).toEqual({
+      critical: 1,
+      high: 0,
+      medium: 0,
+      low: 0,
+      info: 0,
+      total: 1,
+      mapped: 1,
+      unmapped: 0,
+      acceptedRisk: 0,
+    });
+  });
+
   it('gives no credit to a FAIL control', () => {
     const scored = scoreScanV2({
       findings: [],

@@ -54,18 +54,21 @@ function round4(value: number): number {
 }
 
 function countFindingsV2(findings: ScoreInput['findings']): ScoreCounts {
+  const active = findings.filter(
+    (finding) => finding.status !== 'false_positive' && finding.status !== 'fixed',
+  );
   const counts: ScoreCounts = {
     critical: 0,
     high: 0,
     medium: 0,
     low: 0,
     info: 0,
-    total: findings.length,
+    total: active.length,
     mapped: 0,
     unmapped: 0,
     acceptedRisk: 0,
   };
-  for (const finding of findings) {
+  for (const finding of active) {
     counts[finding.severity] += 1;
     if (finding.controlCode === null) counts.unmapped += 1;
     else counts.mapped += 1;
