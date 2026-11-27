@@ -1,6 +1,6 @@
 version: 1
 pack: dpdpa-2026.11.0
-generatedAt: '2026-11-27T11:26:47.168Z'
+generatedAt: '2026-11-27T11:27:00.485Z'
 files:
   - path: cmp_catalog.yaml
     sha256: 0e8b9137b9b161e30099b71067f450e2bfcfcfafededa2079c84569cf8b6b3fc
@@ -19,7 +19,7 @@ files:
   - path: india-regions.yaml
     sha256: a2989dd8691e301ca40ccb9985805e5c49a44237ae3e09ac0a0b20e5d9edbcc2
   - path: mappings/inventory.yaml
-    sha256: 3fde52e0f52fe3855f78858f42406a4558a69270d1e3d58ef692d4a3c4b22803
+    sha256: eae86f1af72d3d0ae90317660c6e7a0020393736b88753febf801b391f16bd2e
   - path: mechanism_catalog.yaml
     sha256: 6fa22525a9405e4012195ca462fd4892491f3caef6514632279783d3afc04244
   - path: penalties.yaml
