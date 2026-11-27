@@ -3,8 +3,7 @@ import { Worker, type Job } from 'bullmq';
 import { logger } from '../../common/logger.js';
 import { ENV, type Env } from '../../config/env.js';
 import { redisConnectionOptions, WORKER_SETTINGS, type QueueName } from '../../queue/queues.js';
-import { renderReportPdf } from './report-pdf.js';
-import { renderReportHtml } from './report-template.js';
+import { renderHtmlForModel, renderPdfForModel } from './report-renderers.js';
 import { ReportStorageService } from './report-storage.service.js';
 import { ReportsService } from './reports.service.js';
 
@@ -77,12 +76,11 @@ export function createReportRenderWorker(
 
       if (!(await reports.markRendering(orgId, reportId))) return true;
 
-      // Template v1 over the shared view model (docs/api.md 10.6).
+      // The view model carries its scoring version; v1 keeps the browser/PDFKit
+      // path and v2 renders its own nine sections.
       const viewModel = await reports.viewModel(orgId, reportId);
-      const model = viewModel as unknown as Parameters<typeof renderReportHtml>[0];
-      const pdfBuffer = env.REPORTS_BROWSER_WS_ENDPOINT
-        ? await renderPdf(renderReportHtml(model), env.REPORTS_BROWSER_WS_ENDPOINT)
-        : await renderReportPdf(model);
+      const model = viewModel as unknown as Parameters<typeof renderHtmlForModel>[0];
+      const pdfBuffer = await renderPdfForModel(model, env.REPORTS_BROWSER_WS_ENDPOINT, renderPdf);
 
       // Mark report ready
       await reports.complete(orgId, reportId, { buffer: pdfBuffer.toString('base64') });

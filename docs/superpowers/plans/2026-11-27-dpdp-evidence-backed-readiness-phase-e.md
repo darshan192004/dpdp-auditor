@@ -3980,7 +3980,7 @@ git commit -m "feat(readiness): select v2 report view model by scoring version"
 - Consumes: `buildReportV2ViewModel` output; `ReportTemplateModel` and `renderReportHtml`/`renderReportPdf` for v1; `isScoringV2` from `scoring.engine.ts`; PDFKit.
 - Produces: `renderReportV2Html`, `renderReportV2Pdf`, `renderHtmlForModel`, and `renderPdfForModel`; the worker selects v2 only for `scoring-2.0.0`, preserving v1 byte-for-byte.
 
-- [ ] **Step 1: Write the failing rendering tests**
+- [x] **Step 1: Write the failing rendering tests**
 
 ```ts
 // apps/orchestrator/test/report-v2-rendering.test.ts
@@ -4131,7 +4131,7 @@ describe('v2 report rendering', () => {
 });
 ```
 
-- [ ] **Step 2: Run the focused rendering tests and confirm RED**
+- [x] **Step 2: Run the focused rendering tests and confirm RED**
 
 ```bash
 pnpm --filter @dpdpa/orchestrator exec vitest run test/report-v2-rendering.test.ts
@@ -4143,7 +4143,7 @@ Expected RED output:
 Error: Cannot find module '../src/modules/reports/report-pdf-v2.js'
 ```
 
-- [ ] **Step 3: Add the v2 HTML renderer**
+- [x] **Step 3: Add the v2 HTML renderer**
 
 ```ts
 // apps/orchestrator/src/modules/reports/report-template-v2.ts
@@ -4203,7 +4203,7 @@ export function renderReportV2Html(model: V2Model): string {
 }
 ```
 
-- [ ] **Step 4: Add the v2 PDF renderer and dispatch**
+- [x] **Step 4: Add the v2 PDF renderer and dispatch**
 
 ```ts
 // apps/orchestrator/src/modules/reports/report-pdf-v2.ts
@@ -4295,7 +4295,7 @@ Remove the unused `renderReportPdf` import from `report-renderers.ts`. In `apps/
 
 Do not use `renderHtmlForModel` in the worker when `REPORTS_BROWSER_WS_ENDPOINT` is set; the browser renderer receives the v1 HTML through `renderPdfForModel` so v1 byte output is unchanged. Keep the `complete()` call and logging unchanged.
 
-- [ ] **Step 5: Run the focused rendering tests and confirm GREEN**
+- [x] **Step 5: Run the focused rendering tests and confirm GREEN**
 
 ```bash
 pnpm --filter @dpdpa/orchestrator exec vitest run test/report-v2-rendering.test.ts
@@ -4310,7 +4310,7 @@ Test Files  1 passed (1)
 Tests  2 passed (2)
 ```
 
-- [ ] **Step 6: Run full gates and commit**
+- [x] **Step 6: Run full gates and commit**
 
 ```bash
 pnpm lint && pnpm typecheck && pnpm test
