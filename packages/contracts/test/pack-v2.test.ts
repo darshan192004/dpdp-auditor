@@ -83,7 +83,7 @@ function packFixture(
     { path: 'detectors.yaml', value: detectors, sha256: 'b'.repeat(64) },
     {
       path: 'commencement.yaml',
-      value: overrides.commencement ?? validCommencement,
+      value: overrides.commencement ?? structuredClone(validCommencement),
       sha256: 'c'.repeat(64),
     },
   ];
@@ -412,5 +412,65 @@ describe('Phase B pack v2 contracts', () => {
     );
     expect(orphanIssues).toHaveLength(2);
     expect(orphanIssues[0]!.message.localeCompare(orphanIssues[1]!.message)).toBeLessThanOrEqual(0);
+  });
+});
+
+const attestedControl = {
+  ...validControl,
+  evidenceMode: 'attestation',
+  attestationKey: 'secrets.managed_store',
+};
+
+describe('Phase E attestation key mapping', () => {
+  it('maps pack attestation keys to controls without hard-coded control IDs', () => {
+    const fixture = packFixture({ control: attestedControl });
+    const second = {
+      ...attestedControl,
+      code: 'DPDPA-13-GRIEVANCE-01',
+      attestationKey: 'grievance.contact.published',
+    };
+    const controls = fixture.files[0]!.value as { controls: unknown[] };
+    controls.controls.push(second);
+
+    const issues = validatePackV2(fixture);
+    expect(issues).toEqual([]);
+    const parsed = controlV2Schema.parse(attestedControl);
+    expect(parsed.attestationKey).toBe('secrets.managed_store');
+  });
+
+  it('rejects an attestation-mode control with no key', () => {
+    const fixture = packFixture({ control: { ...attestedControl, attestationKey: undefined } });
+    expect(validatePackV2(fixture).map((issue) => issue.code)).toContain('missing_attestation_key');
+  });
+
+  it('rejects duplicate attestation keys', () => {
+    const fixture = packFixture({ control: attestedControl });
+    const controls = fixture.files[0]!.value as { controls: unknown[] };
+    controls.controls.push({
+      ...attestedControl,
+      code: 'DPDPA-13-GRIEVANCE-01',
+    });
+
+    expect(validatePackV2(fixture).map((issue) => issue.code)).toContain(
+      'duplicate_attestation_key',
+    );
+  });
+
+  it('rejects malformed attestation keys and malformed attestation timestamps', () => {
+    expect(
+      controlV2Schema.safeParse({ ...attestedControl, attestationKey: 'Bad Key!' }).success,
+    ).toBe(false);
+    expect(
+      attestationSchema.safeParse({
+        orgId: '3f2c1a10-5f0e-4f2a-9f7a-1e5c6b7d8a90',
+        repositoryId: '8b7a6c5d-4e3f-2a1b-9c8d-7e6f5a4b3c2d',
+        key: 'secrets.managed_store',
+        answer: true,
+        note: null,
+        attestedBy: '1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d',
+        attestedAt: 'yesterday',
+        expiresAt: null,
+      }).success,
+    ).toBe(false);
   });
 });

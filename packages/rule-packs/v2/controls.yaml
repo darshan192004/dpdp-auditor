@@ -393,6 +393,7 @@ controls:
     severity: critical
     weight: 8
     evidenceMode: violation
+    attestationKey: secrets.managed_store
     appliesWhen: []
     violationRules:
       - id: violation.dpdpa_8.4_secret_01
