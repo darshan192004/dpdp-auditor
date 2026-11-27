@@ -213,6 +213,10 @@ async function listYaml(dir: string, base = dir): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true });
   const files: string[] = [];
   for (const entry of entries) {
+    // The v2 pack lives in a sibling directory of the shipped v1 pack. It is
+    // loaded by its own validator and must never be treated as an unlisted v1
+    // pack file.
+    if (entry.isDirectory() && base === dir && entry.name === 'v2') continue;
     const full = join(dir, entry.name);
     if (entry.isDirectory()) {
       files.push(...(await listYaml(full, base)));

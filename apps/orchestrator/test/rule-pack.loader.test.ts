@@ -1,5 +1,5 @@
 import { generateKeyPairSync, sign } from 'node:crypto';
-import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -48,6 +48,16 @@ describe('loadRulePack (P4-01, P4-02)', () => {
     expect(pack.grades.map((grade) => grade.grade)).toEqual(['A', 'B', 'C', 'D', 'F']);
     expect(pack.controlsByCode.get('DPDPA-8.4-ENC-01')?.weight).toBe(5);
     expect(pack.controlsByCode.get('DPDPA-12-ACCESS-01')?.scored).toBe(false);
+  });
+
+  it('ignores a sibling v2 pack directory when loading v1', async () => {
+    const dir = await copyPack();
+    await mkdir(join(dir, 'v2'), { recursive: true });
+    await writeFile(join(dir, 'v2', 'controls.yaml'), 'version: 1\npack: dpdpa-2026.11.0\n');
+    const pack = await loadRulePack(dir);
+    expect(pack.pack).toBe(PACK);
+    expect(pack.controls).toHaveLength(19);
+    expect(pack.scoringVersion).toBe('1.0.0');
   });
 
   it('gives every scored control at least one scanner mapping', async () => {
