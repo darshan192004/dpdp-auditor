@@ -1890,7 +1890,7 @@ git commit -m "feat(readiness): expose scoped attestation routes"
 - Consumes: Phase C/D `scan.facts.inventory.signals`, `scan.inventoryVersion`, `scan.inventoryStatus`, `scan.consentGatingRatio`, and persisted `control_result` rows from B/A.
 - Produces: `ReadinessReadService.inventory/gaps/fixPlan`; internal `GET /internal/v1/scans/:scanId/{inventory,gaps,fix-plan}`; BFF `GET /api/v1/scan/:scanId/{inventory,gaps,fix-plan}`; wire types `ReadinessInventory`, `ReadinessGap`, and `FixPlan`.
 
-- [ ] **Step 1: Write the failing read-service test**
+- [x] **Step 1: Write the failing read-service test**
 
 ```ts
 // apps/orchestrator/test/readiness-read.service.test.ts
@@ -2008,7 +2008,7 @@ describe('readiness read service', () => {
 });
 ```
 
-- [ ] **Step 2: Run the failing read-service test and confirm RED**
+- [x] **Step 2: Run the failing read-service test and confirm RED**
 
 ```bash
 pnpm --filter @dpdpa/orchestrator exec vitest run test/readiness-read.service.test.ts
@@ -2021,7 +2021,7 @@ FAIL  test/readiness-read.service.test.ts > readiness read service > returns bou
 Error: Cannot find module '../src/modules/readiness/readiness-read.service.js'
 ```
 
-- [ ] **Step 3: Add the read service**
+- [x] **Step 3: Add the read service**
 
 ```ts
 // apps/orchestrator/src/modules/readiness/readiness-read.service.ts
@@ -2184,7 +2184,7 @@ export class ReadinessModule {}
 
 Add `ReadinessModule` to `apps/orchestrator/src/app.module.ts` imports.
 
-- [ ] **Step 4: Add web contracts, fixtures, and proxy routes**
+- [x] **Step 4: Add web contracts, fixtures, and proxy routes**
 
 ```ts
 // apps/web/shared/readiness.ts
@@ -2344,7 +2344,7 @@ describe('readiness read fixtures', () => {
 });
 ```
 
-- [ ] **Step 5: Run the focused read tests and confirm GREEN**
+- [x] **Step 5: Run the focused read tests and confirm GREEN**
 
 ```bash
 pnpm --filter @dpdpa/orchestrator exec vitest run test/readiness-read.service.test.ts && pnpm --filter @dpdpa/web exec vitest run test/readiness-read-fixtures.test.ts
@@ -2363,7 +2363,7 @@ Test Files  1 passed (1)
 Tests  1 passed (1)
 ```
 
-- [ ] **Step 6: Run full gates and commit**
+- [x] **Step 6: Run full gates and commit**
 
 ```bash
 pnpm lint && pnpm typecheck && pnpm test
