@@ -68,7 +68,7 @@ Phase A implements the Phase A row of the approved spec: verdict enum, `control_
 - Consumes: `CONTROL_CODE_PATTERN` from `packages/contracts/src/fingerprint.ts`.
 - Produces: `READINESS_VERDICTS`, `ReadinessVerdict`, `FINDING_KINDS`, `FindingKind`, `DETECTOR_STATUSES`, `DetectorStatus`, `READINESS_CONFIDENCES`, `ReadinessConfidence`, `controlResultSchema`, `ControlResult`, `assessmentSummarySchema`, `AssessmentSummary`.
 
-- [ ] **Step 1: Write the failing contract test**
+- [x] **Step 1: Write the failing contract test**
 
 ```ts
 // packages/contracts/test/readiness.test.ts
@@ -166,12 +166,12 @@ describe('readiness contracts', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `pnpm --filter @dpdpa/contracts test -- readiness.test.ts`  
 Expected: FAIL — `Cannot find module '../src/readiness'`.
 
-- [ ] **Step 3: Implement the schemas**
+- [x] **Step 3: Implement the schemas**
 
 ```ts
 // packages/contracts/src/readiness.ts
@@ -271,12 +271,12 @@ Add to `packages/contracts/test/index.test.ts` inside the entry-export test:
     expect(typeof srcIndex.assessmentSummarySchema.parse).toBe('function');
 ```
 
-- [ ] **Step 4: Run the focused tests**
+- [x] **Step 4: Run the focused tests**
 
 Run: `pnpm --filter @dpdpa/contracts test -- readiness.test.ts index.test.ts`  
 Expected: PASS.
 
-- [ ] **Step 5: Mark the ADR accepted**
+- [x] **Step 5: Mark the ADR accepted**
 
 In `docs/decisions/0001-evidence-backed-dpdp-readiness.md`, change:
 
@@ -291,7 +291,7 @@ to:
 **Accepted on:** 2026-11-27
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/contracts/src/readiness.ts packages/contracts/src/index.ts packages/contracts/test/readiness.test.ts packages/contracts/test/index.test.ts docs/decisions/0001-evidence-backed-dpdp-readiness.md docs/superpowers/specs/2026-11-26-dpdp-evidence-backed-readiness-design.md docs/superpowers/plans/2026-11-27-dpdp-evidence-backed-readiness-phase-a.md
@@ -311,7 +311,18 @@ git commit -m "feat(contracts): add readiness verdict contracts"
 - Consumes: existing enum/table patterns in `20261110000000_init/migration.sql`.
 - Produces: `Prisma.ControlResult`, `Prisma.FindingKind`, `Prisma.ControlVerdict`; `scan.evidenceCoverage`, `scan.verdictCounts`, `scan.unknownControls`, `scan.gradeWithheldReason`. `control_results` uses `control_id` (FK to `dpdpa_rules.id`) as its canonical key and stores `control_code` for display; evidence JSON is in `evidence_json`.
 
-- [ ] **Step 1: Write the failing schema test additions**
+- [x] **Step 1: Write the failing schema test additions**
+
+In `apps/orchestrator/test/schema.test.ts`, join both migrations so the existing enum/table loops also cover Phase A:
+
+```ts
+const migration = [
+  readFileSync(`${root}prisma/migrations/20261110000000_init/migration.sql`, 'utf8'),
+  readFileSync(`${root}prisma/migrations/20261127000000_readiness_phase_a/migration.sql`, 'utf8'),
+].join('\n');
+```
+
+The readiness migration file must exist before the test can load; create it as an empty placeholder if needed, then replace it with the full SQL in Step 4.
 
 Add to `ENUMS` in `apps/orchestrator/test/schema.test.ts`:
 
@@ -343,12 +354,12 @@ Add this assertion inside the migration test:
     expect(migration).toContain('UNIQUE (scan_id, control_id)');
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `pnpm --filter @dpdpa/orchestrator test -- schema.test.ts`  
 Expected: FAIL — enum/table/policy assertions missing.
 
-- [ ] **Step 3: Modify `schema.prisma`**
+- [x] **Step 3: Modify `schema.prisma`**
 
 Add these enums after `enum FindingStatus`:
 
@@ -436,7 +447,7 @@ model ControlResult {
 }
 ```
 
-- [ ] **Step 4: Create the migration**
+- [x] **Step 4: Create the migration**
 
 ```sql
 -- apps/orchestrator/prisma/migrations/20261127000000_readiness_phase_a/migration.sql
@@ -502,12 +513,12 @@ CREATE POLICY tenant_isolation_control_results ON control_results
 
 Prisma needs `@map("finding_kind")` because its default column name for the `kind` field would otherwise be `kind`; the SQL column is `finding_kind` to match the enum type. `confidence` reuses the existing `mapping_confidence` enum so no parallel confidence type is introduced.
 
-- [ ] **Step 5: Run focused tests and Prisma validation**
+- [x] **Step 5: Run focused tests and Prisma validation**
 
 Run: `pnpm --filter @dpdpa/orchestrator test -- schema.test.ts && pnpm --filter @dpdpa/orchestrator exec prisma validate`  
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/orchestrator/prisma/schema.prisma apps/orchestrator/prisma/migrations/20261127000000_readiness_phase_a/migration.sql apps/orchestrator/test/schema.test.ts

@@ -101,6 +101,29 @@ enum FindingStatus {
   @@map("finding_status")
 }
 
+enum FindingKind {
+  violation
+  missing_control
+  weak_control
+  positive
+  unverified
+
+  @@map("finding_kind")
+}
+
+enum ControlVerdict {
+  PASS
+  FAIL
+  PARTIAL
+  UNKNOWN
+  NOT_APPLICABLE
+  MANUAL
+  ATTESTED_PASS
+  ATTESTED_FAIL
+
+  @@map("control_verdict")
+}
+
 enum MappingConfidence {
   direct
   inferred
@@ -147,6 +170,7 @@ model Organization {
   scans           Scan[]
   scanEvents      ScanEvent[]
   findings        ScannerFinding[]
+  controlResults  ControlResult[]
   remediationLogs RemediationLog[]
   reports         Report[]
   auditLogs       AuditLog[]
@@ -269,46 +293,51 @@ model ApiKey {
 }
 
 model Scan {
-  id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orgId           String      @map("org_id") @db.Uuid
-  repositoryId    String      @map("repository_id") @db.Uuid
-  requestedBy     String?     @map("requested_by") @db.Uuid
-  apiKeyId        String?     @map("api_key_id") @db.Uuid
-  trigger         ScanTrigger @default(manual)
-  status          ScanStatus  @default(queued)
-  ref             String      @default("main") @db.Text
-  commitSha       String?     @map("commit_sha") @db.Text
-  scannerVersions Json        @default("{}") @map("scanner_versions")
-  rulePackVersion String?     @map("rule_pack_version") @db.Text
-  scoringVersion  String?     @map("scoring_version") @db.Text
-  score           Decimal?    @db.Decimal(5, 2)
-  grade           String?     @db.Char(1)
-  sectionScores   Json        @default("{}") @map("section_scores")
-  counts          Json        @default("{}")
-  coverage        Json        @default("{}")
-  coverageStatus  String?     @map("coverage_status") @db.Text
-  facts           Json        @default("{}")
-  errorCode       String?     @map("error_code") @db.Text
-  errorMessage    String?     @map("error_message") @db.Text
-  idempotencyKey  String?     @map("idempotency_key") @db.Text
-  idempotencyHash String?     @map("idempotency_hash") @db.Text
-  jobName         String?     @map("job_name") @db.Text
-  secretName      String?     @map("secret_name") @db.Text
-  queuedAt        DateTime    @default(now()) @map("queued_at") @db.Timestamptz
-  startedAt       DateTime?   @map("started_at") @db.Timestamptz
-  completedAt     DateTime?   @map("completed_at") @db.Timestamptz
-  durationMs      Int?        @map("duration_ms")
-  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt       DateTime    @default(now()) @map("updated_at") @db.Timestamptz
+  id                  String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId               String      @map("org_id") @db.Uuid
+  repositoryId        String      @map("repository_id") @db.Uuid
+  requestedBy         String?     @map("requested_by") @db.Uuid
+  apiKeyId            String?     @map("api_key_id") @db.Uuid
+  trigger             ScanTrigger @default(manual)
+  status              ScanStatus  @default(queued)
+  ref                 String      @default("main") @db.Text
+  commitSha           String?     @map("commit_sha") @db.Text
+  scannerVersions     Json        @default("{}") @map("scanner_versions")
+  rulePackVersion     String?     @map("rule_pack_version") @db.Text
+  scoringVersion      String?     @map("scoring_version") @db.Text
+  score               Decimal?    @db.Decimal(5, 2)
+  grade               String?     @db.Char(1)
+  sectionScores       Json        @default("{}") @map("section_scores")
+  counts              Json        @default("{}")
+  coverage            Json        @default("{}")
+  coverageStatus      String?     @map("coverage_status") @db.Text
+  facts               Json        @default("{}")
+  evidenceCoverage    Decimal?    @map("evidence_coverage") @db.Decimal(5, 4)
+  verdictCounts       Json        @default("{}") @map("verdict_counts")
+  unknownControls     Json        @default("[]") @map("unknown_controls")
+  gradeWithheldReason String?     @map("grade_withheld_reason") @db.Text
+  errorCode           String?     @map("error_code") @db.Text
+  errorMessage        String?     @map("error_message") @db.Text
+  idempotencyKey      String?     @map("idempotency_key") @db.Text
+  idempotencyHash     String?     @map("idempotency_hash") @db.Text
+  jobName             String?     @map("job_name") @db.Text
+  secretName          String?     @map("secret_name") @db.Text
+  queuedAt            DateTime    @default(now()) @map("queued_at") @db.Timestamptz
+  startedAt           DateTime?   @map("started_at") @db.Timestamptz
+  completedAt         DateTime?   @map("completed_at") @db.Timestamptz
+  durationMs          Int?        @map("duration_ms")
+  createdAt           DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime    @default(now()) @map("updated_at") @db.Timestamptz
 
-  organization Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  repository   Repository       @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-  requester    User?            @relation("ScanRequestedBy", fields: [requestedBy], references: [id], onDelete: SetNull)
-  apiKey       ApiKey?          @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
-  events       ScanEvent[]
-  findings     ScannerFinding[]
-  reports      Report[]
-  usageEvents  UsageEvent[]
+  organization   Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  repository     Repository       @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  requester      User?            @relation("ScanRequestedBy", fields: [requestedBy], references: [id], onDelete: SetNull)
+  apiKey         ApiKey?          @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  events         ScanEvent[]
+  findings       ScannerFinding[]
+  controlResults ControlResult[]
+  reports        Report[]
+  usageEvents    UsageEvent[]
 
   @@unique([orgId, idempotencyKey])
   @@map("scans")
@@ -345,8 +374,9 @@ model DpdpaRule {
   createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz
   updatedAt           DateTime        @default(now()) @map("updated_at") @db.Timestamptz
 
-  mappings RuleMapping[]
-  findings ScannerFinding[]
+  mappings       RuleMapping[]
+  findings       ScannerFinding[]
+  controlResults ControlResult[]
 
   @@map("dpdpa_rules")
 }
@@ -381,6 +411,8 @@ model ScannerFinding {
   controlCode        String?           @map("control_code") @db.Text
   severity           FindingSeverity
   confidence         MappingConfidence @default(direct)
+  kind               FindingKind       @default(violation) @map("finding_kind")
+  detector           String?           @db.Text
   filePath           String?           @map("file_path") @db.Text
   lineStart          Int?              @map("line_start")
   lineEnd            Int?              @map("line_end")
@@ -423,6 +455,32 @@ model RemediationLog {
   actor        User?          @relation("RemediationActor", fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@map("remediation_logs")
+}
+
+model ControlResult {
+  id              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId           String             @map("org_id") @db.Uuid
+  scanId          String             @map("scan_id") @db.Uuid
+  controlId       String             @map("control_id") @db.Uuid
+  controlCode     String             @map("control_code") @db.Text
+  verdict         ControlVerdict
+  reasonCode      String             @map("reason_code") @db.Text
+  confidence      MappingConfidence?
+  evidence        Json               @default("[]") @map("evidence_json")
+  rulePackVersion String             @map("rule_pack_version") @db.Text
+  scoringVersion  String             @map("scoring_version") @db.Text
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime           @default(now()) @map("updated_at") @db.Timestamptz
+
+  scan         Scan         @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  rule         DpdpaRule    @relation(fields: [controlId], references: [id], onDelete: Restrict)
+
+  @@unique([scanId, controlId])
+  @@index([scanId, verdict])
+  @@index([orgId, controlId])
+  @@index([orgId, controlCode])
+  @@map("control_results")
 }
 
 model Report {
