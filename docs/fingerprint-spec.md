@@ -44,8 +44,9 @@ Digest format: `fpt_` + lowercase hex sha256 (64 chars), optionally `:` + contro
 
 ## Control code format
 
-`CONTROL_CODE_PATTERN = /^DPDPA-[0-9]+(?:\.[0-9]+)?-[A-Z0-9]+-[0-9]+$/` — matches the
-catalogue format `DPDPA-<section>-<domain>-<sequence>` (e.g. `DPDPA-8.4-ENC-01`).
+`CONTROL_CODE_PATTERN = /^DPDPA-[0-9]+(?:\.[0-9]+)?(?:-[A-Z0-9]+)+-[0-9]+$/` — matches the
+catalogue format `DPDPA-<section>-<domain segments>-<sequence>` (e.g. `DPDPA-8.4-ENC-01`,
+`DPDPA-5-NOTICE-CONTENT-01`).
 
 ## Stored fingerprint validation
 

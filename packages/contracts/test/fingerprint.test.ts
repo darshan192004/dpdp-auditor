@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import vectors from './vectors/fingerprint-vectors.json';
-import { computeFingerprint, FINGERPRINT_VERSION } from '../src/fingerprint';
+import {
+  computeFingerprint,
+  CONTROL_CODE_PATTERN,
+  FINGERPRINT_PATTERN,
+  FINGERPRINT_VERSION,
+} from '../src/fingerprint';
 
 const SHARED_INPUT = {
   scanner: 'checkov',
@@ -41,5 +46,19 @@ describe('computeFingerprint', () => {
 
   it('pins fingerprintVersion 1 — changing the algorithm requires a version bump', () => {
     expect(FINGERPRINT_VERSION).toBe(1);
+  });
+});
+
+describe('control code compatibility', () => {
+  it('accepts the multi-segment readiness control codes shipped in v2', () => {
+    expect(CONTROL_CODE_PATTERN.test('DPDPA-5-NOTICE-CONTENT-01')).toBe(true);
+    expect(CONTROL_CODE_PATTERN.test('DPDPA-6-CONSENT-GATE-01')).toBe(true);
+    expect(CONTROL_CODE_PATTERN.test('DPDPA-8.4-ENC-01')).toBe(true);
+    expect(CONTROL_CODE_PATTERN.test('DP-6-01')).toBe(false);
+  });
+
+  it('accepts fan-out fingerprints carrying multi-segment control codes', () => {
+    const base = computeFingerprint(SHARED_INPUT);
+    expect(FINGERPRINT_PATTERN.test(`${base}:DPDPA-5-NOTICE-CONTENT-01`)).toBe(true);
   });
 });

@@ -1,17 +1,17 @@
 version: 1
 pack: dpdpa-2026.11.0
-generatedAt: '2026-11-27T10:46:41.440Z'
+generatedAt: '2026-11-27T11:26:18.636Z'
 files:
   - path: cmp_catalog.yaml
     sha256: 2dd4d19c10bdbf79ddfaf7899a1e66cb029e18adb7284e88fd5c01e62ae375c7
   - path: commencement.yaml
     sha256: d206ff77653341d8ffc49eaf2d3b8a20aed71f308a871b8eb9587b2501efa162
   - path: controls.yaml
-    sha256: bf08148e4937c55f16b6cf550fcfc50bcddc9d6ddf47f124ae2d4a5cf5e49512
+    sha256: d90d98ea8f69f6acb616fe75443cb0ba5db65c161132c6365190379a6a7d4132
   - path: cookie_catalog.yaml
     sha256: 2dd4d19c10bdbf79ddfaf7899a1e66cb029e18adb7284e88fd5c01e62ae375c7
   - path: detectors.yaml
-    sha256: 2647403a45b3757bc585593f2d562ba6083cabe91970ea911b977c4701a4710c
+    sha256: f82175cb5091f8824da0b5e97df9a95c053dcf3b5e96f1aadf14368743ee339b
   - path: ecosystem_patterns/web.yaml
     sha256: 2dd4d19c10bdbf79ddfaf7899a1e66cb029e18adb7284e88fd5c01e62ae375c7
   - path: field_dictionary.yaml
