@@ -41,16 +41,13 @@ export function inventoryEvidence(input: InventoryEvidenceInput): ControlEvidenc
     ...report.signals,
     ...report.facts.flatMap((fact) => [...fact.signals]),
   ]);
-  const needDetectors = new Set(
-    signals
-      .filter(
-        (signal) =>
-          signal.token.startsWith('pii_field.') ||
-          signal.token === 'consent_gate' ||
-          signal.token === 'privacy_notice_link',
-      )
-      .map((signal) => signal.detector),
+  const needSignals = signals.filter(
+    (signal) =>
+      signal.token.startsWith('pii_field.') ||
+      signal.token === 'consent_gate' ||
+      signal.token === 'privacy_notice_link',
   );
+  const needDetectors = new Set(needSignals.map((signal) => signal.detector));
   const seen = new Set<string>();
   const evidence: ControlEvidence[] = [];
 
@@ -66,7 +63,13 @@ export function inventoryEvidence(input: InventoryEvidenceInput): ControlEvidenc
       evidence.push(toFinding(rule, matches[0]!, 'positive'));
       continue;
     }
-    if (rule.mode === 'absence' && matches.length === 0 && needDetectors.has(rule.detector)) {
+    const absenceRequired =
+      needDetectors.has(rule.detector) ||
+      // Artefact obligations (notice, backup) are repository-wide: any observed
+      // personal-data need signal makes an absent artefact a cited gap, even
+      // when the need came from a different detector.
+      (rule.detector === 'artefact_scan' && needSignals.length > 0);
+    if (rule.mode === 'absence' && matches.length === 0 && absenceRequired) {
       evidence.push(toMissingFinding(rule));
     }
   }
