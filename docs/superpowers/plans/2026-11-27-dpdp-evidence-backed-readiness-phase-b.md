@@ -412,11 +412,11 @@ git commit -m "docs(plan): record Phase B completion evidence"
 
 ## Definition of done
 
-- [ ] All Tasks 1–6 GREEN with RED evidence recorded.
-- [ ] `pnpm lint && pnpm typecheck && pnpm test` green with exact output recorded.
-- [ ] Validator rejects duplicate control, orphan detector, missing rule, missing legal ref, invalid commencement, checksum drift, and source-content fields.
-- [ ] v1 pack loads with 19 controls and `scoringVersion: '1.0.0'`; `dpdpa-2026.10.6` manifest unchanged.
-- [ ] Migrations additive, RLS-enabled, Prisma-valid.
-- [ ] No forbidden rendered wording, no source/canary retention, no pilot data used.
-- [ ] Fresh-context review has no Required defects.
-- [ ] No push/PR/merge/deploy/infra change without explicit approval.
+- [x] All Tasks 1–6 GREEN with RED evidence recorded in `.superpowers/sdd/2026-11-27-dpdp-evidence-backed-readiness-phase-a/progress.md`.
+- [x] `pnpm lint && pnpm typecheck && pnpm test` green: lint clean (`eslint`, `prettier --check`, token lint); typecheck 11/11 turbo tasks; test 12/12 turbo tasks with web 74 files/548 tests. Focused: rule-packs 13/13; orchestrator `rule-pack.loader`, `phase-b-exit-gate`, `phase-b-schema` 3 files/22 tests; `git diff --check` clean.
+- [x] Validator rejects duplicate control, orphan detector, missing rule, missing legal ref, invalid commencement, checksum drift, and source-content fields; exit gate additionally verifies shipped pack and CLI accept the v2 pack with zero issues.
+- [x] v1 pack loads with 19 controls and `scoringVersion: '1.0.0'` alongside a top-level `v2/` directory; `dpdpa-2026.10.6` scoring.yaml checksum still matches its manifest entry.
+- [x] Migrations additive, RLS-enabled, Prisma-valid (`prisma validate` reports the schema valid).
+- [x] No forbidden rendered wording, no source/canary retention, no pilot data used (case-insensitive grep of new pack and migration finds no forbidden terms; canaries never appear in validator output).
+- [x] Fresh-context review (`ses_de3aba89dffeSpDqpv9oM8swsA`) found no Required defects. Two low-risk observations were fixed with RED/GREEN: raw control identifiers are no longer echoed in `missing_legal_ref` issues, and the attestation RLS policy uses the established `NULLIF(current_setting(...), '')::uuid` form.
+- [x] No push/PR/merge/deploy/infra change without explicit approval.
