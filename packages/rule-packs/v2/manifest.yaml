@@ -1,15 +1,15 @@
 version: 1
 pack: dpdpa-2026.11.0
-generatedAt: '2026-11-27T11:26:18.636Z'
+generatedAt: '2026-11-27T11:26:32.162Z'
 files:
   - path: cmp_catalog.yaml
-    sha256: 2dd4d19c10bdbf79ddfaf7899a1e66cb029e18adb7284e88fd5c01e62ae375c7
+    sha256: 0e8b9137b9b161e30099b71067f450e2bfcfcfafededa2079c84569cf8b6b3fc
   - path: commencement.yaml
     sha256: d206ff77653341d8ffc49eaf2d3b8a20aed71f308a871b8eb9587b2501efa162
   - path: controls.yaml
     sha256: d90d98ea8f69f6acb616fe75443cb0ba5db65c161132c6365190379a6a7d4132
   - path: cookie_catalog.yaml
-    sha256: 2dd4d19c10bdbf79ddfaf7899a1e66cb029e18adb7284e88fd5c01e62ae375c7
+    sha256: 75e9388399117b72968d4736c6ebb40b118dd00b3081217c7659e3b23d54c5dc
   - path: detectors.yaml
     sha256: f82175cb5091f8824da0b5e97df9a95c053dcf3b5e96f1aadf14368743ee339b
   - path: ecosystem_patterns/web.yaml
@@ -27,6 +27,6 @@ files:
   - path: sdk_catalog.yaml
     sha256: 2dd4d19c10bdbf79ddfaf7899a1e66cb029e18adb7284e88fd5c01e62ae375c7
   - path: security_headers.yaml
-    sha256: 2dd4d19c10bdbf79ddfaf7899a1e66cb029e18adb7284e88fd5c01e62ae375c7
+    sha256: 4d45c5a76f17abeccfcaa16e79f951c6c5710dc2be3519ece8ef803ab50b0235
   - path: templates/README.md
     sha256: f988a7237d91e46e341b0b00d14f44a725602ea4d555e98a72ef1145090e459b
