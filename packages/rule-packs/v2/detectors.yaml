@@ -4,18 +4,42 @@ detectors:
   - id: schema_scan
     module: inventory
     inputs: [source]
-    outputs: [fact, status]
+    outputs: [fact, signal, status]
     timeoutMs: 30000
     stacks: []
-    confidence: inferred
+    confidence: direct
     failureMode: UNKNOWN
-    controlRefs: []
+    controlRefs:
+      - DPDPA-8.4-MON-01
   - id: form_scan
     module: inventory
     inputs: [source]
-    outputs: [fact, status]
+    outputs: [fact, signal, status]
     timeoutMs: 30000
     stacks: [web]
-    confidence: inferred
+    confidence: direct
     failureMode: UNKNOWN
-    controlRefs: []
+    controlRefs:
+      - DPDPA-6-CONSENTGATE-01
+      - DPDPA-6-FORMPURPOSE-01
+  - id: mechanism_scan
+    module: inventory
+    inputs: [source]
+    outputs: [fact, signal, status]
+    timeoutMs: 30000
+    stacks: []
+    confidence: direct
+    failureMode: UNKNOWN
+    controlRefs:
+      - DPDPA-6-CONSENTGATE-01
+  - id: artefact_scan
+    module: inventory
+    inputs: [artefacts]
+    outputs: [fact, signal, status]
+    timeoutMs: 30000
+    stacks: []
+    confidence: direct
+    failureMode: UNKNOWN
+    controlRefs:
+      - DPDPA-5-NOTICE-01
+      - DPDPA-8.4-BACKUP-01

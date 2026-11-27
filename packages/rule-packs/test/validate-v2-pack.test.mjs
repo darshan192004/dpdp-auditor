@@ -102,6 +102,9 @@ test('evidence modes without rules are rejected', async () => {
   const dir = await copyPack();
   const controls = await readYaml(dir, 'controls.yaml');
   controls.controls[0].evidenceMode = 'violation';
+  controls.controls[0].violationRules = [];
+  controls.controls[0].absenceRules = [];
+  controls.controls[0].positiveRules = [];
   await writeYaml(dir, 'controls.yaml', controls);
 
   const result = await runValidator(dir);

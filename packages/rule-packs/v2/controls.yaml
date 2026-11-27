@@ -1,22 +1,141 @@
-# Phase B foundation only. Substantive controls arrive in Phases C and D.
 version: 1
 pack: dpdpa-2026.11.0
 effectiveFrom: '2026-11-15'
 controls:
-  - code: DPDPA-8.4-SECRET-01
+  - code: DPDPA-5-NOTICE-01
+    section: '5'
+    actRef: DPDPA Section 5
+    ruleRef: publish-privacy-notice
+    title: Privacy notice artefact is present at collection
+    severity: medium
+    weight: 2
+    evidenceMode: absence
+    appliesWhen:
+      - stack: web
+    violationRules: []
+    absenceRules:
+      - id: absence.privacy_notice
+        detector: artefact_scan
+        token: privacy_notice
+        pathHint: privacy-notice.md
+        confidence: direct
+    positiveRules:
+      - id: positive.privacy_notice
+        detector: artefact_scan
+        token: privacy_notice
+        confidence: direct
+    partialCredit: false
+    remediationKey: publish-privacy-notice
+    legalRefs:
+      - DPDPA Section 5
+      - DPDP Rules 4
+  - code: DPDPA-6-CONSENTGATE-01
+    section: '6'
+    actRef: DPDPA Section 6
+    ruleRef: gate-web-forms-on-consent
+    title: Personal-data forms have a recorded consent gate
+    severity: high
+    weight: 5
+    evidenceMode: absence
+    appliesWhen:
+      - stack: web
+    violationRules: []
+    absenceRules:
+      - id: absence.consent_gate
+        detector: form_scan
+        token: consent_gate
+        pathHint: app.js
+        confidence: direct
+    positiveRules:
+      - id: positive.consent_gate
+        detector: form_scan
+        token: consent_gate
+        confidence: direct
+      - id: positive.consent_gate_mechanism
+        detector: mechanism_scan
+        token: consent_gate_mechanism
+        confidence: direct
+    partialCredit: false
+    remediationKey: gate-web-forms-on-consent
+    legalRefs:
+      - DPDPA Section 6
+      - DPDP Rules 4
+  - code: DPDPA-6-FORMPURPOSE-01
+    section: '6'
+    actRef: DPDPA Section 6
+    ruleRef: add-form-purpose
+    title: Collection forms state a purpose
+    severity: medium
+    weight: 2
+    evidenceMode: absence
+    appliesWhen:
+      - stack: web
+    violationRules: []
+    absenceRules:
+      - id: absence.purpose_statement
+        detector: form_scan
+        token: purpose_statement
+        pathHint: app.js
+        confidence: direct
+    positiveRules:
+      - id: positive.purpose_statement
+        detector: form_scan
+        token: purpose_statement
+        confidence: direct
+    partialCredit: false
+    remediationKey: add-form-purpose
+    legalRefs:
+      - DPDPA Section 6
+      - DPDP Rules 4
+  - code: DPDPA-8.4-MON-01
     section: '8(4)'
     actRef: DPDPA Section 8(4)
-    ruleRef: reasonable-security-safeguards
-    title: Secrets are not stored in source
-    severity: critical
-    weight: 5
-    evidenceMode: manual
+    ruleRef: add-audit-logging
+    title: Audit logging is present in the data schema
+    severity: medium
+    weight: 3
+    evidenceMode: absence
     appliesWhen: []
     violationRules: []
-    absenceRules: []
-    positiveRules: []
+    absenceRules:
+      - id: absence.audit_log
+        detector: schema_scan
+        token: audit_log
+        pathHint: schema.py
+        confidence: direct
+    positiveRules:
+      - id: positive.audit_log
+        detector: schema_scan
+        token: audit_log
+        confidence: direct
     partialCredit: false
-    remediationKey: remove-hardcoded-secrets
+    remediationKey: add-audit-logging
+    legalRefs:
+      - DPDPA Section 8(4)
+      - DPDP Rules 4
+  - code: DPDPA-8.4-BACKUP-01
+    section: '8(4)'
+    actRef: DPDPA Section 8(4)
+    ruleRef: add-backup-policy
+    title: Backup policy artefact is present
+    severity: medium
+    weight: 2
+    evidenceMode: absence
+    appliesWhen: []
+    violationRules: []
+    absenceRules:
+      - id: absence.backup_policy
+        detector: artefact_scan
+        token: backup_policy
+        pathHint: backup-policy.md
+        confidence: direct
+    positiveRules:
+      - id: positive.backup_policy
+        detector: artefact_scan
+        token: backup_policy
+        confidence: direct
+    partialCredit: false
+    remediationKey: add-backup-policy
     legalRefs:
       - DPDPA Section 8(4)
       - DPDP Rules 4
