@@ -29,3 +29,16 @@ export interface FixPlan {
     remedy: string;
   }>;
 }
+
+/** Wire shape for an owner/admin statement; never code evidence. */
+export interface ReadinessAttestation {
+  id: string;
+  repositoryId: string;
+  key: string;
+  answer: boolean;
+  note: string | null;
+  attestedBy: string;
+  attestedAt: string;
+  expiresAt: string | null;
+  updatedAt: string;
+}

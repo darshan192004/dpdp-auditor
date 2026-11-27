@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppIcon from '~/components/ui/AppIcon.vue';
+import { READINESS_NAV, type AppNavItem } from '~/utils/nav';
 
 const emit = defineEmits<{ navigate: [] }>();
 const route = useRoute();
@@ -21,6 +22,10 @@ const NAV = [
 
 function isActive(item: (typeof NAV)[number]): boolean {
   return item.to === '/app' ? route.path === '/app' : route.path.startsWith(item.prefix);
+}
+
+function isReadinessActive(item: AppNavItem): boolean {
+  return route.path.startsWith(item.to);
 }
 </script>
 
@@ -49,27 +54,55 @@ function isActive(item: (typeof NAV)[number]): boolean {
     </p>
 
     <nav aria-label="Primary" class="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2">
-      <NuxtLink
-        v-for="item in NAV"
-        :key="item.to"
-        :to="item.to"
-        :aria-current="isActive(item) ? 'page' : undefined"
-        class="relative flex items-center gap-3 rounded-[var(--radius-control)] px-3 py-2.5 text-sm transition-colors duration-[var(--motion-fast)]"
-        :class="
-          isActive(item)
-            ? 'bg-surface-raised text-ink-900'
-            : 'text-ink-400 hover:bg-surface hover:text-ink-800'
-        "
-        @click="emit('navigate')"
-      >
-        <span
-          v-if="isActive(item)"
-          class="bg-brand-500 absolute inset-y-1.5 left-0 w-0.5 rounded-full"
-          aria-hidden="true"
-        />
-        <AppIcon :name="item.icon" :size="17" />
-        <span>{{ item.label }}</span>
-      </NuxtLink>
+      <template v-for="item in NAV" :key="item.to">
+        <NuxtLink
+          :to="item.to"
+          :aria-current="isActive(item) ? 'page' : undefined"
+          class="relative flex items-center gap-3 rounded-[var(--radius-control)] px-3 py-2.5 text-sm transition-colors duration-[var(--motion-fast)]"
+          :class="
+            isActive(item)
+              ? 'bg-surface-raised text-ink-900'
+              : 'text-ink-400 hover:bg-surface hover:text-ink-800'
+          "
+          @click="emit('navigate')"
+        >
+          <span
+            v-if="isActive(item)"
+            class="bg-brand-500 absolute inset-y-1.5 left-0 w-0.5 rounded-full"
+            aria-hidden="true"
+          />
+          <AppIcon :name="item.icon" :size="17" />
+          <span>{{ item.label }}</span>
+        </NuxtLink>
+        <template v-if="item.label === 'Remediation'">
+          <p
+            class="text-ink-400 shrink-0 px-3 pt-4 pb-1 font-mono text-[10px] tracking-[0.18em] uppercase"
+          >
+            Readiness
+          </p>
+          <NuxtLink
+            v-for="link in READINESS_NAV"
+            :key="link.to"
+            :to="link.to"
+            :aria-current="isReadinessActive(link) ? 'page' : undefined"
+            class="relative flex items-center gap-3 rounded-[var(--radius-control)] px-3 py-2.5 text-sm transition-colors duration-[var(--motion-fast)]"
+            :class="
+              isReadinessActive(link)
+                ? 'bg-surface-raised text-ink-900'
+                : 'text-ink-400 hover:bg-surface hover:text-ink-800'
+            "
+            @click="emit('navigate')"
+          >
+            <span
+              v-if="isReadinessActive(link)"
+              class="bg-brand-500 absolute inset-y-1.5 left-0 w-0.5 rounded-full"
+              aria-hidden="true"
+            />
+            <AppIcon :name="link.icon" :size="17" />
+            <span>{{ link.label }}</span>
+          </NuxtLink>
+        </template>
+      </template>
     </nav>
 
     <div

@@ -2398,7 +2398,7 @@ git commit -m "feat(readiness): add readiness read routes"
 - Consumes: `ReadinessInventory`, `ReadinessGap`, `FixPlan`, `FixtureAttestation`, and BFF read routes from Task 8.
 - Produces: `/app/readiness/inventory`, `/app/readiness/gaps`, `/app/readiness/fix-plan`, `/app/readiness/attestations`, `/app/readiness/exports`, `READINESS_NAV`, and breadcrumbs for each route.
 
-- [ ] **Step 1: Write the failing page, nav, and breadcrumb tests**
+- [x] **Step 1: Write the failing page, nav, and breadcrumb tests**
 
 ```ts
 // apps/web/test/readiness-pages.test.ts
@@ -2500,7 +2500,7 @@ Add these cases to `apps/web/test/breadcrumbs.test.ts`:
   });
 ```
 
-- [ ] **Step 2: Run the focused UI tests and confirm RED**
+- [x] **Step 2: Run the focused UI tests and confirm RED**
 
 ```bash
 pnpm --filter @dpdpa/web exec vitest run test/readiness-pages.test.ts test/readiness-nav.test.ts test/breadcrumbs.test.ts
@@ -2513,7 +2513,7 @@ FAIL  test/readiness-pages.test.ts > readiness pages > renders an inventory tabl
 Error: Cannot find module '../app/components/readiness/ReadinessDataView.vue'
 ```
 
-- [ ] **Step 3: Add the reusable views**
+- [x] **Step 3: Add the reusable views**
 
 ```vue
 <!-- apps/web/app/components/readiness/ReadinessDataView.vue -->
@@ -2583,7 +2583,7 @@ defineProps<{ rows: FixtureAttestation[]; canWrite: boolean }>();
 </template>
 ```
 
-- [ ] **Step 4: Add the five pages**
+- [x] **Step 4: Add the five pages**
 
 ```vue
 <!-- apps/web/app/pages/app/readiness/inventory.vue -->
@@ -2696,7 +2696,7 @@ const scanId = String(route.params.scanId);
 </template>
 ```
 
-- [ ] **Step 5: Add navigation and breadcrumbs**
+- [x] **Step 5: Add navigation and breadcrumbs**
 
 ```ts
 // apps/web/app/utils/nav.ts
@@ -2730,7 +2730,7 @@ In `apps/web/app/utils/breadcrumbs.ts`, add before the final `return crumbs`:
   }
 ```
 
-- [ ] **Step 6: Run the focused UI tests and confirm GREEN**
+- [x] **Step 6: Run the focused UI tests and confirm GREEN**
 
 ```bash
 pnpm --filter @dpdpa/web exec vitest run test/readiness-pages.test.ts test/readiness-nav.test.ts test/breadcrumbs.test.ts
@@ -2748,7 +2748,7 @@ Test Files  3 passed (3)
 Tests  5 passed (5)
 ```
 
-- [ ] **Step 7: Run full gates and commit**
+- [x] **Step 7: Run full gates and commit**
 
 ```bash
 pnpm lint && pnpm typecheck && pnpm test
