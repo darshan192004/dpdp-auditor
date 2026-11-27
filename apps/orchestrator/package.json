@@ -52,7 +52,7 @@
     "@types/pdfkit": "^0.17.7",
     "@vitest/coverage-v8": "^5.1.0",
     "eslint": "^10.14.0",
-    "prettier": "^3.9.10",
+    "prettier": "^3.10.1",
     "testcontainers": "12.2.1",
     "typescript": "~6.0",
     "vitest": "^5.1.0"
