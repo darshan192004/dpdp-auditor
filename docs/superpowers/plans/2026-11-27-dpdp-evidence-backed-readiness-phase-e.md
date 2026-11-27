@@ -3399,7 +3399,7 @@ git commit -m "feat(readiness): add attestation detail tiles"
 - Consumes: `buildReportViewModel` and `REPORT_DISCLAIMER` from `report-view-model.ts`; `isScoringV2`/`SCORING_V2_VERSION` from `scoring.engine.ts`; `PrismaService`; `RulePackService.loadV2()`; `commencementFileSchema` entries from `@dpdpa/contracts`.
 - Produces: `buildReportV2ViewModel(input)` with the nine ordered sections; `ReportV2Service.viewModel(orgId, reportId)`; `ReportsService.viewModel` returns v2 only when `scan.scoringVersion === "scoring-2.0.0"` and otherwise returns the exact v1 payload.
 
-- [ ] **Step 1: Write the failing v2 view-model tests**
+- [x] **Step 1: Write the failing v2 view-model tests**
 
 ```ts
 // apps/orchestrator/test/report-v2-view-model.test.ts
@@ -3617,7 +3617,7 @@ describe('report version selection', () => {
 });
 ```
 
-- [ ] **Step 2: Run the focused v2 view-model tests and confirm RED**
+- [x] **Step 2: Run the focused v2 view-model tests and confirm RED**
 
 ```bash
 pnpm --filter @dpdpa/orchestrator exec vitest run test/report-v2-view-model.test.ts test/report-v2-selection.test.ts
@@ -3629,7 +3629,7 @@ Expected RED output:
 Error: Cannot find module '../src/modules/reports/report-view-model-v2.js'
 ```
 
-- [ ] **Step 3: Add the pure v2 view model**
+- [x] **Step 3: Add the pure v2 view model**
 
 ```ts
 // apps/orchestrator/src/modules/reports/report-view-model-v2.ts
@@ -3794,7 +3794,7 @@ export function buildReportV2ViewModel(input: ReportV2Input) {
 }
 ```
 
-- [ ] **Step 3a: Add the optional coverage field to the shared view model**
+- [x] **Step 3a: Add the optional coverage field to the shared view model**
 
 In `apps/orchestrator/src/modules/reports/report-template.ts`, add to `ReportTemplateModel['scan']` after `coverageStatus: string;`:
 
@@ -3811,7 +3811,7 @@ In `apps/orchestrator/src/modules/reports/report-view-model.ts`, add to the retu
 
 The field is optional so existing v1 fixtures and PDF tests remain valid; v1 output gains a null-safe number only when the scan has the column.
 
-- [ ] **Step 4: Add the data-gathering service and version dispatch**
+- [x] **Step 4: Add the data-gathering service and version dispatch**
 
 ```ts
 // apps/orchestrator/src/modules/reports/report-v2.service.ts
@@ -3934,7 +3934,7 @@ At the start of `viewModel(orgId, reportId)`, after the expiry check:
 
 In `apps/orchestrator/src/modules/reports/reports.module.ts`, import `PrismaModule` and `RulePackModule`, add `ReportV2Service` to `providers` and `exports`.
 
-- [ ] **Step 5: Run the focused v2 view-model tests and confirm GREEN**
+- [x] **Step 5: Run the focused v2 view-model tests and confirm GREEN**
 
 ```bash
 pnpm --filter @dpdpa/orchestrator exec vitest run test/report-v2-view-model.test.ts test/report-v2-selection.test.ts
@@ -3952,7 +3952,7 @@ Test Files  2 passed (2)
 Tests  5 passed (5)
 ```
 
-- [ ] **Step 6: Run full gates and commit**
+- [x] **Step 6: Run full gates and commit**
 
 ```bash
 pnpm lint && pnpm typecheck && pnpm test
