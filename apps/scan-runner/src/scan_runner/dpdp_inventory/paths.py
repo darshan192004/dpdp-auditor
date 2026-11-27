@@ -52,6 +52,7 @@ SOURCE_SUFFIXES: Final[frozenset[str]] = frozenset(
 MAX_FILE_BYTES: Final = 1_000_000
 MAX_FILES: Final = 10_000
 MAX_LINES_PER_FILE: Final = 2_000
+MAX_ARTEFACTS: Final = 500
 
 
 def iter_files(root: Path) -> Iterator[tuple[Path, str]]:
@@ -84,3 +85,21 @@ def read_lines(path: Path) -> list[str]:
     except OSError:
         return []
     return text.splitlines()[:MAX_LINES_PER_FILE]
+
+
+def iter_artefacts(root: Path) -> Iterator[tuple[Path, str]]:
+    """Yield bounded repository paths; callers never open artefact contents."""
+    seen = 0
+    for path in sorted(root.rglob("*")):
+        if not path.is_file():
+            continue
+        try:
+            relative = path.relative_to(root).as_posix()
+        except ValueError:
+            continue
+        if any(part in SKIP_DIRS for part in Path(relative).parts):
+            continue
+        seen += 1
+        if seen > MAX_ARTEFACTS:
+            return
+        yield path, relative
