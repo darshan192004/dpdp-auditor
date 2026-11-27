@@ -300,7 +300,7 @@ git commit -m "feat(readiness): map v2 attestation keys to controls"
 - Consumes: `validatePackV2`, `DPDPA_PACK_V2_VERSION`, `type ControlV2`, and `type PackFileV2` from `@dpdpa/contracts`; `parse` from `yaml`; Node `fs`/`path` helpers.
 - Produces: `loadRulePackV2(dir, options?) => Promise<LoadedRulePackV2>` with `pack`, `controls`, `controlsByCode`, and `attestationsByKey: Map<string, ControlV2[]>`; `RulePackV2Error`.
 
-- [ ] **Step 1: Write the failing loader tests**
+- [x] **Step 1: Write the failing loader tests**
 
 ```ts
 // apps/orchestrator/test/rule-pack-v2.loader.test.ts
@@ -360,7 +360,7 @@ describe('v2 attestation pack loader', () => {
 });
 ```
 
-- [ ] **Step 2: Run the focused loader test and confirm RED**
+- [x] **Step 2: Run the focused loader test and confirm RED**
 
 ```bash
 pnpm --filter @dpdpa/orchestrator exec vitest run test/rule-pack-v2.loader.test.ts
@@ -373,7 +373,7 @@ FAIL  test/rule-pack-v2.loader.test.ts > v2 attestation pack loader > loads pack
 Error: Cannot find module '../src/modules/rule-pack/rule-pack-v2.loader.js'
 ```
 
-- [ ] **Step 3: Add the validated v2 loader**
+- [x] **Step 3: Add the validated v2 loader**
 
 ```ts
 // apps/orchestrator/src/modules/rule-pack/rule-pack-v2.loader.ts
@@ -471,7 +471,7 @@ export async function loadRulePackV2(dir: string): Promise<LoadedRulePackV2> {
 }
 ```
 
-- [ ] **Step 4: Run the focused loader test and confirm GREEN**
+- [x] **Step 4: Run the focused loader test and confirm GREEN**
 
 ```bash
 pnpm --filter @dpdpa/orchestrator exec vitest run test/rule-pack-v2.loader.test.ts
@@ -487,7 +487,7 @@ Test Files  1 passed (1)
 Tests  3 passed (3)
 ```
 
-- [ ] **Step 5: Run full gates and commit**
+- [x] **Step 5: Run full gates and commit**
 
 ```bash
 pnpm lint && pnpm typecheck && pnpm test

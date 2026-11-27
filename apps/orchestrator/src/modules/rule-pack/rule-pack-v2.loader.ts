@@ -7,6 +7,7 @@ import {
   controlsFileV2Schema,
   detectorsFileV2Schema,
   mappingsFileV2Schema,
+  packManifestV2Schema,
   validatePackV2,
   type ControlV2,
   type PackFileV2,
@@ -21,11 +22,32 @@ import {
 
 const MANIFEST = 'manifest.yaml';
 
+export type RulePackV2ErrorCode =
+  'RULE_PACK_MISSING' | 'RULE_PACK_INVALID' | 'RULE_PACK_HASH_MISMATCH';
+
+export class RulePackV2Error extends RulePackError {
+  constructor(
+    readonly v2Code: RulePackV2ErrorCode,
+    message: string,
+  ) {
+    super(v2Code, message);
+    this.name = 'RulePackV2Error';
+  }
+}
+
+export type LoadedRulePackV2 = LoadedRulePack & {
+  attestationsByKey: Map<string, ControlV2[]>;
+};
+
 /** Loads the checksummed v2 pack and adapts it to the Phase A scorer shape. */
 export async function loadRulePackV2(
   packDir: string,
   legacyPackDir = join(packDir, '..'),
-): Promise<LoadedRulePack> {
+): Promise<LoadedRulePackV2> {
+  const rawManifest = await readFile(join(packDir, MANIFEST), 'utf8').catch(() => {
+    throw new RulePackV2Error('RULE_PACK_MISSING', `missing ${MANIFEST} in ${packDir}`);
+  });
+  const manifest = packManifestV2Schema.parse(parse(rawManifest));
   const paths = await listFiles(packDir);
   const files: PackFileV2[] = [];
   for (const path of paths) {
@@ -34,10 +56,20 @@ export async function loadRulePackV2(
     const value = path.endsWith('.yaml') ? parse(bytes.toString('utf8')) : undefined;
     files.push({ path, value, sha256: createHash('sha256').update(bytes).digest('hex') });
   }
-  const manifest = parse(await readFile(join(packDir, MANIFEST), 'utf8'));
+
+  const knownHashes = new Map(manifest.files.map((file) => [file.path, file.sha256]));
+  for (const file of files) {
+    if (knownHashes.get(file.path) !== file.sha256) {
+      throw new RulePackV2Error(
+        'RULE_PACK_HASH_MISMATCH',
+        `${file.path} hash does not match the v2 manifest`,
+      );
+    }
+  }
+
   const issues = validatePackV2({ files, manifest });
   if (issues.length > 0) {
-    throw new RulePackError(
+    throw new RulePackV2Error(
       'RULE_PACK_INVALID',
       issues.map((issue) => `${issue.path}: ${issue.code}: ${issue.message}`).join('; '),
     );
@@ -49,6 +81,14 @@ export async function loadRulePackV2(
   const mappingFiles = files
     .filter((file) => file.path.startsWith('mappings/') && file.path.endsWith('.yaml'))
     .map((file) => mappingsFileV2Schema.parse(file.value));
+
+  const attestationsByKey = new Map<string, ControlV2[]>();
+  for (const control of controlsFile.controls) {
+    if (control.attestationKey === undefined) continue;
+    const mapped = attestationsByKey.get(control.attestationKey) ?? [];
+    mapped.push(control);
+    attestationsByKey.set(control.attestationKey, mapped);
+  }
 
   const controls = controlsFile.controls.map(toControl);
   const mappings: Mapping[] = [];
@@ -97,7 +137,7 @@ export async function loadRulePackV2(
     parse(await readFile(join(legacyPackDir, 'scoring.yaml'), 'utf8')),
   );
   if (legacy.pack !== 'dpdpa-2026.10.6' || legacy.scoringVersion !== '1.0.0') {
-    throw new RulePackError('RULE_PACK_INVALID', 'legacy scoring config changed');
+    throw new RulePackV2Error('RULE_PACK_INVALID', 'legacy scoring config changed');
   }
 
   return {
@@ -106,6 +146,7 @@ export async function loadRulePackV2(
     scoringVersion: '2.0.0',
     controls,
     controlsByCode: new Map(controls.map((control) => [control.code, control])),
+    attestationsByKey,
     mappings,
     suppressions: [],
     sectionWeights: legacy.sectionWeights,
