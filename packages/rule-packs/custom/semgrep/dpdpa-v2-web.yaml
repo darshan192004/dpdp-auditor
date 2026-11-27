@@ -1,0 +1,24 @@
+# semgrep==1.95.0
+# Custom readiness-gap rules for web-surface controls. Rule ids are mapped in
+# packages/rule-packs/v2/detectors.yaml via detector semgrep_scan.
+rules:
+  - id: dpdpa.v2.cmp.consent-mode-disabled
+    languages: [generic]
+    severity: ERROR
+    message: Consent mode is disabled; this is evidence of a readiness gap for DPDPA Section 8(4).
+    patterns:
+      - pattern-regex: '(?i)\b(?:consentMode|cmpConfig)\b.{0,60}\benabled\s*:\s*false\b'
+
+  - id: dpdpa.v2.header.hsts-disabled
+    languages: [generic]
+    severity: ERROR
+    message: Transport hardening is disabled; this is evidence of a readiness gap for DPDPA Section 8(4).
+    patterns:
+      - pattern-regex: '(?i)\bhsts\s*:\s*false\b'
+
+  - id: dpdpa.v2.cookie.missing-secure-flag
+    languages: [generic]
+    severity: ERROR
+    message: A personal-data cookie is missing the Secure flag; this is evidence of a readiness gap for DPDPA Section 8(4).
+    patterns:
+      - pattern-regex: '(?i)\b[a-z_]*cookie\s*\([^\n]{0,160}\bsecure\s*:\s*false\b'
