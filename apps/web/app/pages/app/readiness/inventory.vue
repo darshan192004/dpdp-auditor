@@ -12,6 +12,7 @@ const rows = computed(() =>
     Detector: signal.detector,
     Token: signal.token,
     Path: signal.path,
+    Line: signal.line ?? '—',
   })),
 );
 </script>
@@ -20,7 +21,7 @@ const rows = computed(() =>
   <ReadinessDataView
     title="Data Inventory"
     summary="Detected field names, routes, dependencies, and regions."
-    :columns="['Detector', 'Token', 'Path']"
+    :columns="['Detector', 'Token', 'Path', 'Line']"
     :rows="rows"
   />
 </template>

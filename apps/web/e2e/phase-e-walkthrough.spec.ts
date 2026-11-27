@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { waitForHydration } from './hydration';
 
 const SCAN_ID = '0f000000-0000-4000-8000-000000000010';
+const V2_SCAN_ID = '0f000000-0000-4000-8000-0000000000a1';
 const REPO_ID = '0f000000-0000-4000-8000-000000000020';
 const REPORT_ID = 'rpt_01J8Z6C3D4E5F6G7H8J9K0M1N2';
 
@@ -27,6 +28,15 @@ test.describe('Phase E walkthrough', () => {
         ).toBeVisible();
       }
     }
+  });
+
+  test('inventory shows bounded tokens with path and line number', async ({ page }) => {
+    await page.goto(`/app/readiness/inventory?scanId=${V2_SCAN_ID}`);
+    await waitForHydration(page);
+    await expect(page.getByRole('columnheader', { name: 'Line' })).toBeVisible();
+    const row = page.getByRole('row').filter({ hasText: 'email_address' });
+    await expect(row).toContainText('src/api/user.ts');
+    await expect(row).toContainText('12');
   });
 
   test('renders detector explanations and attestation tiles', async ({ page }) => {
