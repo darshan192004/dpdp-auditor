@@ -2248,7 +2248,7 @@ git commit -m "feat(ui): add motion-v foundation"
 - Motion Primitives documented Text Effect/Animated Number/In View/Cursor/Spotlight patterns: https://motion-primitives.com/docs/text-effect and https://github.com/ibelick/motion-primitives (MIT; patterns ported independently to Vue).
 - Motion for Vue: https://motion.dev/docs/vue-motion-component, https://motion.dev/docs/vue-scroll-animations, https://motion.dev/docs/vue-use-reduced-motion.
 
-- [ ] **Step 1: Write failing component tests**
+- [x] **Step 1: Write failing component tests**
 
 ```ts
 // apps/web/test/motion-primitives.test.ts
@@ -2298,12 +2298,12 @@ describe('motion primitives', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `pnpm --filter @dpdpa/web test -- motion-primitives.test.ts`  
 Expected: FAIL — components missing.
 
-- [ ] **Step 3: Implement `MotionTextReveal.vue`**
+- [x] **Step 3: Implement `MotionTextReveal.vue`**
 
 ```vue
 <!-- apps/web/app/components/motion/MotionTextReveal.vue -->
@@ -2386,7 +2386,7 @@ const variants = computed(() =>
 </template>
 ```
 
-- [ ] **Step 4: Implement `MetricTile.vue`**
+- [x] **Step 4: Implement `MetricTile.vue`**
 
 ```vue
 <!-- apps/web/app/components/motion/MetricTile.vue -->
@@ -2430,7 +2430,7 @@ const TONE_CLASS = {
 </template>
 ```
 
-- [ ] **Step 5: Implement `ScrollReveal.vue`**
+- [x] **Step 5: Implement `ScrollReveal.vue`**
 
 ```vue
 <!-- apps/web/app/components/motion/ScrollReveal.vue -->
@@ -2453,7 +2453,7 @@ const reduceMotion = useReducedMotion();
 </template>
 ```
 
-- [ ] **Step 6a: Add the shared palette item type**
+- [x] **Step 6a: Add the shared palette item type**
 
 ```ts
 // apps/web/app/components/motion/palette.ts
@@ -2465,7 +2465,7 @@ export interface PaletteItem {
 }
 ```
 
-- [ ] **Step 6b: Implement `CommandPalette.vue`**
+- [x] **Step 6b: Implement `CommandPalette.vue`**
 
 ```vue
 <!-- apps/web/app/components/motion/CommandPalette.vue -->
@@ -2583,7 +2583,7 @@ function onKeydown(event: KeyboardEvent): void {
 
 The palette is navigation-agnostic: it emits `navigate` and `close`; the composed page performs the Nuxt navigation.
 
-- [ ] **Step 7: Implement `HoverCard.vue`**
+- [x] **Step 7: Implement `HoverCard.vue`**
 
 ```vue
 <!-- apps/web/app/components/motion/HoverCard.vue -->
@@ -2633,12 +2633,12 @@ const reduceMotion = useReducedMotion();
 </template>
 ```
 
-- [ ] **Step 8: Run tests**
+- [x] **Step 8: Run tests**
 
 Run: `pnpm --filter @dpdpa/web test -- motion-primitives.test.ts && pnpm --filter @dpdpa/web typecheck`  
 Expected: PASS.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add apps/web/app/components/motion apps/web/test/motion-primitives.test.ts
