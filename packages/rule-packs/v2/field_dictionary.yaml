@@ -1,3 +1,15 @@
 version: 1
 pack: dpdpa-2026.11.0
-entries: []
+entries:
+  - key: email
+    label: Email address field
+  - key: phone
+    label: Phone number field
+  - key: full_name
+    label: Full name field
+  - key: address
+    label: Postal address field
+  - key: date_of_birth
+    label: Date of birth field
+  - key: aadhaar
+    label: Aadhaar identifier field

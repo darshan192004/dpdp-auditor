@@ -1,0 +1,28 @@
+name: fx-good-app
+languages:
+  - javascript
+  - python
+scanners:
+  - semgrep
+  - checkov
+  - gitleaks
+expectedFindings: []
+expectedCoverage: full
+expectedVerdicts:
+  - controlCode: DPDPA-5-NOTICE-01
+    verdict: PASS
+    reasonCode: positive_evidence
+  - controlCode: DPDPA-6-CONSENTGATE-01
+    verdict: PASS
+    reasonCode: positive_evidence
+  - controlCode: DPDPA-6-FORMPURPOSE-01
+    verdict: PASS
+    reasonCode: positive_evidence
+  - controlCode: DPDPA-8.4-MON-01
+    verdict: PASS
+    reasonCode: positive_evidence
+  - controlCode: DPDPA-8.4-BACKUP-01
+    verdict: PASS
+    reasonCode: positive_evidence
+tolerances:
+  extraFindings: 0

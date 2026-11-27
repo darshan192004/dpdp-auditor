@@ -14,8 +14,9 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 # Directories that never contribute facts (dependencies, build output, VCS).
 SKIP_DIRS = frozenset(
@@ -121,9 +122,7 @@ CFN_TYPE_MAP: dict[str, str] = {
 }
 
 # Terraform / Pulumi resource block: resource "aws_s3_bucket" "logs" {
-_TF_RESOURCE_RE = re.compile(
-    r'^\s*(?:resource|data)\s+"([a-z0-9_]+_[a-z0-9_]+)"\s+"', re.MULTILINE
-)
+_TF_RESOURCE_RE = re.compile(r'^\s*(?:resource|data)\s+"([a-z0-9_]+_[a-z0-9_]+)"\s+"', re.MULTILINE)
 # CloudFormation: Type: AWS::S3::Bucket
 _CFN_TYPE_RE = re.compile(r"^\s*Type:\s*['\"]?([A-Za-z0-9]+::[A-Za-z0-9:]+)", re.MULTILINE)
 # Kubernetes manifest: kind: Deployment
@@ -166,9 +165,11 @@ def _safe_json_loads(text: str) -> object | None:
     raise ValueError/RecursionError on a file that is well below the cap.
     """
     try:
-        return json.loads(text)
+        parsed: object = json.loads(text)
     except (ValueError, RecursionError):
         return None
+    else:
+        return parsed
 
 
 def _iter_manifests(workspace: Path) -> Iterable[Path]:

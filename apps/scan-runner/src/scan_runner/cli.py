@@ -13,6 +13,7 @@ Stage sequencing per P3-02:
 from __future__ import annotations
 
 import logging
+import re
 import shutil
 import subprocess
 import sys
@@ -26,6 +27,7 @@ from scan_runner.adapters import CheckovAdapter, GitleaksAdapter, SemgrepAdapter
 from scan_runner.batches import BatchClient
 from scan_runner.callbacks import post_signed
 from scan_runner.config import ALL_SCANNERS, SECRETS_ONLY_SCANNERS, Config
+from scan_runner.dpdp_inventory import analyze_repo
 from scan_runner.facts import collect_facts
 from scan_runner.logging_setup import configure_logging
 from scan_runner.normalise import normalize_findings
@@ -133,6 +135,117 @@ def send_progress(config: Config, client: httpx.Client | None = None) -> None:
     log.info("progress 'scanning' accepted for scan %s", config.scan_id)
 
 
+_TOKEN_RE = re.compile(r"^[A-Za-z0-9_.:/-]{1,120}$")
+_PATH_RE = re.compile(r"^(?!/)(?!.*\.\.)[^\0]{1,240}$")
+_INVENTORY_KINDS = frozenset(
+    {
+        "file",
+        "symbol",
+        "field",
+        "route",
+        "dependency",
+        "config",
+        "artefact",
+        "region",
+        "cookie",
+        "header",
+    }
+)
+_INVENTORY_KEYS = frozenset(
+    {
+        "schema_scan",
+        "form_scan",
+        "mechanism_scan",
+        "artefact_scan",
+        "dep_scan",
+        "sdk_init_scan",
+        "region_scan",
+        "pii_literal_scan",
+        "cookie_scan",
+        "cmp_scan",
+        "header_scan",
+        "cms_scan",
+    }
+)
+_INVENTORY_STATUSES = frozenset({"completed", "failed", "timed_out", "skipped"})
+
+
+def _bounded_signal(value: object) -> dict[str, object] | None:
+    """Keep only contract-shaped signal fields; drop everything else."""
+    if not isinstance(value, dict):
+        return None
+    detector = value.get("detector")
+    kind = value.get("kind")
+    path = value.get("path")
+    line = value.get("line")
+    token = value.get("token")
+    if not isinstance(detector, str) or not _TOKEN_RE.match(detector):
+        return None
+    if not isinstance(kind, str) or kind not in _INVENTORY_KINDS:
+        return None
+    if not isinstance(path, str) or not _PATH_RE.match(path):
+        return None
+    if not isinstance(line, int) or isinstance(line, bool) or not 1 <= line <= 100_000:
+        return None
+    if not isinstance(token, str) or not _TOKEN_RE.match(token):
+        return None
+    signal: dict[str, object] = {
+        "detector": detector,
+        "kind": kind,
+        "path": path,
+        "line": line,
+        "token": token,
+    }
+    count = value.get("count")
+    if isinstance(count, int) and not isinstance(count, bool) and 0 <= count <= 100_000:
+        signal["count"] = count
+    return signal
+
+
+def sanitize_inventory(report: object) -> dict[str, object] | None:
+    """Keep only contract-shaped inventory data before signing a callback."""
+    if not isinstance(report, dict):
+        return None
+    if report.get("inventoryVersion") != "inventory-1.0.0":
+        return None
+    raw_facts = report.get("facts")
+    raw_statuses = report.get("detectorStatuses")
+    if not isinstance(raw_facts, list) or not isinstance(raw_statuses, dict):
+        return None
+
+    facts: list[dict[str, object]] = []
+    for raw_fact in raw_facts[:12]:
+        if not isinstance(raw_fact, dict):
+            continue
+        key = raw_fact.get("key")
+        detected_at = raw_fact.get("detectedAt")
+        raw_signals = raw_fact.get("signals")
+        if key not in _INVENTORY_KEYS or not isinstance(detected_at, str):
+            continue
+        if not isinstance(raw_signals, list):
+            continue
+        signals = [
+            signal
+            for signal in (_bounded_signal(item) for item in raw_signals[:2000])
+            if signal is not None
+        ]
+        facts.append({"key": key, "signals": signals, "detectedAt": detected_at})
+
+    statuses = {
+        key: value
+        for key, value in raw_statuses.items()
+        if isinstance(key, str) and _TOKEN_RE.match(key) and value in _INVENTORY_STATUSES
+    }
+    if not facts or not statuses:
+        return None
+    return {
+        "inventoryVersion": "inventory-1.0.0",
+        "facts": facts,
+        "signals": [],
+        "detectorStatuses": statuses,
+    }
+
+
 def send_completion(
     config: Config,
     statuses: dict[str, str],
@@ -142,6 +255,7 @@ def send_completion(
     commit_sha: str | None = None,
     workspace_bytes: int | None = None,
     facts: dict[str, list[str]] | None = None,
+    inventory: dict[str, object] | None = None,
     client: httpx.Client | None = None,
 ) -> None:
     """Send the signed final completion callback (P3-10)."""
@@ -168,6 +282,9 @@ def send_completion(
         payload["commitSha"] = commit_sha
     if workspace_bytes is not None:
         payload["workspaceBytes"] = workspace_bytes
+    sanitized = sanitize_inventory(inventory) if inventory is not None else None
+    if sanitized is not None:
+        payload["inventory"] = sanitized
     post_signed(
         config,
         f"/internal/v1/scans/{config.scan_id}/complete",
@@ -179,6 +296,8 @@ def send_completion(
 
 def run_scan(config: Config) -> int:
     workspace = Path(config.workspace)
+    scan_started = time.monotonic()
+    log.debug("scan timing anchor: %.3f", scan_started)
     statuses: dict[str, str] = {}
     counts: dict[str, int] = {}
     durations: dict[str, int] = {}
@@ -243,6 +362,14 @@ def run_scan(config: Config) -> int:
             facts["frameworks"],
             facts["resourceTypes"],
         )
+        inventory_report: dict[str, object] | None = None
+        try:
+            report = analyze_repo(workspace)
+            log.info("inventory detector statuses: %s", report["detectorStatuses"])
+            inventory_report = report
+        except Exception as exc:  # pragma: no cover - defensive
+            log.warning("inventory analysis failed: %s", exc)
+            inventory_report = None
         send_completion(
             config,
             statuses,
@@ -251,6 +378,7 @@ def run_scan(config: Config) -> int:
             commit_sha=read_commit_sha(workspace),
             workspace_bytes=total_workspace_bytes(workspace),
             facts=facts,
+            inventory=inventory_report,
         )
         return exit_code
     finally:

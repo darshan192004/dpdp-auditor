@@ -2,10 +2,17 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Prisma, type Scan } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { recordMappingMiss } from '../../common/metrics.js';
-import type { Control, Mapping, Scanner, Severity } from '../rule-pack/rule-pack.schemas.js';
+import type {
+  Control,
+  DetectorName,
+  Mapping,
+  Scanner,
+  Severity,
+} from '../rule-pack/rule-pack.schemas.js';
 import { RulePackService } from '../rule-pack/rule-pack.service.js';
 import type { LoadedRulePack } from '../rule-pack/rule-pack.loader.js';
 import { resolveMappings, type FindingStatus, type MappedFinding } from './mapping.resolver.js';
+import { inventoryEvidence, type InventoryReportLike } from './inventory-evidence.js';
 import {
   buildDetectorStatuses,
   evaluateControls,
@@ -78,8 +85,10 @@ export class ScanScoringService {
     facts: RepoFacts,
     coverage: Record<string, string>,
     tx: Prisma.TransactionClient,
+    inventory?: InventoryReportLike,
   ): Promise<MapAndScoreResult> {
-    const loaded = await this.pack.load();
+    const v2Enabled = this.flags.isEnabled('dpdpa_readiness_v2', false);
+    const loaded = v2Enabled ? await this.pack.loadV2() : await this.pack.load();
     const ruleIds = await this.ensureRules(loaded);
     const raw = await tx.scannerFinding.findMany({
       where: { scanId: scan.id },
@@ -235,18 +244,38 @@ export class ScanScoringService {
     }
 
     const coverageMode = coverageFor(coverage);
-    const scoringVersion = scoringVersionForNewScan(
-      this.flags.isEnabled('dpdpa_readiness_v2', false),
-    );
-    const evaluation = evaluateControls({
-      controls: loaded.controls,
-      facts,
-      mappings: loaded.mappings,
-      detectorStatuses: buildDetectorStatuses(coverage),
-      findings: evidence,
-      rulePackVersion: loaded.pack,
-      scoringVersion,
-    });
+    const scoringVersion = scoringVersionForNewScan(v2Enabled);
+    let evaluation: ReturnType<typeof evaluateControls>;
+    if (isScoringV2(scoringVersion)) {
+      const detectorStatuses = {
+        ...buildDetectorStatuses(coverage),
+        ...(inventory?.detectorStatuses ?? {}),
+      };
+      const inventoryFindings = inventoryEvidence({
+        report: inventory,
+        rules: loaded.inventoryRules,
+        detectorStatuses,
+      });
+      evaluation = evaluateControls({
+        controls: loaded.controls,
+        facts,
+        mappings: loaded.mappings,
+        detectorStatuses,
+        findings: [...evidence, ...inventoryFindings],
+        rulePackVersion: loaded.pack,
+        scoringVersion,
+      });
+    } else {
+      evaluation = evaluateControls({
+        controls: loaded.controls,
+        facts,
+        mappings: loaded.mappings,
+        detectorStatuses: buildDetectorStatuses(coverage),
+        findings: evidence,
+        rulePackVersion: loaded.pack,
+        scoringVersion,
+      });
+    }
 
     await this.persistControlResults(scan, tx, loaded, ruleIds, evaluation.results, scoringVersion);
 
@@ -296,8 +325,9 @@ export class ScanScoringService {
    * both go through here so a status change cannot leave a stale FAIL behind.
    */
   async scorePersisted(scan: Scan, facts: RepoFacts, tx: Prisma.TransactionClient) {
-    const loaded = await this.pack.load();
     const scoringVersion = scan.scoringVersion ?? LEGACY_SCORING_VERSION;
+    const loaded = isScoringV2(scoringVersion) ? await this.pack.loadV2() : await this.pack.load();
+    const inventory = inventoryFromFacts(scan.facts);
     const rows = await tx.scannerFinding.findMany({
       where: { scanId: scan.id },
       select: {
@@ -348,12 +378,21 @@ export class ScanScoringService {
               },
             ],
       );
+      const detectorStatuses = {
+        ...buildDetectorStatuses(coverageRecord(scan.coverage)),
+        ...(inventory?.detectorStatuses ?? {}),
+      };
+      const inventoryFindings = inventoryEvidence({
+        report: inventory,
+        rules: loaded.inventoryRules,
+        detectorStatuses,
+      });
       results = evaluateControls({
         controls: loaded.controls,
         facts,
         mappings: loaded.mappings,
-        detectorStatuses: buildDetectorStatuses(coverageRecord(scan.coverage)),
-        findings: evidence,
+        detectorStatuses,
+        findings: [...evidence, ...inventoryFindings],
         rulePackVersion: loaded.pack,
         scoringVersion,
       }).results;
@@ -435,7 +474,7 @@ export class ScanScoringService {
         }
         for (const mapping of loaded.mappings) {
           const dpdpaRuleId = ids.get(mapping.controlCode);
-          if (!dpdpaRuleId) continue;
+          if (!dpdpaRuleId || !isStoredScanner(mapping.scanner)) continue;
           await tx.ruleMapping.upsert({
             where: {
               scanner_scannerRuleId_scannerRuleVersion_dpdpaRuleId: {
@@ -445,8 +484,8 @@ export class ScanScoringService {
                 dpdpaRuleId,
               },
             },
-            create: { ...mappingRow(mapping, dpdpaRuleId) },
-            update: mappingRow(mapping, dpdpaRuleId),
+            create: { ...mappingRow(mapping, dpdpaRuleId, mapping.scanner) },
+            update: mappingRow(mapping, dpdpaRuleId, mapping.scanner),
           });
         }
         return ids;
@@ -509,6 +548,17 @@ export function coverageFor(coverage: unknown): 'full' | 'partial' {
   return values.every((value) => value === 'completed') ? 'full' : 'partial';
 }
 
+function inventoryFromFacts(value: unknown): InventoryReportLike | undefined {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const inventory = (value as Record<string, unknown>).inventory;
+  if (inventory === null || typeof inventory !== 'object' || Array.isArray(inventory)) {
+    return undefined;
+  }
+  const report = inventory as Partial<InventoryReportLike>;
+  if (report.inventoryVersion !== 'inventory-1.0.0') return undefined;
+  return report as InventoryReportLike;
+}
+
 function coverageRecord(value: unknown): Record<string, string> {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return {};
   return Object.fromEntries(
@@ -540,10 +590,14 @@ function ruleRow(control: Control, pack: string) {
   };
 }
 
-function mappingRow(mapping: Mapping, dpdpaRuleId: string) {
+function isStoredScanner(name: DetectorName): name is Scanner {
+  return name === 'semgrep' || name === 'checkov' || name === 'gitleaks';
+}
+
+function mappingRow(mapping: Mapping, dpdpaRuleId: string, scanner: Scanner) {
   return {
     dpdpaRuleId,
-    scanner: mapping.scanner,
+    scanner,
     scannerRuleId: mapping.ruleId,
     scannerRuleVersion: mapping.scannerRuleVersion,
     confidence: mapping.confidence,

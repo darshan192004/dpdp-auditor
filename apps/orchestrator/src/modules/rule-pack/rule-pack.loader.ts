@@ -31,6 +31,15 @@ export class RulePackError extends Error {
   }
 }
 
+export interface InventoryRule {
+  controlCode: string;
+  detector: string;
+  token: string;
+  mode: 'absence' | 'positive';
+  confidence: 'direct' | 'inferred' | 'advisory';
+  pathHint?: string;
+}
+
 export interface LoadedRulePack {
   pack: string;
   effectiveFrom: string;
@@ -41,6 +50,7 @@ export interface LoadedRulePack {
   suppressions: Suppression[];
   sectionWeights: Record<string, number>;
   grades: GradeBand[];
+  inventoryRules: InventoryRule[];
 }
 
 export interface LoadRulePackOptions {
@@ -178,6 +188,7 @@ export async function loadRulePack(
     })),
     sectionWeights: scoringFile.sectionWeights,
     grades: scoringFile.grades,
+    inventoryRules: [],
   };
 }
 

@@ -1,0 +1,72 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { test } from 'node:test';
+import YAML from 'yaml';
+import {
+  CONTROL_CODE_PATTERN,
+  catalogFileSchema,
+  controlsFileV2Schema,
+  detectorsFileV2Schema,
+  DPDPA_PACK_V2_VERSION,
+  mappingsFileV2Schema,
+} from '@dpdpa/contracts';
+
+const root = join(dirname(fileURLToPath(import.meta.url)), '..', 'v2');
+const readYaml = (name) => YAML.parse(readFileSync(join(root, name), 'utf8'));
+
+const EXPECTED_CODES = [
+  'DPDPA-5-NOTICE-01',
+  'DPDPA-6-CONSENTGATE-01',
+  'DPDPA-6-FORMPURPOSE-01',
+  'DPDPA-8.4-MON-01',
+  'DPDPA-8.4-BACKUP-01',
+];
+
+const EXPECTED_DETECTORS = ['schema_scan', 'form_scan', 'mechanism_scan', 'artefact_scan'];
+
+test('Phase C v2 controls are valid and reference only declared detectors', () => {
+  const controls = controlsFileV2Schema.parse(readYamlResult('controls.yaml'));
+  const detectors = detectorsFileV2Schema.parse(readYamlResult('detectors.yaml'));
+  const mappings = mappingsFileV2Schema.parse(readYamlResult('mappings/inventory.yaml'));
+  const dictionary = catalogFileSchema.parse(readYamlResult('field_dictionary.yaml'));
+
+  assert.equal(controls.pack, DPDPA_PACK_V2_VERSION);
+  assert.deepEqual(
+    controls.controls.map((control) => control.code),
+    EXPECTED_CODES,
+  );
+  assert.deepEqual(
+    detectors.detectors.map((detector) => detector.id),
+    EXPECTED_DETECTORS,
+  );
+  assert.deepEqual(
+    dictionary.entries.map((entry) => entry.key),
+    ['email', 'phone', 'full_name', 'address', 'date_of_birth', 'aadhaar'],
+  );
+
+  const declared = new Set(detectors.detectors.map((detector) => detector.id));
+  const controlsByCode = new Map(controls.controls.map((control) => [control.code, control]));
+  for (const control of controls.controls) {
+    assert.match(control.code, CONTROL_CODE_PATTERN);
+    assert.ok(control.legalRefs.length > 0, `${control.code} needs a legal ref`);
+    for (const rule of [
+      ...control.violationRules,
+      ...control.absenceRules,
+      ...control.positiveRules,
+    ]) {
+      assert.ok(declared.has(rule.detector), `${control.code} has undeclared detector`);
+    }
+  }
+  for (const mapping of mappings.mappings) {
+    assert.ok(declared.has(mapping.detector));
+    assert.ok(controlsByCode.has(mapping.control));
+  }
+});
+
+function readYamlResult(name) {
+  // Read synchronously so every test gets a fresh object and node:test cannot
+  // observe an uninitialised module-level cache.
+  return readYaml(name);
+}

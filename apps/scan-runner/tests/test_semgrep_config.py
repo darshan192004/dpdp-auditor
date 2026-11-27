@@ -45,9 +45,7 @@ def test_image_replaces_the_default_semgrepignore() -> None:
     """The stock template drops `tests/`; the image must override it."""
     dockerfile = (REPO_ROOT / "docker" / "scan-runner.Dockerfile").read_text()
     assert "COPY docker/dpdpa.semgrepignore /dpdpa.semgrepignore" in dockerfile
-    assert (
-        "SEMGREP_R2C_INTERNAL_EXPLICIT_SEMGREPIGNORE=/dpdpa.semgrepignore" in dockerfile
-    )
+    assert "SEMGREP_R2C_INTERNAL_EXPLICIT_SEMGREPIGNORE=/dpdpa.semgrepignore" in dockerfile
 
     patterns = [
         line.strip()

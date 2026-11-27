@@ -1,8 +1,9 @@
 import { Inject, Injectable, type OnModuleInit } from '@nestjs/common';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ENV, type Env } from '../../config/env.js';
 import { loadRulePack, type LoadedRulePack } from './rule-pack.loader.js';
+import { loadRulePackV2 } from './rule-pack-v2.loader.js';
 
 /**
  * P4-02. The pack is loaded once and cached. `onModuleInit` awaits the load so
@@ -12,6 +13,7 @@ import { loadRulePack, type LoadedRulePack } from './rule-pack.loader.js';
 @Injectable()
 export class RulePackService implements OnModuleInit {
   private cached: Promise<LoadedRulePack> | undefined;
+  private cachedV2: Promise<LoadedRulePack> | undefined;
 
   constructor(@Inject(ENV) private readonly env: Env) {}
 
@@ -22,6 +24,11 @@ export class RulePackService implements OnModuleInit {
   load(): Promise<LoadedRulePack> {
     this.cached ??= loadRulePack(this.dir(), { publicKeyPem: this.publicKey() });
     return this.cached;
+  }
+
+  loadV2(): Promise<LoadedRulePack> {
+    this.cachedV2 ??= loadRulePackV2(join(this.dir(), 'v2'));
+    return this.cachedV2;
   }
 
   private dir(): string {

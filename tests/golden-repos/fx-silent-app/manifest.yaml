@@ -7,5 +7,21 @@ scanners:
   - gitleaks
 expectedFindings: []
 expectedCoverage: full
+expectedVerdicts:
+  - controlCode: DPDPA-5-NOTICE-01
+    verdict: NOT_APPLICABLE
+    reasonCode: applies_when_false
+  - controlCode: DPDPA-6-CONSENTGATE-01
+    verdict: NOT_APPLICABLE
+    reasonCode: applies_when_false
+  - controlCode: DPDPA-6-FORMPURPOSE-01
+    verdict: NOT_APPLICABLE
+    reasonCode: applies_when_false
+  - controlCode: DPDPA-8.4-MON-01
+    verdict: UNKNOWN
+    reasonCode: no_determinable_evidence
+  - controlCode: DPDPA-8.4-BACKUP-01
+    verdict: UNKNOWN
+    reasonCode: no_determinable_evidence
 tolerances:
   extraFindings: 0

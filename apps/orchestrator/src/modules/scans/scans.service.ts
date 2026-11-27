@@ -18,6 +18,7 @@ import { EmailService } from '../reports/email.service.js';
 // Value imports: `emitDecoratorMetadata` needs runtime refs for Nest DI.
 import { RepoResolverService } from '../repos/repo-resolver.service.js';
 import { RepositoriesRepository } from '../repos/repositories.repository.js';
+import { inventoryStatusFor } from './inventory-status.js';
 import { factsFrom } from '../scoring/applicability.js';
 import { isScoringV2 } from '../scoring/scoring.engine.js';
 import { ScanScoringService } from '../scoring/scan-scoring.service.js';
@@ -310,6 +311,12 @@ export class ScansService {
     }
 
     const input = completeScanSchema.parse(raw);
+    const storedFacts = input.inventory
+      ? ({ ...input.facts, inventory: input.inventory } as Prisma.InputJsonValue)
+      : (input.facts as Prisma.InputJsonValue);
+    const inventoryStatus = input.inventory
+      ? inventoryStatusFor(input.inventory.detectorStatuses)
+      : null;
     const coverage = Object.fromEntries(
       input.scanners.map((scanner) => [scanner.name, scanner.status]),
     );
@@ -326,7 +333,9 @@ export class ScansService {
           status: 'mapping',
           coverage,
           scannerVersions,
-          facts: input.facts,
+          facts: storedFacts,
+          inventoryVersion: input.inventory?.inventoryVersion ?? null,
+          inventoryStatus,
           ...(input.commitSha ? { commitSha: input.commitSha } : {}),
           startedAt: scan.startedAt ?? new Date(),
         },
@@ -349,11 +358,22 @@ export class ScansService {
         scan.id,
         orgId,
         'mapping_started',
-        { coverage, facts: input.facts },
+        {
+          coverage,
+          facts: input.facts,
+          inventoryVersion: input.inventory?.inventoryVersion ?? null,
+          inventoryStatus,
+        },
         tx,
       );
 
-      const scored = await this.scoring.mapAndScore(scan, input.facts, coverage, tx);
+      const scored = await this.scoring.mapAndScore(
+        scan,
+        input.facts,
+        coverage,
+        tx,
+        input.inventory,
+      );
       const completedAt = new Date();
       await this.scans.update(
         scan.id,

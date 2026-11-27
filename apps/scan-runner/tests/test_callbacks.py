@@ -296,3 +296,53 @@ def minimal_finding() -> dict[str, Any]:
 
 def request_text(request: httpx.Request) -> str:
     return request.content.decode("utf-8")
+
+
+def test_send_completion_posts_bounded_inventory_without_canary() -> None:
+    captured: dict[str, httpx.Request] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["request"] = request
+        return httpx.Response(200, json={"data": {"status": "completed"}})
+
+    inventory: dict[str, object] = {
+        "inventoryVersion": "inventory-1.0.0",
+        "facts": [
+            {
+                "key": "schema_scan",
+                "signals": [
+                    {
+                        "detector": "schema_scan",
+                        "kind": "config",
+                        "path": "model.py",
+                        "line": 4,
+                        "token": "audit_log",
+                        "matchedValue": "CANARY_PHASE_C_CALLBACK_NEVER_EMIT",
+                    }
+                ],
+                "detectedAt": "2026-11-27T00:00:00Z",
+            }
+        ],
+        "signals": [],
+        "detectorStatuses": {"schema_scan": "completed"},
+        "raw": "CANARY_PHASE_C_CALLBACK_NEVER_EMIT",
+    }
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        send_completion(
+            CONFIG,
+            {"semgrep": "completed", "checkov": "completed", "gitleaks": "completed"},
+            {"semgrep": 0, "checkov": 0, "gitleaks": 0},
+            client=client,
+            inventory=inventory,
+        )
+
+    payload = json.loads(captured["request"].content)
+    assert payload["inventory"]["facts"][0]["signals"][0] == {
+        "detector": "schema_scan",
+        "kind": "config",
+        "path": "model.py",
+        "line": 4,
+        "token": "audit_log",
+    }
+    assert "CANARY_PHASE_C_CALLBACK_NEVER_EMIT" not in captured["request"].content.decode()

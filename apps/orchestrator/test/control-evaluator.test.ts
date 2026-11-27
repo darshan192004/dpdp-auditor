@@ -7,6 +7,24 @@ import {
   type EvidenceLike,
 } from '../src/modules/scoring/control-evaluator.js';
 
+function control(code: string): Control {
+  return {
+    code,
+    section: '8(4)',
+    title: 'Fixture control',
+    summary: 'Fixture control',
+    obligation: 'Fixture obligation',
+    legalReference: 'DPDPA Section 8(4)',
+    severity: 'high',
+    weight: 1,
+    evidenceStrength: 'direct',
+    scored: true,
+    appliesWhen: {},
+    remediation: 'fixture-remediation',
+    tags: [],
+  };
+}
+
 const secret: Control = {
   code: 'DPDPA-8.4-SECRET-01',
   section: '8(4)',
@@ -125,5 +143,36 @@ describe('evaluateControls', () => {
     expect(
       buildDetectorStatuses({ semgrep: 'completed', checkov: 'failed', gitleaks: 'timed_out' }),
     ).toEqual({ semgrep: 'completed', checkov: 'failed', gitleaks: 'timed_out' });
+  });
+
+  it('returns FAIL for cited missing_control evidence', () => {
+    const result = evaluateControls({
+      controls: [
+        {
+          ...control('DPDPA-8.4-MON-01'),
+          appliesWhen: {},
+        },
+      ],
+      facts: { languages: ['python'], frameworks: [], resourceTypes: [] },
+      mappings: [{ scanner: 'schema_scan', controlCode: 'DPDPA-8.4-MON-01' }],
+      detectorStatuses: { schema_scan: 'completed' },
+      findings: [
+        {
+          controlCode: 'DPDPA-8.4-MON-01',
+          kind: 'missing_control',
+          scanner: 'schema_scan',
+          severity: 'high',
+          confidence: 'direct',
+          status: 'open',
+        },
+      ],
+      rulePackVersion: 'dpdpa-2026.11.0',
+      scoringVersion: 'scoring-2.0.0',
+    });
+
+    expect(result.results[0]).toMatchObject({
+      verdict: 'FAIL',
+      reasonCode: 'cited_gap',
+    });
   });
 });

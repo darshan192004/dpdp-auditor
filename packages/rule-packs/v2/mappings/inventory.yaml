@@ -1,3 +1,27 @@
 version: 1
 pack: dpdpa-2026.11.0
-mappings: []
+mappings:
+  - detector: artefact_scan
+    control: DPDPA-5-NOTICE-01
+    confidence: direct
+    rationale: Bounded artefact presence is determinable from repository paths.
+  - detector: form_scan
+    control: DPDPA-6-CONSENTGATE-01
+    confidence: direct
+    rationale: Form source can expose an allowlisted consent-gate token.
+  - detector: mechanism_scan
+    control: DPDPA-6-CONSENTGATE-01
+    confidence: direct
+    rationale: Mechanism source can corroborate an allowlisted consent-gate token.
+  - detector: form_scan
+    control: DPDPA-6-FORMPURPOSE-01
+    confidence: direct
+    rationale: Form source can expose an allowlisted purpose statement.
+  - detector: schema_scan
+    control: DPDPA-8.4-MON-01
+    confidence: direct
+    rationale: Schema source can expose an allowlisted audit-log token.
+  - detector: artefact_scan
+    control: DPDPA-8.4-BACKUP-01
+    confidence: direct
+    rationale: Bounded artefact presence is determinable from repository paths.

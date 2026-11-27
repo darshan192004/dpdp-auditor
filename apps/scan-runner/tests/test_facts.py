@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -184,7 +186,7 @@ def test_survives_binary_and_oversized_files(tmp_path: Path) -> None:
     write(tmp_path / "real.py", "x")
     # An oversized generated file is skipped rather than parsed.
     big = tmp_path / "generated.tf"
-    big.write_text("resource \"aws_s3_bucket\" \"x\" {}\n", encoding="utf-8")
+    big.write_text('resource "aws_s3_bucket" "x" {}\n', encoding="utf-8")
     big.write_bytes(b"#" * 2_000_000)
 
     facts = collect_facts(tmp_path)
@@ -220,14 +222,15 @@ def test_json_decoder_failures_are_isolated_to_the_bad_file(
     write(tmp_path / "good.tf", 'resource "aws_s3_bucket" "logs" {}\n')
     write(tmp_path / "bad.json", '{"BROKEN_DECODER": true}')
 
-    original_loads = json.loads
+    original_loads: Any = json.loads
 
-    def selective_loads(text: str, *args: object, **kwargs: object) -> object:
+    def selective_loads(text: str, *args: Any, **kwargs: Any) -> object:
         if "BROKEN_DECODER" in text:
             raise failure
-        return original_loads(text, *args, **kwargs)
+        result: object = original_loads(text, *args, **kwargs)
+        return result
 
-    monkeypatch.setattr(facts.json, "loads", selective_loads)
+    monkeypatch.setattr(facts, "json", SimpleNamespace(loads=selective_loads))
 
     result = collect_facts(tmp_path)
 

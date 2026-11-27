@@ -1,14 +1,20 @@
 import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import type { Prisma, Scan } from '@prisma/client';
 import { loadRulePack, type LoadedRulePack } from '../src/modules/rule-pack/rule-pack.loader.js';
+import { loadRulePackV2 } from '../src/modules/rule-pack/rule-pack-v2.loader.js';
 import type { RulePackService } from '../src/modules/rule-pack/rule-pack.service.js';
+import type { InventoryReportLike } from '../src/modules/scoring/inventory-evidence.js';
 import { coverageFor, ScanScoringService } from '../src/modules/scoring/scan-scoring.service.js';
 import { scoreScan } from '../src/modules/scoring/scoring.engine.js';
 import type { PrismaService } from '../src/prisma/prisma.service.js';
 import type { FeatureFlagsService } from '../src/modules/feature-flags/feature-flags.service.js';
 
 const PACK_DIR = fileURLToPath(new URL('../../../packages/rule-packs', import.meta.url));
+const V2_PACK_DIR = resolve(PACK_DIR, 'v2');
+let defaultV2Pack: LoadedRulePack;
+let v2Pack: LoadedRulePack;
 const SCAN_ID = '88888888-8888-4888-8888-888888888888';
 const PREV_ID = '99999999-9999-4999-8999-999999999999';
 const ORG_ID = '11111111-1111-4111-8111-111111111111';
@@ -114,8 +120,10 @@ function scan(overrides: Partial<Scan> = {}): Scan {
 }
 
 function make(previous: Row[] | null = null, current: Row[] = [row()]) {
+  v2Pack = defaultV2Pack;
   const updates: { id: string; data: Record<string, unknown> }[] = [];
   const creates: Record<string, unknown>[] = [];
+  const controlResults: Record<string, unknown>[] = [];
   const flags = {
     isEnabled: vi.fn().mockReturnValue(false),
   };
@@ -147,14 +155,20 @@ function make(previous: Row[] | null = null, current: Row[] = [row()]) {
     ruleMapping: { upsert: vi.fn().mockResolvedValue({}) },
     controlResult: {
       findMany: vi.fn().mockResolvedValue([]),
-      upsert: vi.fn().mockResolvedValue({}),
+      upsert: vi.fn(async ({ create }: { create: Record<string, unknown> }) => {
+        controlResults.push(create);
+        return { ...create, id: `control-${controlResults.length}` };
+      }),
     },
   };
   const prisma = {
     $transaction: vi.fn(async (fn: (client: unknown) => Promise<unknown>) => fn(tx)),
   };
   let pack: LoadedRulePack;
-  const packService = { load: async () => pack } as unknown as RulePackService;
+  const packService = {
+    load: async () => pack,
+    loadV2: async () => v2Pack,
+  } as unknown as RulePackService;
   const service = new ScanScoringService(
     packService,
     prisma as unknown as PrismaService,
@@ -166,8 +180,12 @@ function make(previous: Row[] | null = null, current: Row[] = [row()]) {
     flags,
     updates,
     creates,
+    controlResults,
     setPack: (loaded: LoadedRulePack) => {
       pack = loaded;
+    },
+    setV2Pack: (loaded: LoadedRulePack) => {
+      v2Pack = loaded;
     },
   };
 }
@@ -177,6 +195,7 @@ describe('ScanScoringService (P4-06, P4-10, P4-11)', () => {
 
   beforeAll(async () => {
     pack = await loadRulePack(PACK_DIR);
+    defaultV2Pack = await loadRulePackV2(V2_PACK_DIR);
   });
 
   it('persists one mapped finding with the control-suffixed fingerprint', async () => {
@@ -493,6 +512,9 @@ describe('ScanScoringService (P4-06, P4-10, P4-11)', () => {
       }),
     ]);
     harness.setPack(pack);
+    // This Phase A assertion intentionally exercises v2 scoring with the v1
+    // control catalogue; keep that scenario while the default v2 path changes.
+    harness.setV2Pack(pack);
     harness.flags.isEnabled.mockImplementation((flag: string) => flag === 'dpdpa_readiness_v2');
 
     const scored = await harness.service.mapAndScore(
@@ -537,6 +559,7 @@ describe('ScanScoringService (P4-06, P4-10, P4-11)', () => {
       }),
     ]);
     harness.setPack(pack);
+    harness.setV2Pack(pack);
     harness.tx.controlResult.findMany.mockResolvedValue([
       {
         controlCode: 'DPDPA-8.4-SECRET-01',
@@ -645,6 +668,50 @@ describe('ScanScoringService (P4-06, P4-10, P4-11)', () => {
       info: legacy.counts.info,
       total: legacy.counts.total,
     });
+  });
+
+  it('uses the v2 pack and inventory evidence when the flag is enabled', async () => {
+    const harness = make();
+    harness.setPack(pack);
+    harness.flags.isEnabled.mockImplementation((flag: string) => flag === 'dpdpa_readiness_v2');
+    const inventory: InventoryReportLike = {
+      inventoryVersion: 'inventory-1.0.0',
+      facts: [
+        {
+          key: 'schema_scan',
+          signals: [
+            {
+              detector: 'schema_scan',
+              kind: 'config',
+              path: 'model.py',
+              line: 4,
+              token: 'audit_log',
+            },
+          ],
+          detectedAt: '2026-11-27T00:00:00Z',
+        },
+      ],
+      signals: [],
+      detectorStatuses: { schema_scan: 'completed' },
+    };
+
+    const scored = await harness.service.mapAndScore(
+      scan({ coverage: {} }),
+      FACTS,
+      {},
+      harness.tx as unknown as Prisma.TransactionClient,
+      inventory,
+    );
+
+    expect(scored.rulePackVersion).toBe('dpdpa-2026.11.0');
+    expect(scored.scoringVersion).toBe('scoring-2.0.0');
+    const audits = harness.controlResults.filter((row) => row.verdict === 'PASS');
+    expect(audits.some((row) => row.controlCode === 'DPDPA-8.4-MON-01')).toBe(true);
+    expect(
+      audits.some((row) =>
+        (row.evidence as { scanner?: string }[]).some((ref) => ref.scanner === 'schema_scan'),
+      ),
+    ).toBe(true);
   });
 });
 
