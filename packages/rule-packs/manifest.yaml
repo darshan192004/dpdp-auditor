@@ -1,7 +1,9 @@
 version: 1
 pack: dpdpa-2026.10.6
-generatedAt: '2026-11-26T06:16:57.350Z'
+generatedAt: '2026-11-27T10:31:22.587Z'
 files:
+  - path: custom/semgrep/dpdpa-v2-web.yaml
+    sha256: 25b95ad41419e25f042c9707c305fbf225c22d3c510744a7aaa1d7c87a578e0b
   - path: dpdpa-controls.yaml
     sha256: 490456ac1d69f73d1724b9f649366a481ac144a8b7572cac0f58ee65b8b946cc
   - path: mappings/checkov.yaml

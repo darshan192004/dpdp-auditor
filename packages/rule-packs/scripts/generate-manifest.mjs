@@ -10,6 +10,8 @@ async function listYaml(dir, base = dir) {
   const entries = await readdir(dir, { withFileTypes: true });
   const files = [];
   for (const entry of entries) {
+    // Mirror the v1 loader: the sibling v2 pack has its own manifest.
+    if (entry.isDirectory() && base === dir && entry.name === 'v2') continue;
     const full = join(dir, entry.name);
     if (entry.isDirectory()) files.push(...(await listYaml(full, base)));
     else if (/\.ya?ml$/.test(entry.name)) files.push(relative(base, full).split(sep).join('/'));
