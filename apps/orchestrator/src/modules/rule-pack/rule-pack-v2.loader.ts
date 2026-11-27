@@ -20,6 +20,8 @@ import {
 } from './rule-pack.schemas.js';
 
 const MANIFEST = 'manifest.yaml';
+/** Documentation outside the checksum-bearing pack contract. */
+const NON_PACK_FILES = new Set([MANIFEST, 'CHANGELOG.md']);
 
 /** Loads the checksummed v2 pack and adapts it to the Phase A scorer shape. */
 export async function loadRulePackV2(
@@ -29,7 +31,7 @@ export async function loadRulePackV2(
   const paths = await listFiles(packDir);
   const files: PackFileV2[] = [];
   for (const path of paths) {
-    if (path === MANIFEST) continue;
+    if (NON_PACK_FILES.has(path)) continue;
     const bytes = await readFile(join(packDir, ...path.split('/')));
     const value = path.endsWith('.yaml') ? parse(bytes.toString('utf8')) : undefined;
     files.push({ path, value, sha256: createHash('sha256').update(bytes).digest('hex') });
