@@ -205,6 +205,11 @@ did not cover. Each was filed separately and is fixed on its own branch against
   case-sensitive, so mixed-case hostnames that previously passed `shared/repo.ts` validation were
   rejected. Added a RED-to-GREEN regression test in `apps/web/test/github-url.allowlist.test.ts`
   and made the pattern case-insensitive.
+- A further CodeRabbit finding after that commit was verified: keyboard submission leaves focus on
+  the Create key button, which `pending` disables, and the trap only handled exact boundaries inside
+  the panel. Focus now moves to the persistent heading before submission and Tab from outside the
+  panel returns focus inside. Two more RED-to-GREEN tests were added (10 total in
+  `apps/web/test/api-key-dialog.test.ts`).
 - PR-Agent's ticket note on #85 was checked against the issue text. The issue accepts unique,
   action-oriented labels **or** omitting the no-op option; the fix takes the first alternative, with
   `Mark open` / `Leave open` and distinct labels for every other status. No change needed.

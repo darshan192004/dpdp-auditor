@@ -138,6 +138,12 @@ function onKeydown(event: KeyboardEvent): void {
   }
   if (event.key !== 'Tab' || !panel.value) return;
 
+  if (!panel.value.contains(document.activeElement)) {
+    event.preventDefault();
+    heading.value?.focus();
+    return;
+  }
+
   const controls = [...panel.value.querySelectorAll<HTMLElement>(FOCUSABLE)];
   const focusOrder = heading.value ? [heading.value, ...controls] : controls;
   if (focusOrder.length === 0) {
@@ -172,6 +178,9 @@ async function createApiKey(): Promise<void> {
     }),
   );
   if (body === null) return;
+
+  // The submit button becomes disabled while the POST is in flight.
+  if (panel.value?.contains(document.activeElement)) heading.value?.focus();
 
   await run(async () => {
     const response = await $fetch<{ data: ApiKeyCreated }>('/api/v1/api-keys', {

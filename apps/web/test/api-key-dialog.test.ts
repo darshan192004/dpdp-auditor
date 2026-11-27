@@ -77,6 +77,7 @@ async function startPendingCreate(): Promise<() => void> {
         resolveCreate = resolve;
       }),
   );
+  (dialog().find('button[type="submit"]').element as HTMLElement).focus();
   await dialog().find('form').trigger('submit');
   await nextTick();
 
@@ -205,5 +206,36 @@ describe('Create API key dialog keyboard behaviour', () => {
     resolveCreate();
     await flushPromises();
     expect(dialog().find('#created-key').exists()).toBe(true);
+  });
+
+  it('moves focus to the heading when submission disables the focused button', async () => {
+    const resolveCreate = await startPendingCreate();
+
+    expect(dialog().find('#create-key-heading').element).toBe(document.activeElement);
+
+    resolveCreate();
+    await flushPromises();
+  });
+
+  it('returns Tab focus to the dialog when focus is outside it', async () => {
+    await renderPage();
+    await openDialog();
+
+    const outside = document.createElement('button');
+    outside.type = 'button';
+    document.body.appendChild(outside);
+    outside.focus();
+
+    try {
+      expect(dialog().element.contains(document.activeElement)).toBe(false);
+
+      const forwards = keydown('Tab');
+      window.dispatchEvent(forwards);
+
+      expect(forwards.defaultPrevented).toBe(true);
+      expect(dialog().find('#create-key-heading').element).toBe(document.activeElement);
+    } finally {
+      outside.remove();
+    }
   });
 });
