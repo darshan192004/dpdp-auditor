@@ -4,10 +4,11 @@ import { describe, expect, it } from 'vitest';
 import StartScanDrawer from '../app/components/dashboard/StartScanDrawer.vue';
 import type { SavedRepoView } from '../shared/repo';
 
-// Warm the findings component tree at module scope: the in-test dynamic import
-// below then resolves from cache instead of spending Vitest's 5s test budget on
-// first-time transforms of FindingsTable / FindingsDrawer / Nuxt UI.
+// Warm heavy component trees at module scope: the in-test dynamic imports then
+// resolve from cache instead of spending Vitest's 5s test budget on first-time
+// transforms (which can exceed it under parallel-gate CPU contention).
 await import('../app/components/new/NewFindings.vue');
+await import('../app/components/new/NewScanDetail.vue');
 
 const REPOS: SavedRepoView[] = [
   {

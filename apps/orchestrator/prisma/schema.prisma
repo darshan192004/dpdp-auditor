@@ -171,6 +171,7 @@ model Organization {
   scanEvents      ScanEvent[]
   findings        ScannerFinding[]
   controlResults  ControlResult[]
+  attestations    Attestation[]
   remediationLogs RemediationLog[]
   reports         Report[]
   auditLogs       AuditLog[]
@@ -201,6 +202,7 @@ model User {
   repositoriesConnected Repository[]       @relation("RepoConnectedBy")
   apiKeysCreated        ApiKey[]           @relation("ApiKeyCreatedBy")
   scansRequested        Scan[]             @relation("ScanRequestedBy")
+  attestationAttests    Attestation[]      @relation("AttestationAttester")
   remediationActor      RemediationLog[]   @relation("RemediationActor")
   reportsRequested      Report[]           @relation("ReportRequestedBy")
   auditActs             AuditLog[]         @relation("AuditActor")
@@ -266,6 +268,7 @@ model Repository {
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   connector    User?        @relation("RepoConnectedBy", fields: [connectedBy], references: [id], onDelete: SetNull)
   scans        Scan[]
+  attestations Attestation[]
 
   @@unique([orgId, githubRepoId])
   @@unique([orgId, fullName])
@@ -316,6 +319,9 @@ model Scan {
   verdictCounts       Json        @default("{}") @map("verdict_counts")
   unknownControls     Json        @default("[]") @map("unknown_controls")
   gradeWithheldReason String?     @map("grade_withheld_reason") @db.Text
+  inventoryVersion    String?     @map("inventory_version") @db.Text
+  inventoryStatus     String?     @map("inventory_status") @db.Text
+  consentGatingRatio  Decimal?    @map("consent_gating_ratio") @db.Decimal(5, 4)
   errorCode           String?     @map("error_code") @db.Text
   errorMessage        String?     @map("error_message") @db.Text
   idempotencyKey      String?     @map("idempotency_key") @db.Text
@@ -481,6 +487,29 @@ model ControlResult {
   @@index([orgId, controlId])
   @@index([orgId, controlCode])
   @@map("control_results")
+}
+
+model Attestation {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId        String    @map("org_id") @db.Uuid
+  repositoryId String    @map("repository_id") @db.Uuid
+  key          String    @db.Text
+  answer       Boolean
+  note         String?   @db.Text
+  attestedBy   String    @map("attested_by") @db.Uuid
+  attestedAt   DateTime  @default(now()) @map("attested_at") @db.Timestamptz
+  expiresAt    DateTime? @map("expires_at") @db.Timestamptz
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  repository   Repository   @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  attester     User         @relation("AttestationAttester", fields: [attestedBy], references: [id], onDelete: Restrict)
+
+  @@unique([orgId, repositoryId, key])
+  @@index([orgId, repositoryId])
+  @@index([expiresAt])
+  @@map("attestations")
 }
 
 model Report {

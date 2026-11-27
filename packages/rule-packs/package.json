@@ -4,6 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "manifest": "node scripts/generate-manifest.mjs"
+    "build": "node scripts/validate-v2-pack.mjs --quiet",
+    "test": "node --test test/*.test.mjs",
+    "manifest": "node scripts/generate-manifest.mjs",
+    "manifest:v2": "node scripts/generate-manifest-v2.mjs",
+    "validate": "node scripts/validate-v2-pack.mjs"
+  },
+  "dependencies": {
+    "@dpdpa/contracts": "workspace:*",
+    "yaml": "2.9.1"
   }
 }

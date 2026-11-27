@@ -1,0 +1,22 @@
+# Phase B foundation only. Substantive controls arrive in Phases C and D.
+version: 1
+pack: dpdpa-2026.11.0
+effectiveFrom: '2026-11-15'
+controls:
+  - code: DPDPA-8.4-SECRET-01
+    section: '8(4)'
+    actRef: DPDPA Section 8(4)
+    ruleRef: reasonable-security-safeguards
+    title: Secrets are not stored in source
+    severity: critical
+    weight: 5
+    evidenceMode: manual
+    appliesWhen: []
+    violationRules: []
+    absenceRules: []
+    positiveRules: []
+    partialCredit: false
+    remediationKey: remove-hardcoded-secrets
+    legalRefs:
+      - DPDPA Section 8(4)
+      - DPDP Rules 4
