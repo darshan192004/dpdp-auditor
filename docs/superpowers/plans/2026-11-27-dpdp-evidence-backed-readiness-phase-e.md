@@ -918,7 +918,7 @@ git commit -m "test(readiness): pin attestation coverage caps"
 - Consumes: B's `prisma.attestation` model and `attestationSchema` key/answer/expiry conventions; `IdentityService.getMembership(orgId, userId)`; `RepositoriesRepository.findById(orgId, repositoryId)`; `AuditService.record`; `ScanScoringService.rescoreRepository` (added in Task 6); `RulePackService.loadV2` (added in this task).
 - Produces: `writeAttestationSchema`, `AttestationView`, `AttestationsRepository.list/upsert`, and `AttestationsService.set/list` with owner/admin enforcement, key validation, auditing, and expiry checks.
 
-- [ ] **Step 1: Write the failing service tests**
+- [x] **Step 1: Write the failing service tests**
 
 ```ts
 // apps/orchestrator/test/attestations.service.test.ts
@@ -1042,7 +1042,7 @@ describe('attestation service', () => {
 });
 ```
 
-- [ ] **Step 2: Run the focused service test and confirm RED**
+- [x] **Step 2: Run the focused service test and confirm RED**
 
 ```bash
 pnpm --filter @dpdpa/orchestrator exec vitest run test/attestations.service.test.ts
@@ -1055,7 +1055,7 @@ FAIL  test/attestations.service.test.ts > attestation service > accepts an owner
 Error: Cannot find module '../src/modules/attestations/attestations.service.js'
 ```
 
-- [ ] **Step 3: Add the schema, repository, service, and v2 loader accessor**
+- [x] **Step 3: Add the schema, repository, service, and v2 loader accessor**
 
 ```ts
 // apps/orchestrator/src/modules/attestations/attestation.schemas.ts
@@ -1265,7 +1265,7 @@ export class RulePackService implements OnModuleInit {
 }
 ```
 
-- [ ] **Step 4: Run the focused service test and confirm GREEN**
+- [x] **Step 4: Run the focused service test and confirm GREEN**
 
 ```bash
 pnpm --filter @dpdpa/orchestrator exec vitest run test/attestations.service.test.ts
@@ -1283,7 +1283,7 @@ Test Files  1 passed (1)
 Tests  5 passed (5)
 ```
 
-- [ ] **Step 5: Run full gates and commit**
+- [x] **Step 5: Run full gates and commit**
 
 ```bash
 pnpm lint && pnpm typecheck && pnpm test
