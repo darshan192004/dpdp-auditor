@@ -177,6 +177,21 @@ describe('Phase B pack v2 contracts', () => {
     expect(validatePackV2(packFixture())).toEqual([]);
   });
 
+  it('accepts checksum-bearing template documentation without a YAML schema', () => {
+    const fixture = packFixture();
+    const documentation = {
+      path: 'templates/README.md',
+      value: '# Placeholders are filled in Phase D.\n',
+      sha256: 'e'.repeat(64),
+    };
+    fixture.files.push(documentation);
+    const manifest = fixture.manifest as {
+      files: Array<{ path: string; sha256: string }>;
+    };
+    manifest.files.push({ path: documentation.path, sha256: documentation.sha256 });
+    expect(validatePackV2(fixture)).toEqual([]);
+  });
+
   it('reports duplicate control codes', () => {
     const fixture = packFixture();
     const controls = fixture.files[0]!.value as { controls: unknown[] };
@@ -234,5 +249,14 @@ describe('Phase B pack v2 contracts', () => {
     const issues = validatePackV2(fixture);
     expect(issues.map((issue) => issue.code)).toContain('source_content_field');
     expect(JSON.stringify(issues)).not.toContain('CANARY_MUST_NOT_BE_ECHOED');
+  });
+
+  it('reports missing legal refs without echoing raw control identifiers', () => {
+    const fixture = packFixture({
+      control: { ...validControl, code: 'CANARY_RAW_CODE', legalRefs: [] },
+    });
+    const issues = validatePackV2(fixture);
+    expect(issues.map((issue) => issue.code)).toContain('missing_legal_ref');
+    expect(JSON.stringify(issues)).not.toContain('CANARY_RAW_CODE');
   });
 });

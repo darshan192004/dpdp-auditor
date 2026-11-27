@@ -1,0 +1,21 @@
+version: 1
+pack: dpdpa-2026.11.0
+detectors:
+  - id: schema_scan
+    module: inventory
+    inputs: [source]
+    outputs: [fact, status]
+    timeoutMs: 30000
+    stacks: []
+    confidence: inferred
+    failureMode: UNKNOWN
+    controlRefs: []
+  - id: form_scan
+    module: inventory
+    inputs: [source]
+    outputs: [fact, status]
+    timeoutMs: 30000
+    stacks: [web]
+    confidence: inferred
+    failureMode: UNKNOWN
+    controlRefs: []

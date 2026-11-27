@@ -289,6 +289,22 @@ function walkKeys(value: unknown, path: string, issues: ValidationIssue[]): void
   }
 }
 
+function collectRawMissingLegalRefs(file: PackFileV2, issues: ValidationIssue[]): void {
+  const value = file.value as { controls?: unknown } | null;
+  if (!value || !Array.isArray(value.controls)) return;
+  for (const entry of value.controls) {
+    if (!entry || typeof entry !== 'object') continue;
+    const control = entry as { legalRefs?: unknown };
+    if (Array.isArray(control.legalRefs) && control.legalRefs.length === 0) {
+      issues.push({
+        path: file.path,
+        code: 'missing_legal_ref',
+        message: 'control has no legal reference',
+      });
+    }
+  }
+}
+
 function issueMessage(error: z.ZodError): string {
   return error.issues
     .map((issue) => `${issue.path.join('.') || '<root>'}: ${issue.message}`)
@@ -355,6 +371,7 @@ export function validatePackV2(input: {
   for (const file of input.files) {
     walkKeys(file.value, file.path, issues);
     if (file.path === 'controls.yaml') {
+      collectRawMissingLegalRefs(file, issues);
       const doc = check(file, controlsFileV2Schema, 'invalid_schema', issues);
       if (doc) controls.push(...doc.controls);
     } else if (file.path === 'detectors.yaml') {
@@ -385,6 +402,8 @@ export function validatePackV2(input: {
       }
     } else if (file.path.endsWith('.yaml')) {
       check(file, catalogFileSchema, 'invalid_schema', issues);
+    } else if (file.path.startsWith('templates/') && file.path.endsWith('.md')) {
+      // Checksum-bearing documentation is allowed, but it has no pack schema.
     } else {
       issues.push({
         path: file.path,
