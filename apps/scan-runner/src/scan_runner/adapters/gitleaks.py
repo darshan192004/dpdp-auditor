@@ -1,5 +1,6 @@
 """Adapter for Gitleaks scanner."""
 
+import contextlib
 import json
 import subprocess
 import tempfile
@@ -16,6 +17,7 @@ class GitleaksAdapter:
     def run(self, repo_path: Path, timeout: int = 300) -> list[dict[str, Any]]:
         """Execute Gitleaks on *repo_path* and return raw findings."""
         import os
+
         env = {**os.environ, "GIT_CONFIG_GLOBAL": "/dev/null"}
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
             report_path = tmp.name
@@ -50,10 +52,8 @@ class GitleaksAdapter:
         except subprocess.TimeoutExpired as exc:
             raise TimeoutError("Gitleaks execution timed out") from exc
         finally:
-            try:
+            with contextlib.suppress(OSError):
                 Path(report_path).unlink(missing_ok=True)
-            except OSError:
-                pass
         return []
 
     def normalize(self, raw: list[dict[str, Any]]) -> list[dict[str, Any]]:

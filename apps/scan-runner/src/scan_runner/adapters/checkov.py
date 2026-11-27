@@ -16,7 +16,15 @@ class CheckovAdapter:
         """Execute Checkov on *repo_path* and return raw findings."""
         try:
             result = subprocess.run(
-                [self.bin, "--output", "json", "-d", str(repo_path), "--quiet", "--include-all-checkov-policies"],
+                [
+                    self.bin,
+                    "--output",
+                    "json",
+                    "-d",
+                    str(repo_path),
+                    "--quiet",
+                    "--include-all-checkov-policies",
+                ],
                 capture_output=True,
                 text=True,
                 timeout=timeout,
@@ -24,7 +32,8 @@ class CheckovAdapter:
         except subprocess.TimeoutExpired as exc:
             raise TimeoutError("Checkov execution timed out") from exc
         # Checkov returns 1 when findings exist, 0 when clean - both are success
-        # Output goes to stdout, not file. Format is a list of check types, each with "results" containing "failed_checks"
+        # Output goes to stdout, not file. Format is a list of check types,
+        # each with "results" containing "failed_checks".
         if result.returncode in (0, 1) and result.stdout:
             try:
                 data: object = json.loads(result.stdout)
@@ -33,7 +42,8 @@ class CheckovAdapter:
                     # framework has results; treat it as a one-item list.
                     data = [data]
                 if isinstance(data, list):
-                    # Checkov JSON output format: [{"results": {"failed_checks": [...]}, "summary": {...}}, ...]
+                    # Checkov JSON output format: a list of check-type objects
+                    # with "results"/"failed_checks" and "summary" members.
                     all_results = []
                     for item in data:
                         if isinstance(item, dict) and "results" in item:
@@ -41,7 +51,9 @@ class CheckovAdapter:
                             if isinstance(results, dict):
                                 failed_checks = results.get("failed_checks", [])
                                 if isinstance(failed_checks, list):
-                                    all_results.extend([r for r in failed_checks if isinstance(r, dict)])
+                                    all_results.extend(
+                                        [r for r in failed_checks if isinstance(r, dict)]
+                                    )
                     return all_results
             except (json.JSONDecodeError, OSError):
                 pass
