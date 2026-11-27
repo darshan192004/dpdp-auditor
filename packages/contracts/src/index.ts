@@ -11,3 +11,4 @@ export * from './golden-manifest';
 export * from './budgets';
 export * from './slo';
 export * from './readiness';
+export * from './pack-v2';
