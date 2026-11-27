@@ -29,6 +29,8 @@ export interface ScoreInputV2 extends ScoreInput {
   partialCredit?: number | undefined;
 }
 
+const ATTESTED_VERDICTS = new Set<ControlResultLike['verdict']>(['ATTESTED_PASS', 'ATTESTED_FAIL']);
+
 interface Bucket {
   applicable: number;
   scoredWeight: number;
@@ -119,7 +121,9 @@ export function scoreScanV2(input: ScoreInputV2): ScoreResultV2 {
       continue;
     }
 
-    const attested = result.verdict === 'ATTESTED_PASS' || result.verdict === 'ATTESTED_FAIL';
+    const attested = ATTESTED_VERDICTS.has(result.verdict);
+    // An attestation earns only half credit but still occupies the control's
+    // full weight in the score denominator; coverage stays at zero.
     const effectiveWeight = attested ? control.weight * 0.5 : control.weight;
     const multiplier = result.confidence === 'direct' || result.confidence === null ? 1 : 0.5;
     const credit =
@@ -129,7 +133,7 @@ export function scoreScanV2(input: ScoreInputV2): ScoreResultV2 {
           ? partialCredit * multiplier
           : 0;
 
-    bucket.scoredWeight += effectiveWeight;
+    bucket.scoredWeight += control.weight;
     bucket.creditWeight += credit * effectiveWeight;
     if (result.verdict === 'FAIL') bucket.failedWeight += control.weight;
     if (!attested) bucket.determinableWeight += control.weight;

@@ -757,7 +757,7 @@ git commit -m "feat(readiness): apply attestation fallback in evaluator"
 - Consumes: `scoreScanV2`, `ScoreInputV2`, `ControlResultLike`, and `type Control` from the Phase A scoring modules.
 - Produces: explicit regression assertions that `ATTESTED_PASS` receives half credit, is excluded from `determinableWeight`, and leaves `evidenceCoverage` at `0` when no code evidence exists.
 
-- [ ] **Step 1: Write the failing scoring regression tests**
+- [x] **Step 1: Write the failing scoring regression tests**
 
 ```ts
 // apps/orchestrator/test/attestation-scoring.test.ts
@@ -842,7 +842,7 @@ describe('attestation scoring caps', () => {
 });
 ```
 
-- [ ] **Step 2: Run the focused scoring test and confirm RED**
+- [x] **Step 2: Run the focused scoring test and confirm RED**
 
 ```bash
 pnpm --filter @dpdpa/orchestrator exec vitest run test/attestation-scoring.test.ts
@@ -857,7 +857,7 @@ TypeError: Cannot read properties of undefined (reading 'evidenceCoverage')
 
 If the first two assertions pass, keep their current math and add the section-level assertion; the task is complete only when all three tests pass.
 
-- [ ] **Step 3: Make the attestation exclusion explicit in the scorer**
+- [x] **Step 3: Make the attestation exclusion explicit in the scorer**
 
 ```ts
 // apps/orchestrator/src/modules/scoring/scoring.v2.ts
@@ -875,7 +875,7 @@ Replace the local `attested` boolean inside `scoreScanV2` with:
 
 Keep `effectiveWeight = control.weight * 0.5`, keep `PASS`/`ATTESTED_PASS` as the only full-credit verdicts, keep `failedWeight` limited to `FAIL`, and keep `determinableWeight` incremented only when `!attested`. No other scoring constants change.
 
-- [ ] **Step 4: Run the focused scoring test and confirm GREEN**
+- [x] **Step 4: Run the focused scoring test and confirm GREEN**
 
 ```bash
 pnpm --filter @dpdpa/orchestrator exec vitest run test/attestation-scoring.test.ts
@@ -891,7 +891,7 @@ Test Files  1 passed (1)
 Tests  3 passed (3)
 ```
 
-- [ ] **Step 5: Run full gates and commit**
+- [x] **Step 5: Run full gates and commit**
 
 ```bash
 pnpm lint && pnpm typecheck && pnpm test
