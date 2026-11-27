@@ -2927,13 +2927,15 @@ git commit -m "feat(ui): compose evidence coverage assessment view"
 **Files:**
 - Create: `tests/golden-repos/fx-silent-app/manifest.yaml`
 - Create: `tests/golden-repos/fx-silent-app/README.md`
+- Create: `tests/golden-repos/fx-silent-app/src/silent.py` (canary source stand-in; never emitted)
 - Create: `apps/orchestrator/test/phase-a-exit-gate.test.ts`
+- Modify: `docs/superpowers/plans/2026-11-27-dpdp-evidence-backed-readiness-phase-a.md`
 
 **Interfaces:**
 - Consumes: `goldenManifestSchema` from `@dpdpa/contracts`; `loadRulePack`; `evaluateControls`; `scoreScanV2`.
 - Produces: automated silent-repository gate; manual WebGoat smoke checklist.
 
-- [ ] **Step 1: Write the failing exit-gate test**
+- [x] **Step 1: Write the failing exit-gate test**
 
 ```ts
 // apps/orchestrator/test/phase-a-exit-gate.test.ts
@@ -3031,12 +3033,12 @@ describe('Phase A exit gate', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `pnpm --filter @dpdpa/orchestrator test -- phase-a-exit-gate.test.ts`  
 Expected: FAIL — fixture missing.
 
-- [ ] **Step 3: Add the fixture**
+- [x] **Step 3: Add the fixture**
 
 ```yaml
 # tests/golden-repos/fx-silent-app/manifest.yaml
@@ -3064,12 +3066,20 @@ This fixture is a unit/acceptance test input. It is not pilot evidence and must
 never be presented as a real repository assessment.
 ```
 
-- [ ] **Step 4: Run focused tests**
+Also add `tests/golden-repos/fx-silent-app/src/silent.py`, a fixture-only source
+stand-in carrying a unique canary marker in a comment. The exit-gate test reads
+that marker from the fixture source and asserts it is absent from the in-memory
+serialized `controlResults`, scoring result, detector statuses, findings, and
+manifest. That offline assertion does not cover databases, object storage,
+logs, callbacks, or HTTP API responses; those remain behind the approval-gated
+manual/pipeline gate.
+
+- [x] **Step 4: Run focused tests**
 
 Run: `pnpm --filter @dpdpa/orchestrator test -- phase-a-exit-gate.test.ts && pnpm --filter @dpdpa/contracts test -- golden-manifest.test.ts`  
 Expected: PASS.
 
-- [ ] **Step 5: Manual WebGoat smoke gate (not CI)**
+- [ ] **Step 5: Manual WebGoat smoke gate (not CI)** — approval-gated; NOT run in Task 10.
 
 Run only after the user explicitly approves a local scan. Use the public WebGoat repository with the v2 flag enabled:
 
@@ -3079,15 +3089,15 @@ FEATURE_FLAGS='{"dpdpa_readiness_v2":true}' pnpm --filter @dpdpa/orchestrator st
 
 In Playwright MCP:
 1. Sign in and open `/app`.
-2. Start a scan for `https://github.com/OWASP/WebGoat.git`, ref `master`, with an empty blank reference field.
+2. Start a scan for `https://github.com/OWASP/WebGoat.git`, ref `master` (no separate blank reference field).
 3. Wait for `completed`, `3/3` scanners, `0 unmapped`.
 4. Open scan detail and confirm `DPDPA-8.4-SECRET-01` is `Evidence of a gap`, `Evidence coverage` is below 50%, no letter grade is shown, and the legacy badge is absent.
 5. Record scan ID, commit SHA, and verdict counts in the PR description. Do not call this a compliance result.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
-git add tests/golden-repos/fx-silent-app apps/orchestrator/test/phase-a-exit-gate.test.ts
+git add tests/golden-repos/fx-silent-app/manifest.yaml tests/golden-repos/fx-silent-app/README.md tests/golden-repos/fx-silent-app/src/silent.py apps/orchestrator/test/phase-a-exit-gate.test.ts docs/superpowers/plans/2026-11-27-dpdp-evidence-backed-readiness-phase-a.md
 git commit -m "test: add Phase A silent and gap exit gates"
 ```
 
