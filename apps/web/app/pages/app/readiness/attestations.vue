@@ -5,7 +5,7 @@ import type { ReadinessAttestation } from '~~/shared/readiness';
 
 const route = useRoute();
 const { data } = await useFetch<{ data: ReadinessAttestation[] }>(
-  `/api/v1/repos/${String(route.params.repoId)}/attestations`,
+  `/api/v1/repos/${String(route.query.repoId ?? route.params.repoId ?? '')}/attestations`,
 );
 const { org } = useAppContext();
 const canWrite = computed(() => ['owner', 'admin'].includes(org.value?.role ?? ''));

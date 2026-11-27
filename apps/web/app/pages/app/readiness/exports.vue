@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const route = useRoute();
-const scanId = String(route.params.scanId);
+const scanId = String(route.query.scanId ?? route.params.scanId ?? '');
 </script>
 
 <template>

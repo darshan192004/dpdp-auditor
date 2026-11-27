@@ -4,7 +4,7 @@ import type { ReadinessInventory } from '~~/shared/readiness';
 
 const route = useRoute();
 const { data } = await useFetch<{ data: ReadinessInventory }>(
-  `/api/v1/scan/${String(route.params.scanId)}/inventory`,
+  `/api/v1/scan/${String(route.query.scanId ?? route.params.scanId ?? '')}/inventory`,
 );
 const signals = computed(() => data.value?.data?.signals ?? []);
 const rows = computed(() =>

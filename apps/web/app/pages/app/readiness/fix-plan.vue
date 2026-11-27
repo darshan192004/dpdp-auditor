@@ -4,7 +4,7 @@ import type { FixPlan } from '~~/shared/readiness';
 
 const route = useRoute();
 const { data } = await useFetch<{ data: FixPlan }>(
-  `/api/v1/scan/${String(route.params.scanId)}/fix-plan`,
+  `/api/v1/scan/${String(route.query.scanId ?? route.params.scanId ?? '')}/fix-plan`,
 );
 const rows = computed(() =>
   (data.value?.data?.steps ?? []).map((step) => ({

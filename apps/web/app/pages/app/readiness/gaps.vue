@@ -4,7 +4,7 @@ import type { ReadinessGap } from '~~/shared/readiness';
 
 const route = useRoute();
 const { data } = await useFetch<{ data: ReadinessGap[] }>(
-  `/api/v1/scan/${String(route.params.scanId)}/gaps`,
+  `/api/v1/scan/${String(route.query.scanId ?? route.params.scanId ?? '')}/gaps`,
 );
 const rows = computed(() =>
   (data.value?.data ?? []).map((gap) => ({

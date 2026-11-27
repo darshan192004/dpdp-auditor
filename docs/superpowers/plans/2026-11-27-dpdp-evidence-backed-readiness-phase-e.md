@@ -3194,7 +3194,7 @@ git commit -m "feat(readiness): explain detectors and absence semantics"
 - Consumes: `ScanDetail.assessment.verdictCounts`, `ScanDetail.assessment.detectorStatuses`, and `MetricTile` from the existing scan detail view; the attestation route from Task 7.
 - Produces: `Attested statements` and `Detectors unavailable` tiles with explicit captions that deny evidence status, plus an `Attestations` quick-action link to `/app/readiness/attestations`.
 
-- [ ] **Step 1: Write the failing scan-detail tile tests**
+- [x] **Step 1: Write the failing scan-detail tile tests**
 
 ```ts
 // apps/web/test/scan-detail-tiles.test.ts
@@ -3258,7 +3258,7 @@ describe('scan detail attestation tiles', () => {
 });
 ```
 
-- [ ] **Step 2: Run the focused tile tests and confirm RED**
+- [x] **Step 2: Run the focused tile tests and confirm RED**
 
 ```bash
 pnpm --filter @dpdpa/web exec vitest run test/scan-detail-tiles.test.ts
@@ -3271,7 +3271,7 @@ FAIL  test/scan-detail-tiles.test.ts > scan detail attestation tiles > shows att
 AssertionError: expected false to be true
 ```
 
-- [ ] **Step 3: Add the computed values and tiles**
+- [x] **Step 3: Add the computed values and tiles**
 
 In the `<script setup>` of `apps/web/app/components/new/NewScanDetail.vue`, add after `const assessment = computed(...)`:
 
@@ -3353,7 +3353,7 @@ Also add these items to the `CommandPalette` `:items` array:
           { id: 'exports', label: 'Exports', href: `/app/readiness/exports?scanId=${scan.id}` },
 ```
 
-- [ ] **Step 4: Run the focused tile tests and confirm GREEN**
+- [x] **Step 4: Run the focused tile tests and confirm GREEN**
 
 ```bash
 pnpm --filter @dpdpa/web exec vitest run test/scan-detail-tiles.test.ts
@@ -3368,7 +3368,7 @@ Test Files  1 passed (1)
 Tests  2 passed (2)
 ```
 
-- [ ] **Step 5: Run full gates and commit**
+- [x] **Step 5: Run full gates and commit**
 
 ```bash
 pnpm lint && pnpm typecheck && pnpm test
