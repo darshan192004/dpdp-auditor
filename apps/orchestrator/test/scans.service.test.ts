@@ -858,6 +858,46 @@ describe('ScansService.complete', () => {
       expect.anything(),
     );
   });
+
+  it('persists the inventory report with the scan facts', async () => {
+    const { service, scans, scoring, tx } = make();
+    const inventory = {
+      inventoryVersion: 'inventory-1.0.0' as const,
+      facts: [
+        {
+          key: 'schema_scan' as const,
+          signals: [],
+          detectedAt: '2026-11-27T00:00:00Z',
+        },
+      ],
+      signals: [],
+      detectorStatuses: { schema_scan: 'completed' as const },
+    };
+
+    await service.complete(ORG_ID, SCAN_ID, { ...COMPLETION, inventory });
+
+    expect(scans.update).toHaveBeenCalledWith(
+      SCAN_ID,
+      expect.objectContaining({
+        inventoryVersion: 'inventory-1.0.0',
+        inventoryStatus: 'completed',
+        facts: expect.objectContaining({
+          languages: [],
+          frameworks: [],
+          resourceTypes: [],
+          inventory,
+        }),
+      }),
+      expect.anything(),
+    );
+    expect(scoring.mapAndScore).toHaveBeenCalledWith(
+      expect.objectContaining({ id: SCAN_ID }),
+      expect.anything(),
+      expect.anything(),
+      tx,
+      inventory,
+    );
+  });
 });
 
 describe('ScansService.rescore (P4-24)', () => {

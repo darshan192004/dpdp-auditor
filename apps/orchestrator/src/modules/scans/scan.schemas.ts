@@ -1,3 +1,9 @@
+import {
+  INVENTORY_V1_VERSION,
+  detectorStatusSchema,
+  inventoryFactSchema,
+  inventorySignalSchema,
+} from '@dpdpa/contracts';
 import { z } from 'zod';
 
 /** docs/api.md §3.1: `standard` runs every scanner, `secrets-only` skips SAST/IaC. */
@@ -133,6 +139,14 @@ export const repoFactsSchema = z.strictObject({
   resourceTypes: z.array(z.string().trim().min(1).max(128)).default([]),
 });
 
+/** Phase C: the runner's bounded inventory report travels with completion. */
+export const inventoryReportSchema = z.strictObject({
+  inventoryVersion: z.literal(INVENTORY_V1_VERSION),
+  facts: z.array(inventoryFactSchema).max(12),
+  signals: z.array(inventorySignalSchema).max(2000),
+  detectorStatuses: z.record(z.string().min(1).max(64), detectorStatusSchema),
+});
+
 export const completeScanSchema = z.strictObject({
   scanners: z.array(scannerReportSchema).min(1).max(3),
   commitSha: z
@@ -141,6 +155,7 @@ export const completeScanSchema = z.strictObject({
     .optional(),
   workspaceBytes: z.number().int().nonnegative().optional(),
   facts: repoFactsSchema.default({ languages: [], frameworks: [], resourceTypes: [] }),
+  inventory: inventoryReportSchema.optional(),
 });
 export type CompleteScanInput = z.input<typeof completeScanSchema>;
 export type CompleteScan = z.output<typeof completeScanSchema>;

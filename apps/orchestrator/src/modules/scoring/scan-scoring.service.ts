@@ -78,6 +78,8 @@ export class ScanScoringService {
     facts: RepoFacts,
     coverage: Record<string, string>,
     tx: Prisma.TransactionClient,
+    // Phase C forward compatibility: Task 9 types and consumes this report.
+    _inventory?: unknown,
   ): Promise<MapAndScoreResult> {
     const loaded = await this.pack.load();
     const ruleIds = await this.ensureRules(loaded);
