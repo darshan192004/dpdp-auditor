@@ -10,7 +10,7 @@ export interface InventorySignalLike {
   path: string;
   line: number | null;
   token: string;
-  count?: number | null;
+  count?: number | null | undefined;
 }
 
 export interface InventoryFactLike {
