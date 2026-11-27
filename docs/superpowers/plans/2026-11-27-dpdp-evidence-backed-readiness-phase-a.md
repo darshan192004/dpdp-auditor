@@ -3112,7 +3112,7 @@ git commit -m "test: add Phase A silent and gap exit gates"
 - Consumes: all prior tasks.
 - Produces: green monorepo gates and a watched UI walkthrough.
 
-- [ ] **Step 1: Run the full gates**
+- [x] **Step 1: Run the full gates**
 
 Run:
 
@@ -3124,14 +3124,16 @@ pnpm test
 
 Expected: all green. If any gate fails, return to the owning task and fix before continuing.
 
-- [ ] **Step 2: Verify legacy scores stayed unchanged**
+- [x] **Step 2: Verify legacy scores stayed unchanged**
 
 Run: `pnpm --filter @dpdpa/orchestrator test -- scoring.engine.test.ts scoring.v2.test.ts phase-a-exit-gate.test.ts`  
-Expected: legacy `100/A` assertion still passes; v2 gates pass.
+Expected: legacy `100/A` assertion still passes; v2 gates pass. Controller re-run after review fixes: 3 files / 21 tests passed.
 
 - [ ] **Step 3: Verify no canary/source retention**
 
 Confirm `control_results.evidence` contains only hash/path/line/fingerprint fields from `evidenceReferenceSchema`; no `snippet`, `content`, `source`, or secret value. Confirm no canary fixture string appears in app logs, DB rows, object storage, or API responses.
+
+Controller note: the strict-schema/code-path check and narrow in-memory/local-HTTP canary checks are complete, but DB rows, object storage, pilot logs, callbacks, and live API responses were unavailable. This step stays open until those approved surfaces are checked.
 
 - [ ] **Step 4: Playwright MCP walkthrough**
 
@@ -3141,6 +3143,8 @@ Use Playwright MCP with the user watching:
 3. Scan detail for `77971e23-6f5a-46fd-abcc-cc508b34cdee` (legacy) — legacy badge visible, score `90`, grade `A` unchanged, section labels use readiness wording.
 4. With OS reduced motion enabled — entry/hover/scroll motion is instant and focus remains visible.
 5. Report preview for the legacy scan — PDF still renders and v1 methodology text is unchanged.
+
+Controller note: the local fixtures-mode walkthrough covered keyboard navigation, a synthetic v2 silent scan, reduced motion, and the fixture report preview. The real pilot scan `77971e23-6f5a-46fd-abcc-cc508b34cdee` and its report could not be loaded because the pilot API was unreachable, so this step stays open for real-data sign-off.
 
 - [ ] **Step 5: Final status**
 
