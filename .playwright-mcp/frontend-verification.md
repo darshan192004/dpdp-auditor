@@ -182,6 +182,16 @@ did not cover. Each was filed separately and is fixed on its own branch against
   `repos-connect-form.test.ts`) before the fix and GREEN (18 tests) after.
 - Full gates on the fix branch: 56 files / 453 tests, typecheck, lint, build.
 
+### Main integration
+
+- Fixes #85–#88 were cherry-picked from the merged feature branch onto a fresh branch based on
+  `origin/main` at `7ee94d3`; PRs #89–#92 had already merged into
+  `feat/e2e-fullstack-verification` after PR #84 merged, so `main` lacked them.
+- One conflict in `ScanSubmitForm.vue` was reconciled to keep both the inline validation/focus fix
+  and `main`'s `submitRequest` error handling and submitting-state guard.
+- Gates on the `main`-based branch: `pnpm lint`, web typecheck, web build, and 77 files / 571 web
+  tests passing. A stale local `@dpdpa/contracts` build artifact was rebuilt before typecheck.
+
 ## Verdict
 
 **MVP-ready.** The rebuilt Signal Console renders every route end-to-end in real mode, all
