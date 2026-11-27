@@ -112,6 +112,12 @@ function closeCreateDialog(): void {
   actionError.value = null;
 }
 
+/** Dismissing mid-request would hide the one-time key once the POST resolves. */
+function dismissCreateDialog(): void {
+  if (pending.value) return;
+  closeCreateDialog();
+}
+
 watch(showCreateDialog, async (open) => {
   if (!import.meta.client) return;
   if (open) {
@@ -127,7 +133,7 @@ watch(showCreateDialog, async (open) => {
 function onKeydown(event: KeyboardEvent): void {
   if (!showCreateDialog.value) return;
   if (event.key === 'Escape') {
-    closeCreateDialog();
+    dismissCreateDialog();
     return;
   }
   if (event.key !== 'Tab' || !panel.value) return;
@@ -140,8 +146,12 @@ function onKeydown(event: KeyboardEvent): void {
   }
 
   const first = focusOrder[0]!;
+  const firstControl = controls[0];
   const last = focusOrder[focusOrder.length - 1]!;
-  if (event.shiftKey && document.activeElement === first) {
+  const atBackwardBoundary =
+    document.activeElement === first ||
+    (firstControl !== undefined && document.activeElement === firstControl);
+  if (event.shiftKey && atBackwardBoundary) {
     event.preventDefault();
     last.focus();
   } else if (!event.shiftKey && document.activeElement === last) {
@@ -370,7 +380,7 @@ function scopeList(scopes: string[]): string {
       aria-labelledby="create-key-heading"
       aria-modal="true"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      @click.self="closeCreateDialog"
+      @click.self="dismissCreateDialog"
     >
       <div
         ref="panel"
@@ -389,7 +399,7 @@ function scopeList(scopes: string[]): string {
             type="button"
             aria-label="Close dialog"
             class="text-ink-600 hover:text-ink-900 focus-visible:ring-brand-500 rounded-[var(--radius-control)] px-2 py-1 text-sm focus-visible:ring-2 focus-visible:outline-none"
-            @click="closeCreateDialog"
+            @click="dismissCreateDialog"
           >
             ×
           </button>
@@ -451,7 +461,7 @@ function scopeList(scopes: string[]): string {
             <button
               type="button"
               class="bg-brand-500 hover:bg-brand-600 focus-visible:ring-brand-500 text-ink-50 w-full rounded-[var(--radius-control)] px-3 py-2 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-              @click="closeCreateDialog"
+              @click="dismissCreateDialog"
             >
               Done
             </button>
@@ -539,7 +549,7 @@ function scopeList(scopes: string[]): string {
               type="button"
               :disabled="pending"
               class="text-ink-600 hover:text-ink-900 focus-visible:ring-brand-500 border-ink-200 flex-1 rounded-[var(--radius-control)] border px-3 py-2 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-40"
-              @click="closeCreateDialog"
+              @click="dismissCreateDialog"
             >
               Cancel
             </button>

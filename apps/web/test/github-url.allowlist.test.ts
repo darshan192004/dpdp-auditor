@@ -78,4 +78,11 @@ describe('GitHub URL validation (P2-09)', () => {
       'https://github.com/acme/repo/',
     );
   });
+
+  it('accepts a mixed-case GitHub hostname', () => {
+    const result = validateResolveInput({
+      githubUrl: 'https://GitHub.com/acme/payments-service',
+    });
+    expect(result.githubUrl).toBe('https://GitHub.com/acme/payments-service');
+  });
 });

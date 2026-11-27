@@ -529,7 +529,7 @@ export class ScanInputError extends Error {
 
 const SCAN_REF_PATTERN = /^(?:[A-Za-z0-9._/-]{1,255}|[0-9a-f]{40}|[0-9a-f]{64})$/;
 export const GITHUB_URL_PATTERN =
-  /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:\.git)?\/?$/;
+  /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:\.git)?\/?$/i;
 
 function optionalString(value: unknown, path: string): string | undefined {
   if (value === undefined || value === null) return undefined;

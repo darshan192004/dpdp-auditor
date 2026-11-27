@@ -1,10 +1,12 @@
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime';
+import { flushPromises } from '@vue/test-utils';
 import { nextTick } from 'vue';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import ApiKeysPage from '../app/pages/app/settings/api-keys/index.vue';
 
-const { keysData, keysStatus, keysError } = vi.hoisted(() => ({
+const { createFetch, keysData, keysStatus, keysError } = vi.hoisted(() => ({
+  createFetch: vi.fn(),
   keysData: { value: null as unknown, __v_isRef: true },
   keysStatus: { value: 'success', __v_isRef: true },
   keysError: { value: null as unknown, __v_isRef: true },
@@ -17,10 +19,13 @@ mockNuxtImport('useFetch', () => () => ({
   refresh: () => Promise.resolve(),
 }));
 
+mockNuxtImport('$fetch', () => createFetch);
+
 type Wrapper = Awaited<ReturnType<typeof mountSuspended>>;
 let wrapper: Wrapper | undefined;
 
 beforeEach(() => {
+  createFetch.mockReset();
   keysData.value = { data: [] };
   keysStatus.value = 'success';
   keysError.value = null;
@@ -58,6 +63,35 @@ function dialog(): ReturnType<Wrapper['find']> {
 
 function keydown(key: string, shiftKey = false): KeyboardEvent {
   return new KeyboardEvent('keydown', { key, shiftKey, bubbles: true, cancelable: true });
+}
+
+async function startPendingCreate(): Promise<() => void> {
+  await renderPage();
+  await openDialog();
+  await dialog().find('#key-name').setValue('CI key');
+
+  let resolveCreate: (value: unknown) => void = () => undefined;
+  createFetch.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        resolveCreate = resolve;
+      }),
+  );
+  await dialog().find('form').trigger('submit');
+  await nextTick();
+
+  return () =>
+    resolveCreate({
+      data: {
+        id: 'key_1',
+        name: 'CI key',
+        prefix: 'dpdp_',
+        scopes: ['scan:read'],
+        expiresAt: null,
+        createdAt: '2026-11-27T00:00:00.000Z',
+        key: 'dpdp_secret',
+      },
+    });
 }
 
 describe('Create API key dialog keyboard behaviour', () => {
@@ -118,5 +152,58 @@ describe('Create API key dialog keyboard behaviour', () => {
 
     expect(wrapper!.find('[role="dialog"]').exists()).toBe(false);
     expect(document.activeElement).toBe(trigger);
+  });
+
+  it('wraps Shift+Tab from the close button to the last control', async () => {
+    await renderPage();
+    await openDialog();
+
+    const closeButton = dialog().find('button[aria-label="Close dialog"]').element as HTMLElement;
+    const cancel = dialog()
+      .findAll('button')
+      .find((button) => button.text().trim() === 'Cancel')!.element as HTMLElement;
+
+    closeButton.focus();
+    const backwards = keydown('Tab', true);
+    window.dispatchEvent(backwards);
+
+    expect(backwards.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(cancel);
+  });
+
+  it('keeps the dialog open on Escape while the key request is pending', async () => {
+    const resolveCreate = await startPendingCreate();
+
+    window.dispatchEvent(keydown('Escape'));
+    await nextTick();
+
+    expect(wrapper!.find('[role="dialog"]').exists()).toBe(true);
+    resolveCreate();
+    await flushPromises();
+    expect(dialog().find('#created-key').exists()).toBe(true);
+  });
+
+  it('keeps the dialog open on the close button while the key request is pending', async () => {
+    const resolveCreate = await startPendingCreate();
+
+    await dialog().find('button[aria-label="Close dialog"]').trigger('click');
+    await nextTick();
+
+    expect(wrapper!.find('[role="dialog"]').exists()).toBe(true);
+    resolveCreate();
+    await flushPromises();
+    expect(dialog().find('#created-key').exists()).toBe(true);
+  });
+
+  it('keeps the dialog open on backdrop click while the key request is pending', async () => {
+    const resolveCreate = await startPendingCreate();
+
+    await dialog().trigger('click');
+    await nextTick();
+
+    expect(wrapper!.find('[role="dialog"]').exists()).toBe(true);
+    resolveCreate();
+    await flushPromises();
+    expect(dialog().find('#created-key').exists()).toBe(true);
   });
 });

@@ -192,6 +192,23 @@ did not cover. Each was filed separately and is fixed on its own branch against
 - Gates on the `main`-based branch: `pnpm lint`, web typecheck, web build, and 77 files / 571 web
   tests passing. A stale local `@dpdpa/contracts` build artifact was rebuilt before typecheck.
 
+### PR #116 review follow-ups
+
+- CodeRabbit's two inline findings were verified against the current dialog code. Escape, the close
+  button, and backdrop click called `closeCreateDialog()` directly, so a successful POST could store
+  a one-time key in a closed dialog; all dismissals now go through a `pending`-guarded wrapper.
+  `Shift+Tab` from the close button could leave the dialog because the backward boundary was the
+  programmatically focused heading (`tabindex="-1"`); the first sequential control is now also a
+  boundary. Four new regression tests were RED before the fix and GREEN after (8 total in
+  `apps/web/test/api-key-dialog.test.ts`).
+- CodeRabbit's retained compatibility concern was verified: the shared GitHub URL pattern was
+  case-sensitive, so mixed-case hostnames that previously passed `shared/repo.ts` validation were
+  rejected. Added a RED-to-GREEN regression test in `apps/web/test/github-url.allowlist.test.ts`
+  and made the pattern case-insensitive.
+- PR-Agent's ticket note on #85 was checked against the issue text. The issue accepts unique,
+  action-oriented labels **or** omitting the no-op option; the fix takes the first alternative, with
+  `Mark open` / `Leave open` and distinct labels for every other status. No change needed.
+
 ## Verdict
 
 **MVP-ready.** The rebuilt Signal Console renders every route end-to-end in real mode, all
