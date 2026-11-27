@@ -213,9 +213,12 @@ describe('Chaos testing (P6-08)', () => {
             error.headers = { 'retry-after': '1' };
             throw error;
           }
-          // Wait for rate limit window
-          if (Date.now() - startTime < rateLimitWindow) {
-            await new Promise((res) => setTimeout(res, rateLimitWindow - (Date.now() - startTime)));
+          // Wait for rate limit window. Timer resolution can fire a millisecond
+          // early relative to Date.now(), so add one millisecond to keep the
+          // elapsed-time assertion stable.
+          const remaining = rateLimitWindow - (Date.now() - startTime);
+          if (remaining > 0) {
+            await new Promise((res) => setTimeout(res, remaining + 1));
           }
           return { data: { default_branch: 'main' } };
         }),

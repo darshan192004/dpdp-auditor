@@ -5535,8 +5535,28 @@ commit (`pnpm lint && pnpm typecheck && pnpm test && git diff --check`) exited 0
 tasks and 83 files / 571 web tests passing. Step 6 is checked only on the basis of these observed
 surfaces; no pilot sign-off is claimed.
 
-Step 6 is **still unchecked**: the user must watch the live walkthrough and decide. No server,
-push, PR, merge, deploy, `infra/` change, or image-pin change was performed.
+Step 6 was observed live via Playwright MCP with the user watching, and the seven listed items were
+recorded above. The user then approved pushing the branch and opening PR #115. No deploy, `infra/`
+change, image-pin change, or merge was performed.
+
+### PR #115 `Code CI` coverage gate (test-first RED/GREEN)
+
+PR #115 `Code CI` run `46005999205` failed on `ERROR: Coverage for branches (83.93%) does not meet
+global threshold (84%)` in `@dpdpa/orchestrator#test:coverage`. Local `pnpm test` does not enforce
+coverage, so the earlier full-gate run did not catch it. RED evidence before the fix:
+`ReportV2Service` had `0/8` branch hits and the global total was `1938/2309 = 83.9324%`, needing two
+more branch hits. A locally reproduced flaky timing assertion in `chaos.test.ts`
+(`expected 99 to be greater than or equal to 100`) was also stabilised by waiting `remaining + 1`
+milliseconds, since timer resolution can fire a millisecond early.
+
+A focused new test, `apps/orchestrator/test/report-v2-service.test.ts`, was written first for the
+uncovered service: RED was the documented coverage gate above; GREEN was
+`pnpm --filter @dpdpa/orchestrator exec vitest run test/report-v2-service.test.ts` →
+`3 passed (3)`, then `pnpm --filter @dpdpa/orchestrator test:coverage` → exit 0, `103 passed (103)`
+files / `832 passed (832)` tests, `All files 92.96% statements / 84.36% branches`. Post-fix coverage
+check: `ReportV2Service 8/8` branches, global `1948/2309 = 84.3655%` (eight hits above the 84%
+threshold). No threshold was lowered. Final full gates
+(`pnpm lint && pnpm typecheck && pnpm test && git diff --check`) exited 0 with 12/12 Turbo tasks.
 
 ## Final review checklist (agent before handoff)
 
