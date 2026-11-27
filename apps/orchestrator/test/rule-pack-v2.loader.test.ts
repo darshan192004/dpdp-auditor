@@ -54,6 +54,12 @@ describe('loadRulePackV2', () => {
     ]);
   });
 
+  it('exposes bounded detector and commencement metadata', async () => {
+    const loaded = await loadRulePackV2(PACK_DIR);
+    expect(loaded.detectors.map((detector) => detector.id)).toContain('form_scan');
+    expect(loaded.commencement.map((entry) => entry.provision)).toContain('DPDP Rules 4');
+  });
+
   it('fails closed on checksum drift', async () => {
     const dir = join(await mkdtemp(join(tmpdir(), 'phase-e-loader-')), 'v2');
     created.push(dir);

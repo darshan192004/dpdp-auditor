@@ -2,6 +2,7 @@ import { mountSuspended } from '@nuxt/test-utils/runtime';
 import { describe, expect, it } from 'vitest';
 
 import NewScanDetail from '../app/components/new/NewScanDetail.vue';
+import RuleDetectorExplainer from '../app/components/rules/RuleDetectorExplainer.vue';
 import RuleMappingTable from '../app/components/rules/RuleMappingTable.vue';
 import { getFixtureRule } from '../server/utils/fixtures/rules';
 import type { ScanDetail } from '../shared/scan';
@@ -74,6 +75,38 @@ describe('readiness UI language', () => {
     });
     const text = wrapper.text().toLowerCase();
     expect(text).toContain('server-side encryption');
+    for (const phrase of FORBIDDEN) {
+      expect(text, `forbidden phrase: ${phrase}`).not.toContain(phrase);
+    }
+  });
+
+  it('explains absence detectors with readiness-only wording', async () => {
+    const wrapper = await mountSuspended(RuleDetectorExplainer, {
+      props: {
+        detectors: [
+          {
+            id: 'form_scan',
+            module: 'inventory',
+            inputs: ['source'],
+            outputs: ['signal', 'status'],
+            timeoutMs: 30_000,
+            confidence: 'inferred',
+            failureMode: 'UNKNOWN',
+            controls: [
+              {
+                code: 'DPDPA-6-CONSENT-01',
+                evidenceMode: 'absence',
+                absenceTokens: ['consent_checkbox'],
+              },
+            ],
+          },
+        ],
+      },
+    });
+    const text = wrapper.text().toLowerCase();
+    expect(text).toContain('form_scan');
+    expect(text).toContain('consent_checkbox');
+    expect(text).toContain('could not determine');
     for (const phrase of FORBIDDEN) {
       expect(text, `forbidden phrase: ${phrase}`).not.toContain(phrase);
     }

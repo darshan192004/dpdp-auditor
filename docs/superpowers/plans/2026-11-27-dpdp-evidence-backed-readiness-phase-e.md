@@ -15,23 +15,28 @@
 ## Global Constraints
 
 - Readiness only. No compliance verdict, certificate, badge, or legal conclusion.
-- Forbidden in product UI/report/export strings outside quoted disclaimers: “compliant”, “non-compliant”, “violation of the Act”, “certified”.
-- Tests first. At every task boundary, run the task's focused tests **and** `pnpm lint && pnpm typecheck && pnpm test`; do not commit unless all are green.
-- A CI language lint must cover UI strings, report/export strings, and rule messages. CSS token names such as `status-compliant-bg` and quoted disclaimers are exempt; user-facing copy is not.
+- Forbidden wording outside quoted disclaimers: 'compliant', 'non-compliant', 'violation of the Act', 'certified'. A CI language lint enforces this across UI strings, reports, exports, and rule messages.
 - Never retain, transmit, persist, log, or trace source code or file contents. Evidence references carry hashes, paths, lines, detector IDs, and fingerprints only.
-- Never turn missing evidence into `PASS`; `UNKNOWN` is excluded from the score and shown prominently.
-- Legacy scans keep `scoringVersion: "1.0.0"` and exact historical scores. New v2 scans carry `"scoring-2.0.0"`.
+- Never retain source code or file contents: no source code, file contents, secret values, or raw scanner output persisted in PostgreSQL, Redis, object storage, logs, or traces.
+- Missing evidence never PASS. PASS requires recorded positive evidence; FAIL requires cited gap evidence; UNKNOWN is excluded from the score and never becomes a pass.
+- A required detector that failed, timed out, or was skipped yields UNKNOWN with `detector_unavailable`, unless determinable evidence from a completed detector or a valid attestation exists.
+- UNKNOWN excluded from the score and shown prominently, beside a named coverage banner when a detector failed, timed out, or was skipped.
+- Scoring is deterministic and versioned; every fixture run twice must produce byte-identical `control_results`.
+- New scans use `scoring-2.0.0`, `inventory-1.0.0`, and the rule pack `dpdpa-2026.11.0`; legacy scans keep `scoringVersion: "1.0.0"` and exact historical scores.
 - Do not change `packages/rule-packs/scoring.yaml`; its numeric `scoringVersion: 1.0.0` stays valid for legacy pack loading.
-- Do not push, create a PR, merge, deploy, start a shared server, change image pins, or touch `infra/` or `infra/certs/*` without explicit user approval.
-- Use a separate branch and PR for Phase E: `feat/dpdp-readiness-phase-e`, stacked from the agreed Phase D HEAD. Do not commit Phase E work to a Phase A–D branch.
 - Fixtures are test inputs only and must never be presented as pilot evidence or sign-off data. WebGoat and Juice-Shop-like repos are manual smoke tests only, not CI gates.
-- k3s deployment and the gVisor RuntimeClass sign-off gate remain paused pending explicit user approval.
-- External pentest remains `Pending — deferred for internal pilot`.
+- Tests first: RED then GREEN at every task boundary. Record the exact RED failure before writing the implementation.
+- Tests first. At every task boundary, run the task's focused tests **and** `pnpm lint && pnpm typecheck && pnpm test`; do not commit unless all are green.
+- Before any commit, the exact gate command `pnpm lint && pnpm typecheck && pnpm test` must be green.
+- One separate branch and one separate PR per phase; Phase E uses `feat/dpdp-readiness-phase-e` stacked from the agreed Phase D HEAD and is never merged by this work.
+- Full A–F is delivered as phase-gated PRs. No push, PR creation, merge, deploy, image-pin update, or `infra/` change happens without explicit user approval.
 - UI verification must use Playwright MCP so the user can watch live.
 - Deterministic, versioned scoring only: attestation verdicts, coverage, and grade caps must be reproducible from the stored pack version and scan inputs.
 - An attestation is a human statement, never code evidence. It must not become an evidence reference, raise evidence coverage, or lift a grade above the coverage cap.
 - Attestation writes are org-scoped, owner/admin-only, audited, and expiry-aware. Unexpired written truth wins over absence; code evidence wins over an attestation.
 - Never open GitHub issues or pull requests on a target repository from an export.
+- k3s deployment and the gVisor RuntimeClass sign-off gate remain paused pending explicit user approval.
+- External pentest remains `Pending — deferred for internal pilot`.
 
 ---
 
@@ -161,10 +166,10 @@ Expected RED output includes:
 
 ```text
 FAIL  test/pack-v2.test.ts > Phase E attestation key mapping > maps pack attestation keys to controls without hard-coded control IDs
-AssertionError: expected [] to deeply equal []
+AssertionError: expected [ { path: 'controls.yaml', code: 'invalid_schema', ... } ] to deeply equal []
 ```
 
-and the duplicate-key assertion fails with `expected [] to contain 'duplicate_attestation_key'`.
+The missing-key assertion fails with `expected [] to contain 'missing_attestation_key'`, and the duplicate-key assertion fails because it sees `invalid_schema`/`duplicate_control` instead of `duplicate_attestation_key`.
 
 - [x] **Step 3: Add the bounded contract and validator rules**
 
@@ -298,13 +303,12 @@ git commit -m "feat(readiness): map v2 attestation keys to controls"
 
 **Interfaces:**
 - Consumes: `validatePackV2`, `DPDPA_PACK_V2_VERSION`, `type ControlV2`, and `type PackFileV2` from `@dpdpa/contracts`; `parse` from `yaml`; Node `fs`/`path` helpers.
-- Produces: `loadRulePackV2(dir, options?) => Promise<LoadedRulePackV2>` with `pack`, `controls`, `controlsByCode`, and `attestationsByKey: Map<string, ControlV2[]>`; `RulePackV2Error`.
+- Produces: `loadRulePackV2(dir) => Promise<LoadedRulePackV2>` with `pack`, `controls`, `controlsByCode`, `attestationsByKey: Map<string, ControlV2[]>`, `detectors: DetectorV2[]`, and `commencement: CommencementEntry[]`; `RulePackV2Error`.
 
 - [x] **Step 1: Write the failing loader tests**
 
 ```ts
 // apps/orchestrator/test/rule-pack-v2.loader.test.ts
-import { createHash } from 'node:crypto';
 import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -330,6 +334,8 @@ describe('v2 attestation pack loader', () => {
     expect(loaded.attestationsByKey.get('secrets.managed_store')?.map((c) => c.code)).toEqual([
       'DPDPA-8.4-SECRET-01',
     ]);
+    expect(loaded.detectors.map((detector) => detector.id)).toContain('schema_scan');
+    expect(loaded.commencement.map((entry) => entry.provision)).toContain('DPDP Rules 4');
   });
 
   it('fails closed on checksum drift', async () => {
@@ -382,12 +388,18 @@ import { readFile, readdir } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
 import { parse } from 'yaml';
 import {
+  commencementFileSchema,
   controlsFileV2Schema,
+  detectorsFileV2Schema,
   packManifestV2Schema,
   validatePackV2,
   type ControlV2,
+  type DetectorV2,
   type PackFileV2,
 } from '@dpdpa/contracts';
+import type { z } from 'zod';
+
+type CommencementEntry = z.infer<typeof commencementFileSchema>['entries'][number];
 
 export type RulePackV2ErrorCode =
   | 'RULE_PACK_MISSING'
@@ -409,6 +421,8 @@ export interface LoadedRulePackV2 {
   controls: ControlV2[];
   controlsByCode: Map<string, ControlV2>;
   attestationsByKey: Map<string, ControlV2[]>;
+  detectors: DetectorV2[];
+  commencement: CommencementEntry[];
 }
 
 async function listFiles(dir: string, base = dir): Promise<string[]> {
@@ -452,9 +466,14 @@ export async function loadRulePackV2(dir: string): Promise<LoadedRulePackV2> {
   if (issues.length > 0) {
     throw new RulePackV2Error('RULE_PACK_INVALID', `v2 pack has ${issues.length} validation issue(s)`);
   }
-  const controlsFile = files.find((file) => file.path === 'controls.yaml');
-  if (!controlsFile) throw new RulePackV2Error('RULE_PACK_MISSING', 'missing controls.yaml');
-  const controls = controlsFileV2Schema.parse(controlsFile.value).controls;
+  const named = (path: string) => {
+    const file = files.find((candidate) => candidate.path === path);
+    if (!file) throw new RulePackV2Error('RULE_PACK_MISSING', `missing ${path}`);
+    return file.value;
+  };
+  const controls = controlsFileV2Schema.parse(named('controls.yaml')).controls;
+  const detectors = detectorsFileV2Schema.parse(named('detectors.yaml')).detectors;
+  const commencement = commencementFileSchema.parse(named('commencement.yaml')).entries;
   const attestationsByKey = new Map<string, ControlV2[]>();
   for (const control of controls) {
     if (control.attestationKey === undefined) continue;
@@ -467,6 +486,8 @@ export async function loadRulePackV2(dir: string): Promise<LoadedRulePackV2> {
     controls,
     controlsByCode: new Map(controls.map((control) => [control.code, control])),
     attestationsByKey,
+    detectors,
+    commencement,
   };
 }
 ```
@@ -744,6 +765,7 @@ Expected output ends with successful lint, successful typecheck, and `Tasks: 100
 ```bash
 git add apps/orchestrator/src/modules/scoring/control-evaluator.ts apps/orchestrator/test/attestation-control-evaluator.test.ts
 git commit -m "feat(readiness): apply attestation fallback in evaluator"
+```
 
 ---
 
@@ -764,7 +786,7 @@ git commit -m "feat(readiness): apply attestation fallback in evaluator"
 import { describe, expect, it } from 'vitest';
 import type { Control } from '../src/modules/rule-pack/rule-pack.schemas.js';
 import type { ControlResultLike } from '../src/modules/scoring/control-evaluator.js';
-import { scoreScanV2 } from '../src/modules/scoring/scoring.v2.js';
+import { ATTESTED_VERDICTS, scoreScanV2 } from '../src/modules/scoring/scoring.v2.js';
 
 const control: Control = {
   code: 'DPDPA-8.4-SECRET-01',
@@ -786,7 +808,7 @@ function result(verdict: ControlResultLike['verdict']): ControlResultLike {
   return {
     controlCode: control.code,
     verdict,
-    reasonCode: verdict.startsWith('ATTESTED') ? 'attested_pass' : 'positive_evidence',
+    reasonCode: verdict === 'ATTESTED_FAIL' ? 'attested_fail' : verdict.startsWith('ATTESTED') ? 'attested_pass' : 'positive_evidence',
     confidence: verdict.startsWith('ATTESTED') ? null : 'direct',
     evidence: [],
     rulePackVersion: 'dpdpa-2026.11.0',
@@ -795,6 +817,10 @@ function result(verdict: ControlResultLike['verdict']): ControlResultLike {
 }
 
 describe('attestation scoring caps', () => {
+  it('exports one canonical set of attested verdicts', () => {
+    expect([...ATTESTED_VERDICTS].sort()).toEqual(['ATTESTED_FAIL', 'ATTESTED_PASS']);
+  });
+
   it('gives an attested pass half credit but no evidence coverage', () => {
     const scored = scoreScanV2({
       findings: [],
@@ -851,17 +877,16 @@ pnpm --filter @dpdpa/orchestrator exec vitest run test/attestation-scoring.test.
 Expected RED output:
 
 ```text
-FAIL  test/attestation-scoring.test.ts > attestation scoring caps > counts code evidence as coverage alongside an attested control
-TypeError: Cannot read properties of undefined (reading 'evidenceCoverage')
+SyntaxError: The requested module '../src/modules/scoring/scoring.v2.js' does not provide an export named 'ATTESTED_VERDICTS'
 ```
 
-If the first two assertions pass, keep their current math and add the section-level assertion; the task is complete only when all three tests pass.
+The harness must not count the three behavior assertions alone as RED: the missing canonical export is the deliberate failure. Keep all four assertions through GREEN so they act as regression tests.
 
 - [x] **Step 3: Make the attestation exclusion explicit in the scorer**
 
 ```ts
 // apps/orchestrator/src/modules/scoring/scoring.v2.ts
-const ATTESTED_VERDICTS = new Set<ControlResultLike['verdict']>([
+export const ATTESTED_VERDICTS = new Set<ControlResultLike['verdict']>([
   'ATTESTED_PASS',
   'ATTESTED_FAIL',
 ]);
@@ -884,11 +909,12 @@ pnpm --filter @dpdpa/orchestrator exec vitest run test/attestation-scoring.test.
 Expected GREEN output:
 
 ```text
+✓ test/attestation-scoring.test.ts > attestation scoring caps > exports one canonical set of attested verdicts
 ✓ test/attestation-scoring.test.ts > attestation scoring caps > gives an attested pass half credit but no evidence coverage
 ✓ test/attestation-scoring.test.ts > attestation scoring caps > excludes an attested fail from the failure-driven critical cap input
 ✓ test/attestation-scoring.test.ts > attestation scoring caps > counts code evidence as coverage alongside an attested control
 Test Files  1 passed (1)
-Tests  3 passed (3)
+Tests  4 passed (4)
 ```
 
 - [x] **Step 5: Run full gates and commit**
@@ -902,6 +928,7 @@ Expected output ends with successful lint, successful typecheck, and `Tasks: 100
 ```bash
 git add apps/orchestrator/src/modules/scoring/scoring.v2.ts apps/orchestrator/test/attestation-scoring.test.ts
 git commit -m "test(readiness): pin attestation coverage caps"
+```
 
 ---
 
@@ -915,7 +942,7 @@ git commit -m "test(readiness): pin attestation coverage caps"
 - Modify: `apps/orchestrator/src/modules/rule-pack/rule-pack.service.ts`
 
 **Interfaces:**
-- Consumes: B's `prisma.attestation` model and `attestationSchema` key/answer/expiry conventions; `IdentityService.getMembership(orgId, userId)`; `RepositoriesRepository.findById(orgId, repositoryId)`; `AuditService.record`; `ScanScoringService.rescoreRepository` (added in Task 6); `RulePackService.loadV2` (added in this task).
+- Consumes: B's `prisma.attestation` model and `attestationSchema` key/answer/expiry conventions; `IdentityService.getMembership(orgId, userId)`; `RepositoriesRepository.findActiveById(orgId, repositoryId)`; `AuditService.record`; `ScanScoringService.rescoreRepository` (added in Task 6); `RulePackService.loadV2` (added in this task).
 - Produces: `writeAttestationSchema`, `AttestationView`, `AttestationsRepository.list/upsert`, and `AttestationsService.set/list` with owner/admin enforcement, key validation, auditing, and expiry checks.
 
 - [x] **Step 1: Write the failing service tests**
@@ -955,7 +982,7 @@ function make(role: 'owner' | 'admin' | 'viewer' | null = 'owner') {
     upsert: vi.fn().mockResolvedValue(row()),
     list: vi.fn().mockResolvedValue([row()]),
   };
-  const repositories = { findById: vi.fn().mockResolvedValue({ id: REPO, orgId: ORG }) };
+  const repositories = { findActiveById: vi.fn().mockResolvedValue({ id: REPO, orgId: ORG }) };
   const pack = {
     loadV2: vi.fn().mockResolvedValue({
       pack: 'dpdpa-2026.11.0',
@@ -1035,7 +1062,7 @@ describe('attestation service', () => {
 
   it('rejects a repository id from another organisation', async () => {
     const { service, repositories, repository } = make();
-    repositories.findById.mockResolvedValue(null);
+    repositories.findActiveById.mockResolvedValue(null);
     await expect(service.set(write)).rejects.toMatchObject({ code: 'NOT_FOUND' });
     expect(repository.upsert).not.toHaveBeenCalled();
   });
@@ -1214,7 +1241,7 @@ export class AttestationsService {
     ) {
       throw new ApiError('FORBIDDEN', 'Only an active owner or admin can write attestations.');
     }
-    const repository = await this.repositories.findById(input.orgId, input.repositoryId);
+    const repository = await this.repositories.findActiveById(input.orgId, input.repositoryId);
     if (repository === null) throw new ApiError('NOT_FOUND', 'The repository does not exist.');
 
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
@@ -1294,6 +1321,7 @@ Expected output ends with successful lint, successful typecheck, and `Tasks: 100
 ```bash
 git add apps/orchestrator/src/modules/attestations apps/orchestrator/src/modules/rule-pack/rule-pack.service.ts apps/orchestrator/test/attestations.service.test.ts
 git commit -m "feat(readiness): add scoped attestation service"
+```
 
 ---
 
@@ -1434,21 +1462,30 @@ TypeError: service.rescoreRepository is not a function
 
 - [x] **Step 3: Add the rescore helper and attestation-aware scoring input**
 
+In `apps/orchestrator/src/modules/scoring/scan-scoring.service.ts`, extend the existing imports rather than duplicating them:
+
 ```ts
-// apps/orchestrator/src/modules/scoring/scan-scoring.service.ts
-import { assessmentEventFields, scanAssessmentUpdate } from './assessment-fields.js';
-import { factsFrom } from './applicability.js';
 import {
-  SCORING_V2_VERSION,
+  buildDetectorStatuses,
+  evaluateControls,
+  type AttestationForEvaluator,
+  type ControlEvidence,
+  type ControlResultLike,
+} from './control-evaluator.js';
+import { factsFrom, type RepoFacts } from './applicability.js';
+import { assessmentEventFields, scanAssessmentUpdate } from './assessment-fields.js';
+import {
   isScoringV2,
   LEGACY_SCORING_VERSION,
+  SCORING_V2_VERSION,
   scoreScanVersioned,
   scoringVersionForNewScan,
+  type ScoreCounts,
+  type VersionedScoreInput,
 } from './scoring.engine.js';
-import type { AttestationForEvaluator } from './control-evaluator.js';
 ```
 
-Add the public method before `persistControlResults`:
+Remove the old separate `import type { RepoFacts } from './applicability.js';` line. Add the public method before `persistControlResults`:
 
 ```ts
   async rescoreRepository(
@@ -1577,6 +1614,7 @@ Expected output ends with successful lint, successful typecheck, and `Tasks: 100
 ```bash
 git add apps/orchestrator/src/modules/scoring/scan-scoring.service.ts apps/orchestrator/test/attestation-rescore.test.ts
 git commit -m "feat(readiness): rescore v2 scans after attestation writes"
+```
 
 ---
 
@@ -1774,7 +1812,7 @@ import { callOrchestrator } from '../../../../../utils/orchestrator';
 import { getRouterParam } from 'h3';
 
 export default defineEventHandler(async (event) => {
-  const repoId = getRouterParam(event, 'repoId');
+  const repoId = getRouterParam(event, 'repoId') ?? '';
   if (fixturesAnswer(event)) return { data: fixtureAttestations(repoId) };
   const identity = await requireIdentity(event);
   return callOrchestrator(event, {
@@ -1793,8 +1831,8 @@ import { requireRole } from '../../../../../utils/session';
 import { callOrchestrator } from '../../../../../utils/orchestrator';
 
 export default defineEventHandler(async (event) => {
-  const repoId = getRouterParam(event, 'repoId');
-  const key = getRouterParam(event, 'key');
+  const repoId = getRouterParam(event, 'repoId') ?? '';
+  const key = getRouterParam(event, 'key') ?? '';
   const body = await readBody<Record<string, unknown>>(event);
   if (fixturesAnswer(event)) return { data: { ...body, repositoryId: repoId, key } };
 
@@ -1868,6 +1906,7 @@ Expected output ends with successful lint, successful typecheck, and `Tasks: 100
 ```bash
 git add apps/orchestrator/src/modules/attestations apps/orchestrator/src/app.module.ts apps/orchestrator/test/internal-attestations.controller.test.ts apps/web/server/api/v1/repos apps/web/server/utils/fixtures/attestations.ts apps/web/test/attestation-fixtures.test.ts
 git commit -m "feat(readiness): expose scoped attestation routes"
+```
 
 ---
 
@@ -2374,6 +2413,7 @@ Expected output ends with successful lint, successful typecheck, and `Tasks: 100
 ```bash
 git add apps/orchestrator/src/modules/readiness apps/orchestrator/src/app.module.ts apps/orchestrator/test/readiness-read.service.test.ts apps/web/shared/readiness.ts apps/web/server/utils/fixtures/readiness.ts apps/web/server/api/v1/scan apps/web/test/readiness-read-fixtures.test.ts
 git commit -m "feat(readiness): add readiness read routes"
+```
 
 ---
 
@@ -2417,9 +2457,9 @@ describe('readiness pages', () => {
         rows: [{ Detector: 'form_scan', Token: 'email_address', Path: 'src/api/user.ts' }],
       },
     });
-    expect(page.getByRole('heading', { level: 1 }).text()).toBe('Data Inventory');
+    expect(page.find('h1').text()).toBe('Data Inventory');
     expect(page.text()).toContain('email_address');
-    expect(page.getByRole('table')).toBeTruthy();
+    expect(page.find('table').exists()).toBe(true);
   });
 
   it('renders attestation state without treating it as code evidence', async () => {
@@ -2443,7 +2483,9 @@ describe('readiness pages', () => {
     });
     expect(page.text()).toContain('secrets.managed_store');
     expect(page.text()).toContain('Attested yes');
-    expect(page.getByRole('button', { name: 'Record attestation' })).toBeTruthy();
+    expect(page.find('button').text()).toBe('Record attestation');
+    await page.find('button').trigger('click');
+    expect(page.emitted('record')).toHaveLength(1);
     expect(page.text()).not.toContain('evidence reference');
   });
 });
@@ -2555,9 +2597,20 @@ defineProps<{
 ```vue
 <!-- apps/web/app/components/readiness/ReadinessAttestationList.vue -->
 <script setup lang="ts">
-import type { FixtureAttestation } from '~/server/utils/fixtures/attestations';
+interface AttestationRow {
+  id: string;
+  repositoryId: string;
+  key: string;
+  answer: boolean;
+  note: string | null;
+  attestedBy: string;
+  attestedAt: string;
+  expiresAt: string | null;
+  updatedAt: string;
+}
 
-defineProps<{ rows: FixtureAttestation[]; canWrite: boolean }>();
+defineProps<{ rows: AttestationRow[]; canWrite: boolean }>();
+const emit = defineEmits<{ record: [] }>();
 </script>
 
 <template>
@@ -2567,7 +2620,12 @@ defineProps<{ rows: FixtureAttestation[]; canWrite: boolean }>();
         <h1 class="text-2xl font-semibold">Attestations</h1>
         <p class="text-sm text-muted">Human statements recorded for this repository.</p>
       </div>
-      <button v-if="canWrite" type="button" class="rounded border px-3 py-2">
+      <button
+        v-if="canWrite"
+        type="button"
+        class="rounded border px-3 py-2"
+        @click="emit('record')"
+      >
         Record attestation
       </button>
     </header>
@@ -2590,7 +2648,12 @@ defineProps<{ rows: FixtureAttestation[]; canWrite: boolean }>();
 <script setup lang="ts">
 import ReadinessDataView from '~/components/readiness/ReadinessDataView.vue';
 const route = useRoute();
-const { data } = await useFetch(`/api/v1/scan/${String(route.params.scanId)}/inventory`);
+const scanId = computed(() => String(route.query.scanId ?? ''));
+const { data } = await useAsyncData('readiness-inventory', () =>
+  scanId.value === ''
+    ? Promise.resolve({ data: { signals: [] } })
+    : $fetch(`/api/v1/scan/${scanId.value}/inventory`),
+);
 const signals = computed(() => data.value?.data?.signals ?? []);
 const rows = computed(() =>
   signals.value.map((signal) => ({
@@ -2616,7 +2679,12 @@ const rows = computed(() =>
 <script setup lang="ts">
 import ReadinessDataView from '~/components/readiness/ReadinessDataView.vue';
 const route = useRoute();
-const { data } = await useFetch(`/api/v1/scan/${String(route.params.scanId)}/gaps`);
+const scanId = computed(() => String(route.query.scanId ?? ''));
+const { data } = await useAsyncData('readiness-gaps', () =>
+  scanId.value === ''
+    ? Promise.resolve({ data: [] })
+    : $fetch(`/api/v1/scan/${scanId.value}/gaps`),
+);
 const rows = computed(() =>
   (data.value?.data ?? []).map((gap) => ({
     Control: gap.controlCode,
@@ -2642,7 +2710,12 @@ const rows = computed(() =>
 <script setup lang="ts">
 import ReadinessDataView from '~/components/readiness/ReadinessDataView.vue';
 const route = useRoute();
-const { data } = await useFetch(`/api/v1/scan/${String(route.params.scanId)}/fix-plan`);
+const scanId = computed(() => String(route.query.scanId ?? ''));
+const { data } = await useAsyncData('readiness-fix-plan', () =>
+  scanId.value === ''
+    ? Promise.resolve({ data: { steps: [] } })
+    : $fetch(`/api/v1/scan/${scanId.value}/fix-plan`),
+);
 const rows = computed(() =>
   (data.value?.data?.steps ?? []).map((step) => ({
     Control: step.controlCode,
@@ -2667,13 +2740,31 @@ const rows = computed(() =>
 <script setup lang="ts">
 import ReadinessAttestationList from '~/components/readiness/ReadinessAttestationList.vue';
 const route = useRoute();
-const { data } = await useFetch(`/api/v1/repos/${String(route.params.repoId)}/attestations`);
-const session = useAuth();
-const canWrite = computed(() => ['owner', 'admin'].includes(session.value?.role ?? ''));
+const repoId = computed(() => String(route.query.repoId ?? ''));
+const { data, refresh } = await useAsyncData('readiness-attestations', () =>
+  repoId.value === ''
+    ? Promise.resolve({ data: [] })
+    : $fetch(`/api/v1/repos/${repoId.value}/attestations`),
+);
+const { org } = useAppContext();
+const canWrite = computed(() => ['owner', 'admin'].includes(org.value?.role ?? ''));
+
+async function record() {
+  if (repoId.value === '') return;
+  await $fetch(`/api/v1/repos/${repoId.value}/attestations/secrets.managed_store`, {
+    method: 'PUT',
+    body: { answer: true, note: null, expiresAt: '2027-01-01T00:00:00.000Z' },
+  });
+  await refresh();
+}
 </script>
 
 <template>
-  <ReadinessAttestationList :rows="data?.data ?? []" :can-write="canWrite" />
+  <ReadinessAttestationList
+    :rows="data?.data ?? []"
+    :can-write="canWrite"
+    @record="record"
+  />
 </template>
 ```
 
@@ -2681,7 +2772,7 @@ const canWrite = computed(() => ['owner', 'admin'].includes(session.value?.role 
 <!-- apps/web/app/pages/app/readiness/exports.vue -->
 <script setup lang="ts">
 const route = useRoute();
-const scanId = String(route.params.scanId);
+const scanId = computed(() => String(route.query.scanId ?? ''));
 </script>
 
 <template>
@@ -2689,8 +2780,14 @@ const scanId = String(route.params.scanId);
     <h1 class="text-2xl font-semibold">Exports</h1>
     <p class="text-sm text-muted">Machine-readable and issue-ready views of control results.</p>
     <ul class="space-y-2">
-      <li><a :href="`/api/v1/scan/${scanId}/export/sarif`">Download SARIF 2.1.0</a></li>
-      <li><a :href="`/api/v1/scan/${scanId}/export/markdown`">Download issue-ready Markdown</a></li>
+      <li>
+        <a :href="scanId ? `/api/v1/scan/${scanId}/export/sarif` : '#'">Download SARIF 2.1.0</a>
+      </li>
+      <li>
+        <a :href="scanId ? `/api/v1/scan/${scanId}/export/markdown` : '#'">
+          Download issue-ready Markdown
+        </a>
+      </li>
     </ul>
   </section>
 </template>
@@ -2711,7 +2808,7 @@ export const READINESS_NAV: AppNavItem[] = [
 
 In `ConsoleSidebar.vue`, import `READINESS_NAV`, add a labelled `Readiness` group after `Remediation`, and render one link per item with `:to="item.to"` and `{{ item.label }}`; leave `APP_NAV` and its existing `Primary` navigation role unchanged.
 
-In `apps/web/app/utils/breadcrumbs.ts`, add before the final `return crumbs`:
+In `apps/web/app/utils/breadcrumbs.ts`, add before the final `return withoutTrailingLink(crumbs);`:
 
 ```ts
   if (section === 'readiness') {
@@ -2760,3 +2857,2523 @@ Expected output ends with successful lint, successful typecheck, and `Tasks: 100
 git add apps/web/app/components/readiness apps/web/app/pages/app/readiness apps/web/test/readiness-pages.test.ts apps/web/app/utils/nav.ts apps/web/app/components/shell/ConsoleSidebar.vue apps/web/app/utils/breadcrumbs.ts apps/web/test/breadcrumbs.test.ts apps/web/test/readiness-nav.test.ts
 git commit -m "feat(readiness): add readiness UI pages"
 ```
+
+---
+
+### Task 10: Explain detectors and absence semantics on the Rules page
+
+**Files:**
+- Create: `apps/orchestrator/src/modules/readiness/detector-catalog.service.ts`
+- Create: `apps/orchestrator/src/modules/readiness/internal-detectors.controller.ts`
+- Modify: `apps/orchestrator/src/modules/readiness/readiness.module.ts`
+- Create: `apps/orchestrator/test/detector-catalog.service.test.ts`
+- Create: `apps/web/shared/detectors.ts`
+- Create: `apps/web/server/api/v1/rules/detectors.get.ts`
+- Create: `apps/web/app/components/rules/RuleDetectorExplainer.vue`
+- Modify: `apps/web/app/pages/app/rules/[code].vue`
+- Modify: `apps/web/test/readiness-language.test.ts`
+
+**Interfaces:**
+- Consumes: `RulePackService.loadV2()` from Task 2/5; `DetectorV2` and `ControlV2` from `@dpdpa/contracts`; `InternalHmacGuard`; BFF `requireIdentity` and `callOrchestrator`.
+- Produces: `DetectorCatalogService.list()` returning bounded detector metadata with `controls` and `absence` rule tokens; internal `GET /internal/v1/detectors`; BFF `GET /api/v1/rules/detectors`; `RuleDetectorExplainer` with explicit "Could not determine" wording.
+
+- [x] **Step 1: Write the failing catalog tests**
+
+```ts
+// apps/orchestrator/test/detector-catalog.service.test.ts
+import { describe, expect, it } from 'vitest';
+import { DetectorCatalogService } from '../src/modules/readiness/detector-catalog.service.js';
+
+describe('detector catalog', () => {
+  it('explains detector inputs, outputs, and failure mode without source content', async () => {
+    const pack = {
+      loadV2: async () => ({
+        pack: 'dpdpa-2026.11.0',
+        detectors: [
+          {
+            id: 'form_scan',
+            module: 'inventory',
+            inputs: ['source'],
+            outputs: ['signal', 'status'],
+            timeoutMs: 30_000,
+            stacks: [],
+            confidence: 'inferred',
+            failureMode: 'UNKNOWN',
+            controlRefs: ['DPDPA-6-CONSENT-01'],
+          },
+        ],
+        controls: [
+          {
+            code: 'DPDPA-6-CONSENT-01',
+            evidenceMode: 'absence',
+            absenceRules: [
+              {
+                id: 'consent_gate_absent',
+                detector: 'form_scan',
+                token: 'consent_checkbox',
+                confidence: 'inferred',
+              },
+            ],
+          },
+        ],
+      }),
+    };
+    const service = new DetectorCatalogService(pack as never);
+    const view = await service.list();
+
+    expect(view.detectors[0]).toEqual({
+      id: 'form_scan',
+      module: 'inventory',
+      inputs: ['source'],
+      outputs: ['signal', 'status'],
+      timeoutMs: 30_000,
+      confidence: 'inferred',
+      failureMode: 'UNKNOWN',
+      controls: [
+        {
+          code: 'DPDPA-6-CONSENT-01',
+          evidenceMode: 'absence',
+          absenceTokens: ['consent_checkbox'],
+        },
+      ],
+    });
+    expect(JSON.stringify(view)).not.toContain('value');
+    expect(JSON.stringify(view)).not.toContain('snippet');
+  });
+});
+```
+
+```ts
+// apps/web/shared/detectors.ts addition in apps/web/test/readiness-language.test.ts
+import RuleDetectorExplainer from '../app/components/rules/RuleDetectorExplainer.vue';
+
+  it('explains absence detectors with readiness-only wording', async () => {
+    const wrapper = await mountSuspended(RuleDetectorExplainer, {
+      props: {
+        detectors: [
+          {
+            id: 'form_scan',
+            module: 'inventory',
+            inputs: ['source'],
+            outputs: ['signal', 'status'],
+            timeoutMs: 30_000,
+            confidence: 'inferred',
+            failureMode: 'UNKNOWN',
+            controls: [
+              {
+                code: 'DPDPA-6-CONSENT-01',
+                evidenceMode: 'absence',
+                absenceTokens: ['consent_checkbox'],
+              },
+            ],
+          },
+        ],
+      },
+    });
+    const text = wrapper.text().toLowerCase();
+    expect(text).toContain('form_scan');
+    expect(text).toContain('consent_checkbox');
+    expect(text).toContain('could not determine');
+    for (const phrase of FORBIDDEN) {
+      expect(text, `forbidden phrase: ${phrase}`).not.toContain(phrase);
+    }
+  });
+```
+
+The first block is a new import at the top of the existing test file; the second block is a new `it(...)` inside the existing `describe('readiness UI language', ...)`.
+
+- [x] **Step 2: Run the focused detector tests and confirm RED**
+
+```bash
+pnpm --filter @dpdpa/orchestrator exec vitest run test/detector-catalog.service.test.ts && pnpm --filter @dpdpa/web exec vitest run test/readiness-language.test.ts
+```
+
+Expected RED output:
+
+```text
+Error: Cannot find module '../src/modules/readiness/detector-catalog.service.js'
+```
+
+- [x] **Step 3: Add the catalog service and internal route**
+
+```ts
+// apps/orchestrator/src/modules/readiness/detector-catalog.service.ts
+import { Injectable } from '@nestjs/common';
+import { RulePackService } from '../rule-pack/rule-pack.service.js';
+
+@Injectable()
+export class DetectorCatalogService {
+  constructor(private readonly pack: RulePackService) {}
+
+  async list() {
+    const loaded = await this.pack.loadV2();
+    return {
+      pack: loaded.pack,
+      detectors: loaded.detectors.map((detector) => ({
+        id: detector.id,
+        module: detector.module,
+        inputs: detector.inputs,
+        outputs: detector.outputs,
+        timeoutMs: detector.timeoutMs,
+        confidence: detector.confidence,
+        failureMode: detector.failureMode,
+        controls: loaded.controls
+          .filter((control) => detector.controlRefs.includes(control.code))
+          .map((control) => ({
+            code: control.code,
+            evidenceMode: control.evidenceMode,
+            absenceTokens: control.absenceRules.map((rule) => rule.token),
+          })),
+      })),
+    };
+  }
+}
+```
+
+```ts
+// apps/orchestrator/src/modules/readiness/internal-detectors.controller.ts
+import { Controller, Get, Headers, UseGuards } from '@nestjs/common';
+import { ApiError } from '../../common/api-error.js';
+import { InternalHmacGuard } from '../internal-auth/internal-hmac.guard.js';
+import { DetectorCatalogService } from './detector-catalog.service.js';
+
+@Controller('internal/v1/detectors')
+@UseGuards(InternalHmacGuard)
+export class InternalDetectorsController {
+  constructor(private readonly catalog: DetectorCatalogService) {}
+
+  @Get()
+  list(@Headers('x-org-id') org: string | undefined) {
+    if (!org) throw new ApiError('VALIDATION_ERROR', 'X-Org-Id is required.');
+    return { data: this.catalog.list() };
+  }
+}
+```
+
+In `apps/orchestrator/src/modules/readiness/readiness.module.ts`, import `RulePackModule`, add `InternalDetectorsController` to `controllers` and `DetectorCatalogService` to `providers` and `exports`.
+
+- [x] **Step 4: Add the BFF proxy and web explainer**
+
+```ts
+// apps/web/shared/detectors.ts
+export interface DetectorControlExplanation {
+  code: string;
+  evidenceMode: string;
+  absenceTokens: string[];
+}
+
+export interface DetectorExplanation {
+  id: string;
+  module: string;
+  inputs: string[];
+  outputs: string[];
+  timeoutMs: number;
+  confidence: string;
+  failureMode: string;
+  controls: DetectorControlExplanation[];
+}
+```
+
+```ts
+// apps/web/server/api/v1/rules/detectors.get.ts
+import { fixturesAnswer } from '../../../../utils/org-request';
+import { callOrchestrator } from '../../../../utils/orchestrator';
+import { requireIdentity } from '../../../../utils/session';
+
+export default defineEventHandler(async (event) => {
+  if (fixturesAnswer(event)) {
+    return {
+      data: {
+        pack: 'dpdpa-2026.11.0',
+        detectors: [
+          {
+            id: 'form_scan',
+            module: 'inventory',
+            inputs: ['source'],
+            outputs: ['signal', 'status'],
+            timeoutMs: 30_000,
+            confidence: 'inferred',
+            failureMode: 'UNKNOWN',
+            controls: [
+              {
+                code: 'DPDPA-6-CONSENT-01',
+                evidenceMode: 'absence',
+                absenceTokens: ['consent_checkbox'],
+              },
+            ],
+          },
+        ],
+      },
+    };
+  }
+  const identity = requireIdentity(event);
+  return callOrchestrator(event, {
+    method: 'GET',
+    path: '/internal/v1/detectors',
+    headers: { 'x-org-id': identity.orgId },
+  });
+});
+```
+
+```vue
+<!-- apps/web/app/components/rules/RuleDetectorExplainer.vue -->
+<script setup lang="ts">
+import type { DetectorExplanation } from '~~/shared/detectors';
+
+defineProps<{ detectors: DetectorExplanation[] }>();
+</script>
+
+<template>
+  <section aria-labelledby="detector-explainer-heading" class="space-y-2">
+    <h2 id="detector-explainer-heading" class="text-sm font-semibold">How evidence is found</h2>
+    <p class="text-sm text-muted">
+      Each detector reads a named input and emits bounded signals. A detector that is unavailable
+      produces Could not determine; it never produces a pass. An absence rule looks for the named
+      token and records no value from the source file.
+    </p>
+    <article
+      v-for="detector in detectors"
+      :key="detector.id"
+      class="rounded-lg border border-default p-3 text-sm"
+    >
+      <h3 class="font-mono">{{ detector.id }}</h3>
+      <p>Inputs: {{ detector.inputs.join(', ') }} · Outputs: {{ detector.outputs.join(', ') }}</p>
+      <p>Timeout: {{ detector.timeoutMs }} ms · Failure mode: {{ detector.failureMode }}</p>
+      <ul v-if="detector.controls.length > 0" class="mt-2 list-disc pl-5">
+        <li v-for="control in detector.controls" :key="control.code">
+          {{ control.code }} · {{ control.evidenceMode }} ·
+          {{ control.absenceTokens.join(', ') || 'no absence tokens' }}
+        </li>
+      </ul>
+    </article>
+  </section>
+</template>
+```
+
+In `apps/web/app/pages/app/rules/[code].vue`, import `RuleDetectorExplainer`, fetch `/api/v1/rules/detectors` with `useFetch`, and insert `<RuleDetectorExplainer :detectors="detectors" />` immediately after the `Scanner evidence` section and before `How to fix it`. Add `const detectors = computed(() => detectorData.value?.data?.detectors ?? []);` using the fetch response variable `detectorData`.
+
+- [x] **Step 5: Run the focused detector tests and confirm GREEN**
+
+```bash
+pnpm --filter @dpdpa/orchestrator exec vitest run test/detector-catalog.service.test.ts && pnpm --filter @dpdpa/web exec vitest run test/readiness-language.test.ts
+```
+
+Expected GREEN output:
+
+```text
+✓ test/detector-catalog.service.test.ts > detector catalog > explains detector inputs, outputs, and failure mode without source content
+Test Files  1 passed (1)
+Tests  1 passed (1)
+✓ test/readiness-language.test.ts > readiness UI language > explains absence detectors with readiness-only wording
+Test Files  1 passed (1)
+Tests  4 passed (4)
+```
+
+- [x] **Step 6: Run full gates and commit**
+
+```bash
+pnpm lint && pnpm typecheck && pnpm test
+```
+
+Expected output ends with successful lint, successful typecheck, and `Tasks: 100% successful`. Then:
+
+```bash
+git add apps/orchestrator/src/modules/readiness apps/orchestrator/test/detector-catalog.service.test.ts apps/web/shared/detectors.ts apps/web/server/api/v1/rules apps/web/app/components/rules/RuleDetectorExplainer.vue apps/web/app/pages/app/rules apps/web/test/readiness-language.test.ts
+git commit -m "feat(readiness): explain detectors and absence semantics"
+```
+
+---
+
+### Task 11: Add attestation and detector tiles to scan detail
+
+**Files:**
+- Modify: `apps/web/app/components/new/NewScanDetail.vue`
+- Create: `apps/web/test/scan-detail-tiles.test.ts`
+
+**Interfaces:**
+- Consumes: `ScanDetail.assessment.verdictCounts`, `ScanDetail.assessment.detectorStatuses`, and `MetricTile` from the existing scan detail view; the attestation route from Task 7.
+- Produces: `Attested statements` and `Detectors unavailable` tiles with explicit captions that deny evidence status, plus an `Attestations` quick-action link to `/app/readiness/attestations`.
+
+- [ ] **Step 1: Write the failing scan-detail tile tests**
+
+```ts
+// apps/web/test/scan-detail-tiles.test.ts
+import { mountSuspended } from '@nuxt/test-utils/runtime';
+import { describe, expect, it } from 'vitest';
+import NewScanDetail from '../app/components/new/NewScanDetail.vue';
+import type { ScanDetail } from '../shared/scan';
+
+const base = {
+  id: 'scn_tiles',
+  status: 'completed',
+  coverage: { semgrep: 'completed', gitleaks: 'timed_out' },
+  repository: { id: 'r1', fullName: 'acme/repo', visibility: 'public' },
+  ref: 'main',
+  commitSha: null,
+  previousScore: null,
+  score: null,
+  grade: null,
+  sectionScores: { '8(4)': 0 },
+  counts: { critical: 0, high: 0, medium: 0, low: 0, info: 0, total: 0 },
+  scannerVersions: {},
+  rulePackVersion: 'dpdpa-2026.11.0',
+  scoringVersion: 'scoring-2.0.0',
+  error: null,
+  timestamps: {
+    queuedAt: '2026-11-27T05:00:00Z',
+    startedAt: '2026-11-27T05:00:10Z',
+    completedAt: '2026-11-27T05:01:00Z',
+    durationMs: 50_000,
+  },
+  links: { findings: '', events: '', report: '' },
+  assessment: {
+    score: null,
+    evidenceCoverage: 0,
+    openGaps: 0,
+    verdictCounts: { ATTESTED_PASS: 2, ATTESTED_FAIL: 1, UNKNOWN: 3 },
+    unknownControls: ['DPDPA-8.4-SECRET-01'],
+    detectorStatuses: { semgrep: 'completed', gitleaks: 'timed_out' },
+    gradeWithheldReason: 'insufficient_evidence',
+    consentGatingRatio: 0.75,
+  },
+} as unknown as ScanDetail;
+
+describe('scan detail attestation tiles', () => {
+  it('shows attested statements as human statements, not evidence', async () => {
+    const page = await mountSuspended(NewScanDetail, { props: { scan: base } });
+    const tile = page.find('[data-testid="attested-statements-tile"]');
+    expect(tile.exists()).toBe(true);
+    expect(tile.text()).toContain('Attested statements');
+    expect(tile.text()).toContain('3');
+    expect(tile.text()).toContain('Human statements; not code evidence');
+  });
+
+  it('names unavailable detectors and links to attestations', async () => {
+    const page = await mountSuspended(NewScanDetail, { props: { scan: base } });
+    expect(page.find('[data-testid="detectors-unavailable-tile"]').text()).toContain('gitleaks');
+    const links = page.findAll('a');
+    const link = links.find((candidate) => candidate.text() === 'Attestations');
+    expect(link?.attributes('href')).toBe('/app/readiness/attestations?repoId=r1');
+  });
+});
+```
+
+- [ ] **Step 2: Run the focused tile tests and confirm RED**
+
+```bash
+pnpm --filter @dpdpa/web exec vitest run test/scan-detail-tiles.test.ts
+```
+
+Expected RED output:
+
+```text
+FAIL  test/scan-detail-tiles.test.ts > scan detail attestation tiles > shows attested statements as human statements, not evidence
+AssertionError: expected false to be true
+```
+
+- [ ] **Step 3: Add the computed values and tiles**
+
+In the `<script setup>` of `apps/web/app/components/new/NewScanDetail.vue`, add after `const assessment = computed(...)`:
+
+```ts
+const attestedCount = computed(() => {
+  const counts = assessment.value?.verdictCounts;
+  if (counts === undefined || counts === null) return 0;
+  return (counts.ATTESTED_PASS ?? 0) + (counts.ATTESTED_FAIL ?? 0);
+});
+const unavailableDetectors = computed(() =>
+  Object.entries(assessment.value?.detectorStatuses ?? {})
+    .filter(([, status]) => status !== 'completed')
+    .map(([detector]) => detector),
+);
+```
+
+In the template, inside the existing `<div class="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">`, add immediately after the `Consent gating` `MetricTile`:
+
+```vue
+        <MetricTile
+          v-if="attestedCount > 0"
+          label="Attested statements"
+          :value="String(attestedCount)"
+          caption="Human statements; not code evidence"
+          test-id="attested-statements-tile"
+        />
+        <MetricTile
+          v-if="unavailableDetectors.length > 0"
+          label="Detectors unavailable"
+          :value="String(unavailableDetectors.length)"
+          :caption="`${unavailableDetectors.join(', ')} — outcome not determined`"
+          tone="warning"
+          test-id="detectors-unavailable-tile"
+        />
+```
+
+In the header actions, add immediately after the `Remediation` `NuxtLink`:
+
+```vue
+          <NuxtLink
+            :to="`/app/readiness/attestations?repoId=${scan.repository.id}`"
+            class="border-ink-300 rounded-[var(--radius-control)] border px-3 py-1.5 text-sm"
+          >
+            Attestations
+          </NuxtLink>
+          <NuxtLink
+            :to="`/app/readiness/inventory?scanId=${scan.id}`"
+            class="border-ink-300 rounded-[var(--radius-control)] border px-3 py-1.5 text-sm"
+          >
+            Data Inventory
+          </NuxtLink>
+          <NuxtLink
+            :to="`/app/readiness/gaps?scanId=${scan.id}`"
+            class="border-ink-300 rounded-[var(--radius-control)] border px-3 py-1.5 text-sm"
+          >
+            Compliance Gaps
+          </NuxtLink>
+          <NuxtLink
+            :to="`/app/readiness/fix-plan?scanId=${scan.id}`"
+            class="border-ink-300 rounded-[var(--radius-control)] border px-3 py-1.5 text-sm"
+          >
+            Fix Plan
+          </NuxtLink>
+          <NuxtLink
+            :to="`/app/readiness/exports?scanId=${scan.id}`"
+            class="border-ink-300 rounded-[var(--radius-control)] border px-3 py-1.5 text-sm"
+          >
+            Exports
+          </NuxtLink>
+```
+
+Also add these items to the `CommandPalette` `:items` array:
+
+```ts
+          { id: 'attestations', label: 'Attestations', href: `/app/readiness/attestations?repoId=${scan.repository.id}` },
+          { id: 'inventory', label: 'Data Inventory', href: `/app/readiness/inventory?scanId=${scan.id}` },
+          { id: 'gaps', label: 'Compliance Gaps', href: `/app/readiness/gaps?scanId=${scan.id}` },
+          { id: 'fix-plan', label: 'Fix Plan', href: `/app/readiness/fix-plan?scanId=${scan.id}` },
+          { id: 'exports', label: 'Exports', href: `/app/readiness/exports?scanId=${scan.id}` },
+```
+
+- [ ] **Step 4: Run the focused tile tests and confirm GREEN**
+
+```bash
+pnpm --filter @dpdpa/web exec vitest run test/scan-detail-tiles.test.ts
+```
+
+Expected GREEN output:
+
+```text
+✓ test/scan-detail-tiles.test.ts > scan detail attestation tiles > shows attested statements as human statements, not evidence
+✓ test/scan-detail-tiles.test.ts > scan detail attestation tiles > names unavailable detectors and links to attestations
+Test Files  1 passed (1)
+Tests  2 passed (2)
+```
+
+- [ ] **Step 5: Run full gates and commit**
+
+```bash
+pnpm lint && pnpm typecheck && pnpm test
+```
+
+Expected output ends with successful lint, successful typecheck, and `Tasks: 100% successful`. Then:
+
+```bash
+git add apps/web/app/components/new/NewScanDetail.vue apps/web/test/scan-detail-tiles.test.ts
+git commit -m "feat(readiness): add attestation detail tiles"
+```
+
+---
+
+### Task 12: Build and select the v2 report view model
+
+**Files:**
+- Create: `apps/orchestrator/src/modules/reports/report-view-model-v2.ts`
+- Create: `apps/orchestrator/src/modules/reports/report-v2.service.ts`
+- Modify: `apps/orchestrator/src/modules/reports/reports.service.ts`
+- Modify: `apps/orchestrator/src/modules/reports/reports.module.ts`
+- Modify: `apps/orchestrator/src/modules/reports/report-template.ts`
+- Modify: `apps/orchestrator/src/modules/reports/report-view-model.ts`
+- Create: `apps/orchestrator/test/report-v2-view-model.test.ts`
+- Create: `apps/orchestrator/test/report-v2-selection.test.ts`
+
+**Interfaces:**
+- Consumes: `buildReportViewModel` and `REPORT_DISCLAIMER` from `report-view-model.ts`; `isScoringV2`/`SCORING_V2_VERSION` from `scoring.engine.ts`; `PrismaService`; `RulePackService.loadV2()`; `commencementFileSchema` entries from `@dpdpa/contracts`.
+- Produces: `buildReportV2ViewModel(input)` with the nine ordered sections; `ReportV2Service.viewModel(orgId, reportId)`; `ReportsService.viewModel` returns v2 only when `scan.scoringVersion === "scoring-2.0.0"` and otherwise returns the exact v1 payload.
+
+- [ ] **Step 1: Write the failing v2 view-model tests**
+
+```ts
+// apps/orchestrator/test/report-v2-view-model.test.ts
+import { describe, expect, it } from 'vitest';
+import type { ReportTemplateModel } from '../src/modules/reports/report-template.js';
+import {
+  buildReportV2ViewModel,
+  REPORT_V2_SECTION_IDS,
+  type ReportV2Input,
+} from '../src/modules/reports/report-view-model-v2.js';
+
+function base(): ReportTemplateModel {
+  return {
+    report: {
+      id: 'rpt_1',
+      format: 'pdf',
+      templateVersion: '2.0.0',
+      createdAt: '2026-11-27T10:00:00.000Z',
+    },
+    organization: {
+      id: 'org_1',
+      name: 'Acme',
+      slug: 'acme',
+      dataRegion: 'ap-south-1',
+      branding: { logoUrl: null, primaryColor: null, footerText: null },
+    },
+    scan: {
+      id: 'scn_1',
+      repository: { id: 'repo_1', fullName: 'acme/repo', visibility: 'private' },
+      ref: 'main',
+      commitSha: 'a'.repeat(40),
+      status: 'completed',
+      score: null,
+      grade: null,
+      sectionScores: { '8(4)': 50 },
+      counts: { critical: 0, high: 0, medium: 0, low: 0, info: 0, total: 0 },
+      coverage: { gitleaks: 'timed_out' },
+      coverageStatus: 'partial',
+      scannerVersions: { gitleaks: '8.28.0' },
+      rulePackVersion: 'dpdpa-2026.11.0',
+      scoringVersion: 'scoring-2.0.0',
+      timestamps: {
+        queuedAt: '2026-11-27T09:00:00.000Z',
+        startedAt: '2026-11-27T09:00:10.000Z',
+        completedAt: '2026-11-27T09:01:00.000Z',
+        durationMs: 50_000,
+      },
+    },
+    topFindings: [],
+    methodology: {
+      scoringVersion: 'scoring-2.0.0',
+      rulePackVersion: 'dpdpa-2026.11.0',
+      summary: 'Versioned readiness scoring.',
+    },
+    disclaimer: 'Technical aid only; not legal advice.',
+    generatedAt: '2026-11-27T10:00:00.000Z',
+  };
+}
+
+function input(overrides: Partial<ReportV2Input> = {}): ReportV2Input {
+  return {
+    base: base(),
+    controlResults: [
+      {
+        controlCode: 'DPDPA-8.4-SECRET-01',
+        section: '8(4)',
+        verdict: 'FAIL',
+        reasonCode: 'cited_gap',
+        remediation: 'Use a managed credential store.',
+      },
+      {
+        controlCode: 'DPDPA-6-CONSENT-01',
+        section: '6',
+        verdict: 'ATTESTED_PASS',
+        reasonCode: 'attested_pass',
+        remediation: 'None.',
+      },
+      {
+        controlCode: 'DPDPA-9-CHILD-01',
+        section: '9',
+        verdict: 'UNKNOWN',
+        reasonCode: 'detector_unavailable',
+        remediation: 'Add a detector.',
+      },
+      {
+        controlCode: 'DPDPA-7-LEGIT-01',
+        section: '7',
+        verdict: 'PASS',
+        reasonCode: 'positive_evidence',
+        remediation: 'None.',
+      },
+    ],
+    inventory: {
+      version: 'inventory-1.0.0',
+      status: 'completed',
+      signals: [
+        {
+          detector: 'form_scan',
+          kind: 'field',
+          path: 'src/api/user.ts',
+          line: 12,
+          token: 'email_address',
+        },
+      ],
+      consentGatingRatio: 0.75,
+    },
+    commencement: [
+      {
+        provision: 'DPDP Rules 4',
+        effectiveFrom: '2026-11-13',
+        sourceUrl: 'https://www.meity.gov.in/example.pdf',
+        verifiedOn: '2026-11-26',
+      },
+    ],
+    detectorVersions: { gitleaks: '8.28.0' },
+    provenanceSearches: ['dpdp act section 8(4) safeguards'],
+    ...overrides,
+  };
+}
+
+describe('report v2 view model', () => {
+  it('emits every required section in a stable order', () => {
+    const model = buildReportV2ViewModel(input());
+    expect(model.sections.map((section) => section.id)).toEqual(REPORT_V2_SECTION_IDS);
+    expect(REPORT_V2_SECTION_IDS).toEqual([
+      'executive_summary',
+      'gaps_by_section',
+      'evidence_of_safeguards',
+      'could_not_determine',
+      'data_inventory_summary',
+      'fix_plan',
+      'methodology',
+      'limitations',
+      'disclaimer',
+    ]);
+    expect(model.sections.find((section) => section.id === 'executive_summary')?.table).toEqual([
+      {
+        provision: 'DPDP Rules 4',
+        effectiveFrom: '2026-11-13',
+        sourceUrl: 'https://www.meity.gov.in/example.pdf',
+        verifiedOn: '2026-11-26',
+      },
+    ]);
+  });
+
+  it('keeps attestations out of evidence and lists unknowns prominently', () => {
+    const model = buildReportV2ViewModel(input());
+    const evidence = model.sections.find((section) => section.id === 'evidence_of_safeguards');
+    expect(evidence?.rows?.map((row) => row.controlCode)).toEqual(['DPDPA-7-LEGIT-01']);
+    const unknown = model.sections.find((section) => section.id === 'could_not_determine');
+    expect(unknown?.rows?.map((row) => row.controlCode)).toEqual(['DPDPA-9-CHILD-01']);
+    expect(JSON.stringify(model)).not.toContain('CANARY_SOURCE_VALUE');
+  });
+
+  it('groups gaps and derives the fix plan only from non-passing verdicts', () => {
+    const model = buildReportV2ViewModel(input());
+    const gaps = model.sections.find((section) => section.id === 'gaps_by_section');
+    expect(gaps?.groups).toEqual([
+      { section: '8(4)', rows: [expect.objectContaining({ verdict: 'FAIL' })] },
+    ]);
+    const plan = model.sections.find((section) => section.id === 'fix_plan');
+    expect(plan?.rows?.map((row) => row.remedy)).toEqual(['Use a managed credential store.']);
+  });
+});
+```
+
+```ts
+// apps/orchestrator/test/report-v2-selection.test.ts
+import { describe, expect, it, vi } from 'vitest';
+import { ReportsService } from '../src/modules/reports/reports.service.js';
+
+function service(scoringVersion: string, v2: unknown) {
+  const report = {
+    id: 'rpt_1',
+    orgId: 'org_1',
+    scanId: 'scn_1',
+    templateVersion: '2.0.0',
+    status: 'ready',
+    scan: { scoringVersion },
+    organization: { id: 'org_1' },
+  };
+  const reports = { findById: vi.fn().mockResolvedValue(report) };
+  const findings = { topForScan: vi.fn().mockResolvedValue([]) };
+  const base = new ReportsService(
+    reports as never,
+    findings as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    v2 as never,
+  );
+  return base;
+}
+
+describe('report version selection', () => {
+  it('uses the v2 service only for scoring-2.0.0 scans', async () => {
+    const v2 = { viewModel: vi.fn().mockResolvedValue({ sections: [] }) };
+    const selected = await service('scoring-2.0.0', v2).viewModel('org_1', 'rpt_1');
+    expect(selected).toEqual({ sections: [] });
+    expect(v2.viewModel).toHaveBeenCalledWith('org_1', 'rpt_1');
+  });
+
+  it('keeps the v1 payload for legacy scans', async () => {
+    const v2 = { viewModel: vi.fn().mockResolvedValue({ sections: [] }) };
+    const legacy = await service('1.0.0', v2).viewModel('org_1', 'rpt_1');
+    expect(v2.viewModel).not.toHaveBeenCalled();
+    expect(legacy).toMatchObject({
+      report: { id: 'rpt_1' },
+      methodology: { scoringVersion: '1.0.0' },
+    });
+  });
+});
+```
+
+- [ ] **Step 2: Run the focused v2 view-model tests and confirm RED**
+
+```bash
+pnpm --filter @dpdpa/orchestrator exec vitest run test/report-v2-view-model.test.ts test/report-v2-selection.test.ts
+```
+
+Expected RED output:
+
+```text
+Error: Cannot find module '../src/modules/reports/report-view-model-v2.js'
+```
+
+- [ ] **Step 3: Add the pure v2 view model**
+
+```ts
+// apps/orchestrator/src/modules/reports/report-view-model-v2.ts
+import type { ReportTemplateModel } from './report-template.js';
+
+export const REPORT_V2_SECTION_IDS = [
+  'executive_summary',
+  'gaps_by_section',
+  'evidence_of_safeguards',
+  'could_not_determine',
+  'data_inventory_summary',
+  'fix_plan',
+  'methodology',
+  'limitations',
+  'disclaimer',
+] as const;
+
+export interface ReportV2ControlResult {
+  controlCode: string;
+  section: string;
+  verdict: string;
+  reasonCode: string;
+  remediation: string;
+}
+
+export interface ReportV2Input {
+  base: ReportTemplateModel;
+  controlResults: readonly ReportV2ControlResult[];
+  inventory: {
+    version: string | null;
+    status: string | null;
+    signals: readonly {
+      detector: string;
+      kind: string;
+      path: string;
+      line: number | null;
+      token: string;
+    }[];
+    consentGatingRatio: number | null;
+  } | null;
+  commencement: readonly {
+    provision: string;
+    effectiveFrom: string;
+    sourceUrl: string;
+    verifiedOn: string;
+  }[];
+  detectorVersions: Readonly<Record<string, string>>;
+  provenanceSearches: readonly string[];
+}
+
+interface SectionRow {
+  controlCode?: string;
+  section?: string;
+  verdict?: string;
+  reasonCode?: string;
+  remedy?: string;
+}
+
+export interface ReportV2Section {
+  id: (typeof REPORT_V2_SECTION_IDS)[number];
+  title: string;
+  rows?: SectionRow[];
+  groups?: Array<{ section: string; rows: SectionRow[] }>;
+  table?: ReportV2Input['commencement'][number][];
+  text?: string;
+}
+
+export function buildReportV2ViewModel(input: ReportV2Input) {
+  const { base } = input;
+  const gaps = input.controlResults.filter((row) =>
+    ['FAIL', 'PARTIAL', 'ATTESTED_FAIL'].includes(row.verdict),
+  );
+  const evidence = input.controlResults.filter((row) => ['PASS', 'PARTIAL'].includes(row.verdict));
+  const unknown = input.controlResults.filter((row) => row.verdict === 'UNKNOWN');
+  const grouped = new Map<string, SectionRow[]>();
+  for (const row of gaps) {
+    const items = grouped.get(row.section) ?? [];
+    items.push({
+      controlCode: row.controlCode,
+      verdict: row.verdict,
+      reasonCode: row.reasonCode,
+    });
+    grouped.set(row.section, items);
+  }
+  const sections: ReportV2Section[] = [
+    {
+      id: 'executive_summary',
+      title: 'Executive readiness summary',
+      rows: [
+        { section: 'score', remedy: base.scan.score === null ? 'Not assessed' : base.scan.score.toFixed(1) },
+        { section: 'evidence coverage', remedy: String(base.scan.evidenceCoverage ?? null) },
+        { section: 'open gaps', remedy: String(gaps.length) },
+      ],
+      table: [...input.commencement],
+    },
+    {
+      id: 'gaps_by_section',
+      title: 'Gaps grouped by section',
+      groups: [...grouped.entries()]
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([section, rows]) => ({ section, rows })),
+    },
+    {
+      id: 'evidence_of_safeguards',
+      title: 'Evidence of safeguards',
+      rows: evidence.map((row) => ({
+        controlCode: row.controlCode,
+        section: row.section,
+        verdict: row.verdict,
+      })),
+    },
+    {
+      id: 'could_not_determine',
+      title: 'Could not determine',
+      rows: unknown.map((row) => ({
+        controlCode: row.controlCode,
+        section: row.section,
+        reasonCode: row.reasonCode,
+      })),
+    },
+    {
+      id: 'data_inventory_summary',
+      title: 'Data inventory summary',
+      text:
+        input.inventory === null
+          ? 'No inventory was recorded for this scan.'
+          : `${input.inventory.signals.length} bounded signals at ${input.inventory.version ?? 'unknown version'}; consent gating ${input.inventory.consentGatingRatio ?? 'not determined'}.`,
+    },
+    {
+      id: 'fix_plan',
+      title: 'Fix plan',
+      rows: gaps.map((row) => ({
+        controlCode: row.controlCode,
+        section: row.section,
+        remedy: row.remediation,
+      })),
+    },
+    {
+      id: 'methodology',
+      title: 'Methodology and provenance',
+      text: `Detector versions: ${JSON.stringify(input.detectorVersions)}. Searches: ${input.provenanceSearches.join('; ')}.`,
+    },
+    {
+      id: 'limitations',
+      title: 'Limitations',
+      text: 'Repository evidence cannot establish notices, consents, contracts, or processing purposes. Unavailable detectors remain unknown.',
+    },
+    {
+      id: 'disclaimer',
+      title: 'Disclaimer',
+      text: base.disclaimer,
+    },
+  ];
+  return {
+    report: base.report,
+    organization: base.organization,
+    scan: base.scan,
+    scoringVersion: base.scan.scoringVersion,
+    sections,
+    generatedAt: base.generatedAt,
+  };
+}
+```
+
+- [ ] **Step 3a: Add the optional coverage field to the shared view model**
+
+In `apps/orchestrator/src/modules/reports/report-template.ts`, add to `ReportTemplateModel['scan']` after `coverageStatus: string;`:
+
+```ts
+    evidenceCoverage?: number | null;
+```
+
+In `apps/orchestrator/src/modules/reports/report-view-model.ts`, add to the returned `scan` object after `coverageStatus: scan.coverageStatus,`:
+
+```ts
+      evidenceCoverage:
+        scan.evidenceCoverage === null ? null : Number(scan.evidenceCoverage?.toString() ?? 0),
+```
+
+The field is optional so existing v1 fixtures and PDF tests remain valid; v1 output gains a null-safe number only when the scan has the column.
+
+- [ ] **Step 4: Add the data-gathering service and version dispatch**
+
+```ts
+// apps/orchestrator/src/modules/reports/report-v2.service.ts
+import { Injectable } from '@nestjs/common';
+import { ApiError } from '../../common/api-error.js';
+import { PrismaService } from '../../prisma/prisma.service.js';
+import { RulePackService } from '../rule-pack/rule-pack.service.js';
+import { buildReportViewModel } from './report-view-model.js';
+import { buildReportV2ViewModel } from './report-view-model-v2.js';
+
+@Injectable()
+export class ReportV2Service {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly pack: RulePackService,
+  ) {}
+
+  async viewModel(orgId: string, reportId: string) {
+    const report = await this.prisma.report.findFirst({
+      where: { id: reportId, orgId },
+      include: { scan: { include: { repository: true } }, organization: true },
+    });
+    if (!report) throw new ApiError('NOT_FOUND', 'The report does not exist.');
+
+    const findings = await this.prisma.scannerFinding.findMany({
+      where: { scanId: report.scanId, orgId },
+      include: { rule: true },
+    });
+    const base = buildReportViewModel({
+      report,
+      scan: report.scan,
+      organization: report.organization,
+      findings,
+    });
+    const rows = await this.prisma.controlResult.findMany({
+      where: { scanId: report.scanId, orgId },
+      orderBy: { controlCode: 'asc' },
+      include: { rule: { select: { section: true, remediationGuidance: true } } },
+    });
+    const loaded = await this.pack.loadV2();
+    const facts = report.scan.facts as {
+      inventory?: {
+        signals?: Array<{
+          detector: string;
+          kind: string;
+          path: string;
+          line: number | null;
+          token: string;
+        }>;
+      };
+    };
+    const inventorySignals = (facts.inventory?.signals ?? []).map((signal) => ({
+      detector: signal.detector,
+      kind: signal.kind,
+      path: signal.path,
+      line: signal.line,
+      token: signal.token,
+    }));
+
+    return buildReportV2ViewModel({
+      base: {
+        ...base,
+        scan: {
+          ...base.scan,
+          evidenceCoverage:
+            report.scan.evidenceCoverage === null
+              ? null
+              : Number(report.scan.evidenceCoverage.toString()),
+        },
+      },
+      controlResults: rows.map((row) => ({
+        controlCode: row.controlCode,
+        section: row.rule.section,
+        verdict: row.verdict,
+        reasonCode: row.reasonCode,
+        remediation: row.rule.remediationGuidance,
+      })),
+      inventory: {
+        version: report.scan.inventoryVersion,
+        status: report.scan.inventoryStatus,
+        signals: inventorySignals,
+        consentGatingRatio:
+          report.scan.consentGatingRatio === null
+            ? null
+            : Number(report.scan.consentGatingRatio.toString()),
+      },
+      commencement: loaded.commencement,
+      detectorVersions: report.scan.scannerVersions as Record<string, string>,
+      provenanceSearches: [
+        ...new Set(
+          loaded.controls.flatMap((control) =>
+            control.violationRules.map((rule) => rule.provenance.search),
+          ),
+        ),
+      ].slice(0, 32),
+    });
+  }
+}
+```
+
+In `apps/orchestrator/src/modules/reports/reports.service.ts`, add imports and the optional constructor parameter:
+
+```ts
+import { Optional } from '@nestjs/common';
+import { isScoringV2 } from '../scoring/scoring.engine.js';
+import { ReportV2Service } from './report-v2.service.js';
+```
+
+```ts
+    @Optional() private readonly v2?: ReportV2Service,
+```
+
+At the start of `viewModel(orgId, reportId)`, after the expiry check:
+
+```ts
+    if (isScoringV2(report.scan.scoringVersion) && this.v2 !== undefined) {
+      return this.v2.viewModel(orgId, reportId);
+    }
+```
+
+In `apps/orchestrator/src/modules/reports/reports.module.ts`, import `PrismaModule` and `RulePackModule`, add `ReportV2Service` to `providers` and `exports`.
+
+- [ ] **Step 5: Run the focused v2 view-model tests and confirm GREEN**
+
+```bash
+pnpm --filter @dpdpa/orchestrator exec vitest run test/report-v2-view-model.test.ts test/report-v2-selection.test.ts
+```
+
+Expected GREEN output:
+
+```text
+✓ test/report-v2-view-model.test.ts > report v2 view model > emits every required section in a stable order
+✓ test/report-v2-view-model.test.ts > report v2 view model > keeps attestations out of evidence and lists unknowns prominently
+✓ test/report-v2-view-model.test.ts > report v2 view model > groups gaps and derives the fix plan only from non-passing verdicts
+✓ test/report-v2-selection.test.ts > report version selection > uses the v2 service only for scoring-2.0.0 scans
+✓ test/report-v2-selection.test.ts > report version selection > keeps the v1 payload for legacy scans
+Test Files  2 passed (2)
+Tests  5 passed (5)
+```
+
+- [ ] **Step 6: Run full gates and commit**
+
+```bash
+pnpm lint && pnpm typecheck && pnpm test
+```
+
+Expected output ends with successful lint, successful typecheck, and `Tasks: 100% successful`. Then:
+
+```bash
+git add apps/orchestrator/src/modules/reports apps/orchestrator/test/report-v2-view-model.test.ts apps/orchestrator/test/report-v2-selection.test.ts
+git commit -m "feat(readiness): select v2 report view model by scoring version"
+```
+
+---
+
+### Task 13: Render and PDF the v2 report without changing v1 output
+
+**Files:**
+- Create: `apps/orchestrator/src/modules/reports/report-template-v2.ts`
+- Create: `apps/orchestrator/src/modules/reports/report-pdf-v2.ts`
+- Create: `apps/orchestrator/src/modules/reports/report-renderers.ts`
+- Modify: `apps/orchestrator/src/modules/reports/report-render.worker.ts`
+- Create: `apps/orchestrator/test/report-v2-rendering.test.ts`
+
+**Interfaces:**
+- Consumes: `buildReportV2ViewModel` output; `ReportTemplateModel` and `renderReportHtml`/`renderReportPdf` for v1; `isScoringV2` from `scoring.engine.ts`; PDFKit.
+- Produces: `renderReportV2Html`, `renderReportV2Pdf`, `renderHtmlForModel`, and `renderPdfForModel`; the worker selects v2 only for `scoring-2.0.0`, preserving v1 byte-for-byte.
+
+- [ ] **Step 1: Write the failing rendering tests**
+
+```ts
+// apps/orchestrator/test/report-v2-rendering.test.ts
+import { inflateSync } from 'node:zlib';
+import { describe, expect, it } from 'vitest';
+import type { ReportTemplateModel } from '../src/modules/reports/report-template.js';
+import { renderReportHtml } from '../src/modules/reports/report-template.js';
+import { renderReportV2Pdf } from '../src/modules/reports/report-pdf-v2.js';
+import { renderHtmlForModel } from '../src/modules/reports/report-renderers.js';
+import {
+  buildReportV2ViewModel,
+  type ReportV2Input,
+} from '../src/modules/reports/report-view-model-v2.js';
+
+function base(scoringVersion: string): ReportTemplateModel {
+  return {
+    report: {
+      id: 'rpt_1',
+      format: 'pdf',
+      templateVersion: scoringVersion === '1.0.0' ? '1.0.0' : '2.0.0',
+      createdAt: '2026-11-27T10:00:00.000Z',
+    },
+    organization: {
+      id: 'org_1',
+      name: 'Acme',
+      slug: 'acme',
+      dataRegion: 'ap-south-1',
+      branding: { logoUrl: null, primaryColor: null, footerText: null },
+    },
+    scan: {
+      id: 'scn_1',
+      repository: { id: 'repo_1', fullName: 'acme/repo', visibility: 'private' },
+      ref: 'main',
+      commitSha: 'a'.repeat(40),
+      status: 'completed',
+      score: null,
+      grade: null,
+      sectionScores: {},
+      counts: { critical: 0, high: 0, medium: 0, low: 0, info: 0, total: 0 },
+      coverage: {},
+      coverageStatus: 'full',
+      scannerVersions: {},
+      rulePackVersion: 'dpdpa-2026.11.0',
+      scoringVersion,
+      timestamps: {
+        queuedAt: '2026-11-27T09:00:00.000Z',
+        startedAt: null,
+        completedAt: '2026-11-27T09:01:00.000Z',
+        durationMs: 60_000,
+      },
+    },
+    topFindings: [],
+    methodology: {
+      scoringVersion,
+      rulePackVersion: 'dpdpa-2026.11.0',
+      summary: 'Versioned readiness scoring.',
+    },
+    disclaimer: 'Technical aid only; not legal advice.',
+    generatedAt: '2026-11-27T10:00:00.000Z',
+  };
+}
+
+function v2Input(): ReportV2Input {
+  return {
+    base: base('scoring-2.0.0'),
+    controlResults: [
+      {
+        controlCode: 'DPDPA-8.4-SECRET-01',
+        section: '8(4)',
+        verdict: 'FAIL',
+        reasonCode: 'cited_gap',
+        remediation: 'Use a managed credential store.',
+      },
+      {
+        controlCode: 'DPDPA-9-CHILD-01',
+        section: '9',
+        verdict: 'UNKNOWN',
+        reasonCode: 'detector_unavailable',
+        remediation: 'Add a detector.',
+      },
+    ],
+    inventory: null,
+    commencement: [],
+    detectorVersions: { gitleaks: '8.28.0' },
+    provenanceSearches: [],
+  };
+}
+
+/** Inflate PDFKit streams and decode hex glyph runs so headings are searchable. */
+function pdfText(buffer: Buffer): string {
+  const raw = buffer.toString('latin1');
+  const streams = /stream\r?\n([\s\S]*?)\r?\nendstream/g;
+  const decoded: string[] = [];
+  for (const match of raw.matchAll(streams)) {
+    let content: string;
+    try {
+      content = inflateSync(Buffer.from(match[1]!, 'latin1')).toString('latin1');
+    } catch {
+      continue;
+    }
+    decoded.push(
+      content
+        .replace(/\[([^\]]*)\]\s*TJ/g, (_all, body: string) =>
+          (body.match(/<[0-9a-fA-F]+>/g) ?? [])
+            .map((hex) => Buffer.from(hex.slice(1, -1), 'hex').toString('latin1'))
+            .join(''),
+        )
+        .replace(/\(([^)]*)\)\s*Tj/g, (_all, value: string) => value),
+    );
+  }
+  return decoded.join('\n');
+}
+
+describe('v2 report rendering', () => {
+  it('renders all v2 sections into HTML and keeps v1 HTML unchanged', () => {
+    const v2 = buildReportV2ViewModel(v2Input());
+    const html = renderHtmlForModel(v2);
+    for (const title of [
+      'Executive readiness summary',
+      'Gaps grouped by section',
+      'Evidence of safeguards',
+      'Could not determine',
+      'Data inventory summary',
+      'Fix plan',
+      'Methodology and provenance',
+      'Limitations',
+      'Disclaimer',
+    ]) {
+      expect(html).toContain(title);
+    }
+    expect(html).not.toContain('CANARY_SOURCE_VALUE');
+    const legacy = renderHtmlForModel(base('1.0.0'));
+    expect(legacy).toBe(renderReportHtml(base('1.0.0')));
+    expect(legacy).not.toContain('Gaps grouped by section');
+  });
+
+  it('renders a real multi-page PDF containing the v2 section titles', async () => {
+    const buffer = await renderReportV2Pdf(buildReportV2ViewModel(v2Input()));
+    expect(buffer.subarray(0, 5).toString()).toBe('%PDF-');
+    expect((buffer.toString('latin1').match(/\/Type \/Page\b/g) ?? []).length).toBeGreaterThanOrEqual(
+      9,
+    );
+    const text = pdfText(buffer);
+    expect(text).toContain('Executive readiness summary');
+    expect(text).toContain('Could not determine');
+    expect(text).not.toContain('CANARY_SOURCE_VALUE');
+  });
+});
+```
+
+- [ ] **Step 2: Run the focused rendering tests and confirm RED**
+
+```bash
+pnpm --filter @dpdpa/orchestrator exec vitest run test/report-v2-rendering.test.ts
+```
+
+Expected RED output:
+
+```text
+Error: Cannot find module '../src/modules/reports/report-pdf-v2.js'
+```
+
+- [ ] **Step 3: Add the v2 HTML renderer**
+
+```ts
+// apps/orchestrator/src/modules/reports/report-template-v2.ts
+import type { buildReportV2ViewModel } from './report-view-model-v2.js';
+
+type V2Model = ReturnType<typeof buildReportV2ViewModel>;
+
+function esc(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function rows(model: V2Model, id: string): string {
+  const section = model.sections.find((candidate) => candidate.id === id);
+  if (section?.rows === undefined || section.rows.length === 0) {
+    return '<p>No recorded entries.</p>';
+  }
+  return `<table><thead><tr><th>Control</th><th>Section</th><th>Verdict</th><th>Detail</th></tr></thead><tbody>${section.rows
+    .map(
+      (row) =>
+        `<tr><td>${esc(row.controlCode)}</td><td>${esc(row.section)}</td><td>${esc(row.verdict)}</td><td>${esc(row.reasonCode ?? row.remedy)}</td></tr>`,
+    )
+    .join('')}</tbody></table>`;
+}
+
+export function renderReportV2Html(model: V2Model): string {
+  const sections = model.sections
+    .map((section) => {
+      if (section.id === 'gaps_by_section') {
+        const groups = (section.groups ?? [])
+          .map(
+            (group) =>
+              `<h3>Section ${esc(group.section)}</h3><ul>${group.rows
+                .map((row) => `<li>${esc(row.controlCode)} — ${esc(row.verdict)}</li>`)
+                .join('')}</ul>`,
+          )
+          .join('');
+        return `<section id="${section.id}"><h2>${esc(section.title)}</h2>${groups || '<p>No recorded gaps.</p>'}</section>`;
+      }
+      if (section.id === 'executive_summary') {
+        const table = (section.table ?? [])
+          .map(
+            (entry) =>
+              `<tr><td>${esc(entry.provision)}</td><td>${esc(entry.effectiveFrom)}</td><td>${esc(entry.sourceUrl)}</td><td>${esc(entry.verifiedOn)}</td></tr>`,
+          )
+          .join('');
+        return `<section id="${section.id}"><h2>${esc(section.title)}</h2>${rows(model, section.id)}<table><thead><tr><th>Provision</th><th>Effective</th><th>Source</th><th>Verified</th></tr></thead><tbody>${table}</tbody></table></section>`;
+      }
+      return `<section id="${section.id}"><h2>${esc(section.title)}</h2>${rows(model, section.id)}<p>${esc(section.text ?? '')}</p></section>`;
+    })
+    .join('\n');
+
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Readiness report ${esc(model.report.id)}</title><style>body{font-family:sans-serif;max-width:52rem;margin:2rem auto;color:#16181d}h2{margin-top:2rem}table{border-collapse:collapse;width:100%}td,th{border:1px solid #d8dbe2;padding:.4rem;text-align:left}</style></head><body><h1>Readiness report</h1><p>Repository ${esc(model.scan.repository.fullName)} · ref ${esc(model.scan.ref)} · scoring ${esc(model.scan.scoringVersion)}</p>${sections}</body></html>`;
+}
+```
+
+- [ ] **Step 4: Add the v2 PDF renderer and dispatch**
+
+```ts
+// apps/orchestrator/src/modules/reports/report-pdf-v2.ts
+import PDFDocument from 'pdfkit';
+import type { buildReportV2ViewModel } from './report-view-model-v2.js';
+
+type V2Model = ReturnType<typeof buildReportV2ViewModel>;
+
+export async function renderReportV2Pdf(model: V2Model): Promise<Buffer> {
+  const doc = new PDFDocument({ size: 'A4', margin: 48 });
+  const chunks: Buffer[] = [];
+  doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+  const done = new Promise<Buffer>((resolve, reject) => {
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+  });
+
+  for (const section of model.sections) {
+    doc.addPage();
+    doc.fontSize(16).text(section.title);
+    doc.moveDown().fontSize(10);
+    for (const row of section.rows ?? []) {
+      doc.text(
+        [row.controlCode, row.section, row.verdict, row.reasonCode ?? row.remedy]
+          .filter((value) => value !== undefined)
+          .join(' · '),
+      );
+    }
+    for (const group of section.groups ?? []) {
+      doc.text(`Section ${group.section}`);
+      for (const row of group.rows) {
+        doc.text(`${row.controlCode ?? ''} · ${row.verdict ?? ''}`);
+      }
+    }
+    for (const entry of section.table ?? []) {
+      doc.text(`${entry.provision} · effective ${entry.effectiveFrom} · verified ${entry.verifiedOn}`);
+    }
+    if (section.text !== undefined) doc.text(section.text);
+  }
+  doc.end();
+  return done;
+}
+```
+
+```ts
+// apps/orchestrator/src/modules/reports/report-renderers.ts
+import { isScoringV2 } from '../scoring/scoring.engine.js';
+import { renderReportV2Pdf } from './report-pdf-v2.js';
+import { renderReportHtml } from './report-template.js';
+import { renderReportV2Html } from './report-template-v2.js';
+import type { ReportTemplateModel } from './report-template.js';
+import type { buildReportV2ViewModel } from './report-view-model-v2.js';
+
+type V2Model = ReturnType<typeof buildReportV2ViewModel>;
+
+export function renderHtmlForModel(model: ReportTemplateModel | V2Model): string {
+  return isScoringV2(model.scan.scoringVersion)
+    ? renderReportV2Html(model as V2Model)
+    : renderReportHtml(model as ReportTemplateModel);
+}
+
+export type BrowserPdfRenderer = (
+  html: string,
+  browserWSEndpoint: string | undefined,
+) => Promise<Buffer>;
+
+export function renderPdfForModel(
+  model: ReportTemplateModel | V2Model,
+  browserWSEndpoint: string | undefined,
+  renderBrowserPdf: BrowserPdfRenderer,
+): Promise<Buffer> {
+  if (isScoringV2(model.scan.scoringVersion)) return renderReportV2Pdf(model as V2Model);
+  return browserWSEndpoint !== undefined
+    ? renderBrowserPdf(renderReportHtml(model as ReportTemplateModel), browserWSEndpoint)
+    : Promise.resolve(renderReportPdf(model as ReportTemplateModel));
+}
+```
+
+Remove the unused `renderReportPdf` import from `report-renderers.ts`. In `apps/orchestrator/src/modules/reports/report-render.worker.ts`, keep the existing exported `renderPdf` untouched, remove the `renderReportHtml` and `renderReportPdf` imports, import `renderHtmlForModel` and `renderPdfForModel` from `./report-renderers.js`, and replace the rendering block with:
+
+```ts
+      const model = viewModel as unknown as Parameters<typeof renderHtmlForModel>[0];
+      const pdfBuffer = await renderPdfForModel(
+        model,
+        env.REPORTS_BROWSER_WS_ENDPOINT,
+        renderPdf,
+      );
+```
+
+Do not use `renderHtmlForModel` in the worker when `REPORTS_BROWSER_WS_ENDPOINT` is set; the browser renderer receives the v1 HTML through `renderPdfForModel` so v1 byte output is unchanged. Keep the `complete()` call and logging unchanged.
+
+- [ ] **Step 5: Run the focused rendering tests and confirm GREEN**
+
+```bash
+pnpm --filter @dpdpa/orchestrator exec vitest run test/report-v2-rendering.test.ts
+```
+
+Expected GREEN output:
+
+```text
+✓ test/report-v2-rendering.test.ts > v2 report rendering > renders all v2 sections into HTML and keeps v1 HTML unchanged
+✓ test/report-v2-rendering.test.ts > v2 report rendering > renders a real multi-page PDF containing the v2 section titles
+Test Files  1 passed (1)
+Tests  2 passed (2)
+```
+
+- [ ] **Step 6: Run full gates and commit**
+
+```bash
+pnpm lint && pnpm typecheck && pnpm test
+```
+
+Expected output ends with successful lint, successful typecheck, and `Tasks: 100% successful`. Then:
+
+```bash
+git add apps/orchestrator/src/modules/reports apps/orchestrator/test/report-v2-rendering.test.ts
+git commit -m "feat(readiness): render v2 report HTML and PDF"
+```
+
+---
+
+### Task 14: Generate SARIF 2.1.0 and issue-ready Markdown exports
+
+**Files:**
+- Create: `apps/orchestrator/src/modules/exports/export.schemas.ts`
+- Create: `apps/orchestrator/src/modules/exports/sarif.service.ts`
+- Create: `apps/orchestrator/src/modules/exports/markdown.service.ts`
+- Create: `apps/orchestrator/src/modules/exports/internal-exports.controller.ts`
+- Create: `apps/orchestrator/src/modules/exports/exports.module.ts`
+- Modify: `apps/orchestrator/src/app.module.ts`
+- Create: `apps/orchestrator/test/export-services.test.ts`
+- Create: `apps/web/server/api/v1/scan/[scanId]/export/sarif.get.ts`
+- Create: `apps/web/server/api/v1/scan/[scanId]/export/markdown.get.ts`
+- Create: `apps/web/test/export-fixtures.test.ts`
+
+**Interfaces:**
+- Consumes: persisted `control_result` rows from Phase A/B; `InternalHmacGuard`; BFF `requireIdentity`, `callOrchestrator`, and `fixturesAnswer`.
+- Produces: `buildSarif(input)` conforming to SARIF 2.1.0, `buildIssueMarkdown(input)`, internal `GET /internal/v1/scans/:scanId/export/{sarif,markdown}`, BFF `GET /api/v1/scan/:scanId/export/{sarif,markdown}`. No export opens an issue or PR on the target repository.
+
+- [ ] **Step 1: Write the failing export tests**
+
+```ts
+// apps/orchestrator/test/export-services.test.ts
+import { describe, expect, it } from 'vitest';
+import { buildIssueMarkdown } from '../src/modules/exports/markdown.service.js';
+import { buildSarif } from '../src/modules/exports/sarif.service.js';
+
+const input = {
+  scanId: 'scn_1',
+  repository: 'acme/repo',
+  rulePackVersion: 'dpdpa-2026.11.0',
+  scoringVersion: 'scoring-2.0.0',
+  results: [
+    {
+      controlCode: 'DPDPA-8.4-SECRET-01',
+      section: '8(4)',
+      verdict: 'FAIL',
+      reasonCode: 'cited_gap',
+      remediation: 'Use a managed credential store.',
+      evidence: [
+        {
+          kind: 'violation',
+          scanner: 'gitleaks',
+          evidenceHash: 'sha256:code-only',
+        },
+      ],
+    },
+    {
+      controlCode: 'DPDPA-9-CHILD-01',
+      section: '9',
+      verdict: 'UNKNOWN',
+      reasonCode: 'detector_unavailable',
+      remediation: 'Add a detector.',
+      evidence: [],
+    },
+    {
+      controlCode: 'DPDPA-6-CONSENT-01',
+      section: '6',
+      verdict: 'ATTESTED_PASS',
+      reasonCode: 'attested_pass',
+      remediation: 'None.',
+      evidence: [],
+    },
+  ],
+};
+
+describe('readiness exports', () => {
+  it('builds SARIF 2.1.0 from non-passing results only', () => {
+    const sarif = buildSarif(input);
+    expect(sarif.version).toBe('2.1.0');
+    expect(sarif.$schema).toBe('https://json.schemastore.org/sarif-2.1.0.json');
+    const run = sarif.runs[0]!;
+    expect(run.tool.driver.name).toBe('DPDPA readiness');
+    expect(run.tool.driver.rules?.map((rule) => rule.id)).toEqual([
+      'DPDPA-8.4-SECRET-01',
+      'DPDPA-9-CHILD-01',
+    ]);
+    expect(run.results?.map((result) => result.level)).toEqual(['error', 'none']);
+    expect(run.results?.[0]?.properties).toMatchObject({
+      section: '8(4)',
+      verdict: 'FAIL',
+      evidenceHashes: ['sha256:code-only'],
+    });
+    expect(JSON.stringify(sarif)).not.toContain('CANARY_SOURCE_VALUE');
+    expect(JSON.stringify(sarif)).not.toContain('attested_pass');
+  });
+
+  it('builds issue-ready Markdown without issue-creation instructions', () => {
+    const markdown = buildIssueMarkdown(input);
+    expect(markdown).toContain('# Readiness gaps — acme/repo');
+    expect(markdown).toContain('## Section 8(4)');
+    expect(markdown).toContain('DPDPA-8.4-SECRET-01');
+    expect(markdown).toContain('sha256:code-only');
+    expect(markdown).toContain('Could not determine');
+    expect(markdown).not.toContain('api.github.com');
+    expect(markdown).not.toContain('/issues');
+  });
+});
+```
+
+```ts
+// apps/web/test/export-fixtures.test.ts
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
+
+describe('export routes', () => {
+  it('never call the GitHub issue API', async () => {
+    const root = fileURLToPath(new URL('../server/api/v1/scan/[scanId]/export', import.meta.url));
+    const files = ['sarif.get.ts', 'markdown.get.ts'];
+    for (const file of files) {
+      const source = await readFile(join(root, file), 'utf8');
+      expect(source).not.toContain('api.github.com');
+      expect(source).not.toContain('/issues');
+      expect(source).not.toContain('createIssue');
+    }
+  });
+});
+```
+
+- [ ] **Step 2: Run the focused export tests and confirm RED**
+
+```bash
+pnpm --filter @dpdpa/orchestrator exec vitest run test/export-services.test.ts && pnpm --filter @dpdpa/web exec vitest run test/export-fixtures.test.ts
+```
+
+Expected RED output:
+
+```text
+Error: Cannot find module '../src/modules/exports/sarif.service.js'
+```
+
+- [ ] **Step 3: Add the pure export builders**
+
+```ts
+// apps/orchestrator/src/modules/exports/export.schemas.ts
+export interface ExportEvidence {
+  kind?: string;
+  scanner?: string;
+  evidenceHash?: string;
+}
+
+export interface ExportResult {
+  controlCode: string;
+  section: string;
+  verdict: string;
+  reasonCode: string;
+  remediation: string;
+  evidence: readonly ExportEvidence[];
+}
+
+export interface ExportInput {
+  scanId: string;
+  repository: string;
+  rulePackVersion: string | null;
+  scoringVersion: string | null;
+  results: readonly ExportResult[];
+}
+
+export const EXPORT_LIMIT = 500;
+
+export function exportedResults(input: ExportInput): readonly ExportResult[] {
+  return input.results
+    .filter((row) => row.verdict !== 'PASS' && row.verdict !== 'ATTESTED_PASS')
+    .slice(0, EXPORT_LIMIT);
+}
+```
+
+```ts
+// apps/orchestrator/src/modules/exports/sarif.service.ts
+import { exportedResults, type ExportInput } from './export.schemas.js';
+
+export interface SarifRule {
+  id: string;
+  name: string;
+  shortDescription: { text: string };
+  properties: { section: string };
+}
+
+export interface SarifResult {
+  ruleId: string;
+  level: 'error' | 'none';
+  message: { text: string };
+  properties: {
+    section: string;
+    verdict: string;
+    reasonCode: string;
+    evidenceHashes: string[];
+  };
+}
+
+export function buildSarif(input: ExportInput) {
+  const rows = exportedResults(input);
+  const rules: SarifRule[] = rows.map((row) => ({
+    id: row.controlCode,
+    name: `Readiness ${row.controlCode}`,
+    shortDescription: { text: `Section ${row.section} control ${row.controlCode}` },
+    properties: { section: row.section },
+  }));
+  const results: SarifResult[] = rows.map((row) => ({
+    ruleId: row.controlCode,
+    level: row.verdict === 'UNKNOWN' ? 'none' : 'error',
+    message: {
+      text:
+        row.verdict === 'UNKNOWN'
+          ? 'Could not determine: no determinable code evidence or current attestation.'
+          : `Readiness gap: ${row.reasonCode}.`,
+    },
+    properties: {
+      section: row.section,
+      verdict: row.verdict,
+      reasonCode: row.reasonCode,
+      evidenceHashes: row.evidence
+        .map((item) => item.evidenceHash)
+        .filter((hash): hash is string => typeof hash === 'string'),
+    },
+  }));
+  return {
+    $schema: 'https://json.schemastore.org/sarif-2.1.0.json',
+    version: '2.1.0',
+    runs: [
+      {
+        tool: {
+          driver: {
+            name: 'DPDPA readiness',
+            version: input.rulePackVersion ?? 'unknown',
+            rules,
+          },
+        },
+        results,
+        properties: {
+          scanId: input.scanId,
+          repository: input.repository,
+          scoringVersion: input.scoringVersion,
+        },
+      },
+    ],
+  };
+}
+```
+
+```ts
+// apps/orchestrator/src/modules/exports/markdown.service.ts
+import { exportedResults, type ExportInput } from './export.schemas.js';
+
+function escapeCell(value: string): string {
+  return value.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+}
+
+export function buildIssueMarkdown(input: ExportInput): string {
+  const rows = exportedResults(input);
+  const sections = new Map<string, typeof rows>();
+  for (const row of rows) {
+    const items = sections.get(row.section) ?? [];
+    items.push(row);
+    sections.set(row.section, items);
+  }
+  const lines = [
+    `# Readiness gaps — ${input.repository}`,
+    '',
+    `Scan ${input.scanId} · rule pack ${input.rulePackVersion ?? 'unknown'} · scoring ${input.scoringVersion ?? 'unknown'}`,
+    '',
+    'This file is an issue-ready draft. Review it before creating any issue; nothing is opened automatically.',
+    '',
+  ];
+  for (const [section, items] of [...sections.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    lines.push(`## Section ${section}`, '');
+    for (const row of items) {
+      lines.push(`### ${row.controlCode} — ${row.verdict}`, '');
+      lines.push(`Reason: ${escapeCell(row.reasonCode)}`, '');
+      const hashes = row.evidence
+        .map((item) => item.evidenceHash)
+        .filter((hash): hash is string => typeof hash === 'string');
+      lines.push(`Evidence hashes: ${hashes.length > 0 ? hashes.join(', ') : 'none'}`, '');
+      lines.push(`Suggested fix: ${escapeCell(row.remediation)}`, '');
+      if (row.verdict === 'UNKNOWN') lines.push('Could not determine; add a detector or current attestation.', '');
+    }
+  }
+  return `${lines.join('\n').trimEnd()}\n`;
+}
+```
+
+- [ ] **Step 4: Add the internal controller and BFF routes**
+
+```ts
+// apps/orchestrator/src/modules/exports/internal-exports.controller.ts
+import { Controller, Get, Headers, Param, UseGuards } from '@nestjs/common';
+import { ApiError } from '../../common/api-error.js';
+import { PrismaService } from '../../prisma/prisma.service.js';
+import { InternalHmacGuard } from '../internal-auth/internal-hmac.guard.js';
+import { buildIssueMarkdown } from './markdown.service.js';
+import { buildSarif } from './sarif.service.js';
+import type { ExportInput } from './export.schemas.js';
+
+@Controller('internal/v1/scans')
+@UseGuards(InternalHmacGuard)
+export class InternalExportsController {
+  constructor(private readonly prisma: PrismaService) {}
+
+  @Get(':scanId/export/sarif')
+  async sarif(
+    @Headers('x-org-id') orgHeader: string | undefined,
+    @Param('scanId') scanId: string,
+  ) {
+    return { data: buildSarif(await this.input(orgHeader, scanId)) };
+  }
+
+  @Get(':scanId/export/markdown')
+  async markdown(
+    @Headers('x-org-id') orgHeader: string | undefined,
+    @Param('scanId') scanId: string,
+  ) {
+    return { data: { markdown: buildIssueMarkdown(await this.input(orgHeader, scanId)) } };
+  }
+
+  private async input(orgHeader: string | undefined, scanId: string): Promise<ExportInput> {
+    if (!orgHeader) throw new ApiError('VALIDATION_ERROR', 'X-Org-Id is required.');
+    const scan = await this.prisma.scan.findFirst({
+      where: { id: scanId, orgId: orgHeader },
+      include: { repository: true },
+    });
+    if (!scan) throw new ApiError('NOT_FOUND', 'The scan does not exist.');
+    const rows = await this.prisma.controlResult.findMany({
+      where: { scanId, orgId: orgHeader },
+      orderBy: { controlCode: 'asc' },
+      include: { rule: { select: { section: true, remediationGuidance: true } } },
+    });
+    return {
+      scanId,
+      repository: scan.repository.fullName,
+      rulePackVersion: scan.rulePackVersion,
+      scoringVersion: scan.scoringVersion,
+      results: rows.map((row) => ({
+        controlCode: row.controlCode,
+        section: row.rule.section,
+        verdict: row.verdict,
+        reasonCode: row.reasonCode,
+        remediation: row.rule.remediationGuidance,
+        evidence: row.evidence as ExportInput['results'][number]['evidence'],
+      })),
+    };
+  }
+}
+```
+
+```ts
+// apps/orchestrator/src/modules/exports/exports.module.ts
+import { Module } from '@nestjs/common';
+import { PrismaModule } from '../../prisma/prisma.module.js';
+import { InternalAuthModule } from '../internal-auth/internal-auth.module.js';
+import { InternalExportsController } from './internal-exports.controller.js';
+
+@Module({
+  imports: [PrismaModule, InternalAuthModule],
+  controllers: [InternalExportsController],
+})
+export class ExportsModule {}
+```
+
+Add `ExportsModule` to `apps/orchestrator/src/app.module.ts` imports.
+
+```ts
+// apps/web/server/api/v1/scan/[scanId]/export/sarif.get.ts
+import { getRouterParam, setHeader } from 'h3';
+import { fixturesAnswer } from '../../../../../utils/org-request';
+import { callOrchestrator } from '../../../../../utils/orchestrator';
+import { requireIdentity } from '../../../../../utils/session';
+
+export default defineEventHandler(async (event) => {
+  const scanId = getRouterParam(event, 'scanId');
+  if (fixturesAnswer(event)) {
+    setHeader(event, 'content-disposition', 'attachment; filename="readiness.sarif.json"');
+    return {
+      $schema: 'https://json.schemastore.org/sarif-2.1.0.json',
+      version: '2.1.0',
+      runs: [],
+    };
+  }
+  const identity = requireIdentity(event);
+  const response = await callOrchestrator<{ data: unknown }>(event, {
+    method: 'GET',
+    path: `/internal/v1/scans/${scanId}/export/sarif`,
+    headers: { 'x-org-id': identity.orgId },
+  });
+  setHeader(event, 'content-disposition', 'attachment; filename="readiness.sarif.json"');
+  return response.data;
+});
+```
+
+```ts
+// apps/web/server/api/v1/scan/[scanId]/export/markdown.get.ts
+import { getRouterParam, setHeader } from 'h3';
+import { fixturesAnswer } from '../../../../../utils/org-request';
+import { callOrchestrator } from '../../../../../utils/orchestrator';
+import { requireIdentity } from '../../../../../utils/session';
+
+export default defineEventHandler(async (event) => {
+  const scanId = getRouterParam(event, 'scanId');
+  if (fixturesAnswer(event)) {
+    setHeader(event, 'content-type', 'text/markdown; charset=utf-8');
+    setHeader(event, 'content-disposition', 'attachment; filename="readiness-gaps.md"');
+    return '# Readiness gaps\n\nNo recorded gaps in the fixture.';
+  }
+  const identity = requireIdentity(event);
+  const response = await callOrchestrator<{ data: { markdown: string } }>(event, {
+    method: 'GET',
+    path: `/internal/v1/scans/${scanId}/export/markdown`,
+    headers: { 'x-org-id': identity.orgId },
+  });
+  setHeader(event, 'content-type', 'text/markdown; charset=utf-8');
+  setHeader(event, 'content-disposition', 'attachment; filename="readiness-gaps.md"');
+  return response.data.markdown;
+});
+```
+
+- [ ] **Step 5: Run the focused export tests and confirm GREEN**
+
+```bash
+pnpm --filter @dpdpa/orchestrator exec vitest run test/export-services.test.ts && pnpm --filter @dpdpa/web exec vitest run test/export-fixtures.test.ts
+```
+
+Expected GREEN output:
+
+```text
+✓ test/export-services.test.ts > readiness exports > builds SARIF 2.1.0 from non-passing results only
+✓ test/export-services.test.ts > readiness exports > builds issue-ready Markdown without issue-creation instructions
+Test Files  1 passed (1)
+Tests  2 passed (2)
+✓ test/export-fixtures.test.ts > export routes > never call the GitHub issue API
+Test Files  1 passed (1)
+Tests  1 passed (1)
+```
+
+- [ ] **Step 6: Run full gates and commit**
+
+```bash
+pnpm lint && pnpm typecheck && pnpm test
+```
+
+Expected output ends with successful lint, successful typecheck, and `Tasks: 100% successful`. Then:
+
+```bash
+git add apps/orchestrator/src/modules/exports apps/orchestrator/src/app.module.ts apps/orchestrator/test/export-services.test.ts apps/web/server/api/v1/scan apps/web/test/export-fixtures.test.ts
+git commit -m "feat(readiness): add SARIF and Markdown exports"
+```
+
+---
+
+### Task 15: Add the cross-surface language lint gate
+
+**Files:**
+- Create: `apps/web/scripts/lint-readiness-language.mjs`
+- Create: `apps/web/test/phase-e-language-lint.test.ts`
+- Create: `apps/orchestrator/test/readiness-language-lint.test.ts`
+- Modify: `apps/web/package.json`
+
+**Interfaces:**
+- Consumes: the new readiness Vue pages/components from Task 9–11, v2 report/exports sources from Task 12–14, and v2 rule-pack YAML messages.
+- Produces: `scanReadinessLanguage(files)` with exemptions only for CSS token names and quoted disclaimers; a `pnpm --filter @dpdpa/web lint:language` script and tests that fail on forbidden user-facing wording anywhere in those surfaces.
+
+- [ ] **Step 1: Write the failing language-lint tests**
+
+```ts
+// apps/web/test/phase-e-language-lint.test.ts
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
+import { scanReadinessLanguage } from '../scripts/lint-readiness-language.mjs';
+
+const webRoot = fileURLToPath(new URL('..', import.meta.url));
+const repoRoot = fileURLToPath(new URL('../../..', import.meta.url));
+
+const files = [
+  'app/components/new/NewScanDetail.vue',
+  'app/components/rules/RuleDetectorExplainer.vue',
+  'app/components/readiness/ReadinessAttestationList.vue',
+  'app/components/readiness/ReadinessDataView.vue',
+  'app/pages/app/readiness/inventory.vue',
+  'app/pages/app/readiness/gaps.vue',
+  'app/pages/app/readiness/fix-plan.vue',
+  'app/pages/app/readiness/attestations.vue',
+  'app/pages/app/readiness/exports.vue',
+  'server/api/v1/scan/[scanId]/export/sarif.get.ts',
+  'server/api/v1/scan/[scanId]/export/markdown.get.ts',
+  'server/utils/fixtures/attestations.ts',
+  'server/utils/fixtures/readiness.ts',
+  '../orchestrator/src/modules/reports/report-view-model-v2.ts',
+  '../orchestrator/src/modules/reports/report-template-v2.ts',
+  '../orchestrator/src/modules/reports/report-pdf-v2.ts',
+  '../orchestrator/src/modules/exports/sarif.service.ts',
+  '../orchestrator/src/modules/exports/markdown.service.ts',
+  '../../packages/rule-packs/v2/controls.yaml',
+  '../../packages/rule-packs/v2/detectors.yaml',
+  '../../packages/rule-packs/v2/mappings.yaml',
+];
+
+describe('Phase E language lint', () => {
+  it('reports every forbidden user-facing phrase in the targeted surfaces', async () => {
+    const sources = await Promise.all(
+      files.map(async (path) => ({
+        path,
+        content: await readFile(join(webRoot, path), 'utf8'),
+      })),
+    );
+    expect(scanReadinessLanguage(sources)).toEqual([]);
+  });
+
+  it('is not vacuous: it catches a synthetic forbidden phrase', () => {
+    const hits = scanReadinessLanguage([
+      { path: 'app/pages/app/readiness/gaps.vue', content: '<p>This is compliant.</p>' },
+    ]);
+    expect(hits).toEqual([
+      { path: 'app/pages/app/readiness/gaps.vue', line: 1, phrase: 'compliant' },
+    ]);
+  });
+
+  it('exempts CSS token names and quoted disclaimers only', () => {
+    const hits = scanReadinessLanguage([
+      {
+        path: 'app/pages/app/readiness/gaps.vue',
+        content: [
+          '<div class="bg-status-compliant-bg text-status-compliant-text">Gaps</div>',
+          "const disclaimer = 'This is not a certification of compliance.';",
+        ].join('\n'),
+      },
+    ]);
+    expect(hits).toEqual([]);
+  });
+});
+```
+
+```ts
+// apps/orchestrator/test/readiness-language-lint.test.ts
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
+
+const root = fileURLToPath(new URL('../../..', import.meta.url));
+const FORBIDDEN: Array<[string, RegExp]> = [
+  ['compliant', /\bcompliant\b/i],
+  ['non-compliant', /\bnon-compliant\b/i],
+  ['violation of the Act', /violation of the act/i],
+  ['certified', /\bcertified\b/i],
+];
+
+function stripExemptions(source: string): string {
+  return source
+    .replace(/status-compliant-[a-z]+/g, '')
+    .replace(/(['"`])[^'"`\n]*disclaimer[^'"`\n]*\1/gi, '');
+}
+
+describe('report and export language lint', () => {
+  it('contains no forbidden wording in v2 renderers or export messages', async () => {
+    const files = [
+      'apps/orchestrator/src/modules/reports/report-view-model-v2.ts',
+      'apps/orchestrator/src/modules/reports/report-template-v2.ts',
+      'apps/orchestrator/src/modules/reports/report-pdf-v2.ts',
+      'apps/orchestrator/src/modules/exports/sarif.service.ts',
+      'apps/orchestrator/src/modules/exports/markdown.service.ts',
+      'packages/rule-packs/v2/controls.yaml',
+      'packages/rule-packs/v2/detectors.yaml',
+      'packages/rule-packs/v2/mappings.yaml',
+    ];
+    const hits: string[] = [];
+    for (const path of files) {
+      const text = stripExemptions(await readFile(join(root, path), 'utf8'));
+      for (const [phrase, pattern] of FORBIDDEN) {
+        if (pattern.test(text)) hits.push(`${path}: ${phrase}`);
+      }
+    }
+    expect(hits).toEqual([]);
+  });
+});
+```
+
+- [ ] **Step 2: Run the focused language tests and confirm RED**
+
+```bash
+pnpm --filter @dpdpa/web exec vitest run test/phase-e-language-lint.test.ts && pnpm --filter @dpdpa/orchestrator exec vitest run test/readiness-language-lint.test.ts
+```
+
+Expected RED output:
+
+```text
+Error: Cannot find module '../scripts/lint-readiness-language.mjs'
+```
+
+- [ ] **Step 3: Add the shared lint script and package command**
+
+```js
+// apps/web/scripts/lint-readiness-language.mjs
+const FORBIDDEN = [
+  ['compliant', /\bcompliant\b/i],
+  ['non-compliant', /\bnon-compliant\b/i],
+  ['violation of the Act', /violation of the act/i],
+  ['certified', /\bcertified\b/i],
+];
+
+export function scanReadinessLanguage(files) {
+  const hits = [];
+  for (const { path, content } of files) {
+    const lines = content.split(/\r?\n/);
+    for (const [index, raw] of lines.entries()) {
+      const line = raw
+        .replace(/status-compliant-[a-z]+/g, '')
+        .replace(/(['"`])[^'"`\n]*disclaimer[^'"`\n]*\1/gi, '');
+      for (const [phrase, pattern] of FORBIDDEN) {
+        if (pattern.test(line)) {
+          hits.push({ path, line: index + 1, phrase });
+        }
+      }
+    }
+  }
+  return hits;
+}
+
+const targets = [
+  'app/components/new/NewScanDetail.vue',
+  'app/components/rules/RuleDetectorExplainer.vue',
+  'app/components/readiness/ReadinessAttestationList.vue',
+  'app/components/readiness/ReadinessDataView.vue',
+  'app/pages/app/readiness/inventory.vue',
+  'app/pages/app/readiness/gaps.vue',
+  'app/pages/app/readiness/fix-plan.vue',
+  'app/pages/app/readiness/attestations.vue',
+  'app/pages/app/readiness/exports.vue',
+  'server/api/v1/scan/[scanId]/export/sarif.get.ts',
+  'server/api/v1/scan/[scanId]/export/markdown.get.ts',
+  'server/utils/fixtures/attestations.ts',
+  'server/utils/fixtures/readiness.ts',
+  '../orchestrator/src/modules/reports/report-view-model-v2.ts',
+  '../orchestrator/src/modules/reports/report-template-v2.ts',
+  '../orchestrator/src/modules/reports/report-pdf-v2.ts',
+  '../orchestrator/src/modules/exports/sarif.service.ts',
+  '../orchestrator/src/modules/exports/markdown.service.ts',
+  '../../packages/rule-packs/v2/controls.yaml',
+  '../../packages/rule-packs/v2/detectors.yaml',
+  '../../packages/rule-packs/v2/mappings.yaml',
+];
+
+async function main() {
+  const { readFile } = await import('node:fs/promises');
+  const { join } = await import('node:path');
+  const root = new URL('..', import.meta.url).pathname;
+  const files = await Promise.all(
+    targets.map(async (path) => ({ path, content: await readFile(join(root, path), 'utf8') })),
+  );
+  const hits = scanReadinessLanguage(files);
+  for (const hit of hits) {
+    console.error(`${hit.path}:${hit.line}: forbidden phrase: ${hit.phrase}`);
+  }
+  process.exitCode = hits.length === 0 ? 0 : 1;
+}
+
+if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split('/').pop())) {
+  await main();
+}
+```
+
+In `apps/web/package.json`, add to `scripts`:
+
+```json
+    "lint:language": "node scripts/lint-readiness-language.mjs",
+```
+
+- [ ] **Step 4: Run the focused language tests and confirm GREEN**
+
+```bash
+pnpm --filter @dpdpa/web exec vitest run test/phase-e-language-lint.test.ts && pnpm --filter @dpdpa/orchestrator exec vitest run test/readiness-language-lint.test.ts && pnpm --filter @dpdpa/web lint:language
+```
+
+Expected GREEN output:
+
+```text
+✓ test/phase-e-language-lint.test.ts > Phase E language lint > reports every forbidden user-facing phrase in the targeted surfaces
+✓ test/phase-e-language-lint.test.ts > Phase E language lint > is not vacuous: it catches a synthetic forbidden phrase
+✓ test/phase-e-language-lint.test.ts > Phase E language lint > exempts CSS token names and quoted disclaimers only
+Test Files  1 passed (1)
+Tests  3 passed (3)
+✓ test/readiness-language-lint.test.ts > report and export language lint > contains no forbidden wording in v2 renderers or export messages
+Test Files  1 passed (1)
+Tests  1 passed (1)
+```
+
+- [ ] **Step 5: Run full gates and commit**
+
+```bash
+pnpm lint && pnpm typecheck && pnpm test
+pnpm --filter @dpdpa/web lint:language
+```
+
+Expected output ends with successful lint, successful typecheck, `Tasks: 100% successful`, and `lint:language: 0 forbidden phrases`. Then:
+
+```bash
+git add apps/web/scripts/lint-readiness-language.mjs apps/web/test/phase-e-language-lint.test.ts apps/orchestrator/test/readiness-language-lint.test.ts apps/web/package.json
+git commit -m "test(readiness): enforce cross-surface language lint"
+```
+
+---
+
+### Task 16: Playwright walkthrough, PDF verification, and final review
+
+**Files:**
+- Create: `apps/web/e2e/phase-e-walkthrough.spec.ts`
+- Modify: `apps/web/e2e/pdf-parity.spec.ts`
+- Modify: `docs/superpowers/plans/2026-11-27-dpdp-evidence-backed-readiness-phase-e.md`
+
+**Interfaces:**
+- Consumes: the five readiness pages, the Rules explainer, scan detail tiles, export BFF routes, and the existing PDF report flow.
+- Produces: a repeatable Playwright walkthrough over fixture data, a PDF download assertion, and a recorded human-observation exit gate before any push/PR/merge/deploy.
+
+- [ ] **Step 1: Write the failing Playwright walkthrough**
+
+```ts
+// apps/web/e2e/phase-e-walkthrough.spec.ts
+import { expect, test } from '@playwright/test';
+import { waitForHydration } from './hydration';
+
+const SCAN_ID = '0f000000-0000-4000-8000-000000000010';
+const REPO_ID = '0f000000-0000-4000-8000-000000000020';
+const REPORT_ID = 'rpt_01J8Z6C3D4E5F6G7H8J9K0M1N2';
+
+test.describe('Phase E walkthrough', () => {
+  test('renders the five readiness pages from guarded fixtures', async ({ page }) => {
+    const routes: Array<[string, string]> = [
+      [`/app/readiness/inventory?scanId=${SCAN_ID}`, 'Data Inventory'],
+      [`/app/readiness/gaps?scanId=${SCAN_ID}`, 'Compliance Gaps'],
+      [`/app/readiness/fix-plan?scanId=${SCAN_ID}`, 'Fix Plan'],
+      [`/app/readiness/attestations?repoId=${REPO_ID}`, 'Attestations'],
+      [`/app/readiness/exports?scanId=${SCAN_ID}`, 'Exports'],
+    ];
+    for (const [url, heading] of routes) {
+      await page.goto(url);
+      await waitForHydration(page);
+      await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();
+    }
+    await expect(page.getByText('Human statements recorded for this repository.')).toBeVisible();
+    await expect(page.getByText('Attestations are not code evidence and do not change coverage.')).toBeVisible();
+  });
+
+  test('renders detector explanations and attestation tiles', async ({ page }) => {
+    await page.goto('/app/rules/DPDPA-8.4-ENC-01');
+    await waitForHydration(page);
+    await expect(page.getByRole('heading', { name: 'How evidence is found' })).toBeVisible();
+
+    await page.goto(`/app/scans/${SCAN_ID}`);
+    await waitForHydration(page);
+    await expect(page.getByRole('link', { name: 'Attestations' })).toBeVisible();
+  });
+
+  test('exports SARIF and Markdown from control results', async ({ request }) => {
+    const sarif = await request.get(`/api/v1/scan/${SCAN_ID}/export/sarif`);
+    expect(sarif.ok()).toBeTruthy();
+    expect((await sarif.json()).version).toBe('2.1.0');
+
+    const markdown = await request.get(`/api/v1/scan/${SCAN_ID}/export/markdown`);
+    expect(markdown.ok()).toBeTruthy();
+    expect(await markdown.text()).toContain('# Readiness gaps');
+  });
+
+  test('produces a real PDF from the report flow', async ({ page }) => {
+    await page.goto(`/report/${REPORT_ID}`);
+    await waitForHydration(page);
+    await page.getByRole('button', { name: 'Export PDF' }).click();
+    const download = page.getByRole('link', { name: 'Download PDF' });
+    await expect(download).toBeVisible({ timeout: 15_000 });
+    await expect(download).toHaveAttribute('href', /^\/api\/v1\/report\/pdf\/.+\/download$/);
+  });
+});
+```
+
+Add this case to `apps/web/e2e/pdf-parity.spec.ts` inside the existing describe block:
+
+```ts
+  test('v2 report view model keeps attested verdicts out of evidence coverage', async ({ request }) => {
+    const response = await request.get(`/api/v1/report/pdf/${FIXTURE_REPORT_ID}/view`);
+    expect(response.ok()).toBeTruthy();
+    const report = await response.json();
+    expect(report.data.scan.scoringVersion).toBe('scoring-2.0.0');
+    expect(report.data.sections.map((section: { id: string }) => section.id)).toContain(
+      'could_not_determine',
+    );
+  });
+```
+
+- [ ] **Step 2: Run the focused Playwright suite and confirm RED**
+
+```bash
+pnpm --filter @dpdpa/web test:e2e -- phase-e-walkthrough.spec.ts pdf-parity.spec.ts
+```
+
+Expected RED output:
+
+```text
+1) PDF parity (P5-23) > v2 report view model keeps attested verdicts out of evidence coverage
+Error: expect(received).toBe(expected) // Object.is equality
+Expected: "scoring-2.0.0"
+Received: "1.0.0"
+```
+
+The walkthrough cases pass against the Task 7–14 fixtures; only the new v2 assertion fails because `fixtureReportViewModel` still returns a v1 report. Do not change a production route to satisfy this test.
+
+- [ ] **Step 3: Update only the guarded report fixture to v2**
+
+```ts
+// apps/web/server/utils/fixtures/reports.ts
+export function fixtureReportViewModel(scan: ScanDetail) {
+  return {
+    report: {
+      id: FIXTURE_REPORT_ID,
+      format: 'standard',
+      templateVersion: '2.0.0',
+      createdAt: '2026-11-04T10:05:00.000Z',
+    },
+    organization: {
+      id: '0f000000-0000-4000-8000-000000000001',
+      name: 'Acme Payments',
+      slug: 'acme-payments',
+      dataRegion: 'in',
+      branding: { logoUrl: null, primaryColor: null, footerText: null },
+    },
+    scan: {
+      id: scan.id,
+      repository: scan.repository,
+      ref: scan.ref,
+      commitSha: scan.commitSha,
+      status: scan.status,
+      score: scan.score,
+      grade: scan.grade,
+      sectionScores: scan.sectionScores,
+      counts: scan.counts,
+      coverage: scan.coverage,
+      coverageStatus: 'full',
+      evidenceCoverage: 0,
+      scannerVersions: scan.scannerVersions,
+      rulePackVersion: scan.rulePackVersion,
+      scoringVersion: 'scoring-2.0.0',
+      assessment: {
+        score: scan.score,
+        evidenceCoverage: 0,
+        openGaps: 1,
+        verdictCounts: { UNKNOWN: 1 },
+        unknownControls: ['DPDPA-9-CHILD-01'],
+        detectorStatuses: {
+          semgrep: 'completed',
+          checkov: 'completed',
+          gitleaks: 'completed',
+        },
+        gradeWithheldReason: 'insufficient_evidence',
+        consentGatingRatio: 0.75,
+      },
+      timestamps: scan.timestamps,
+    },
+    topFindings: [],
+    methodology: {
+      scoringVersion: 'scoring-2.0.0',
+      rulePackVersion: scan.rulePackVersion,
+      summary: METHODOLOGY,
+    },
+    disclaimer: DISCLAIMER,
+    generatedAt: '2026-11-04T10:05:06.342Z',
+    scoringVersion: 'scoring-2.0.0',
+    sections: [
+      {
+        id: 'executive_summary',
+        title: 'Executive readiness summary',
+        rows: [
+          { section: 'score', remedy: scan.score === null ? 'Not assessed' : scan.score.toFixed(1) },
+          { section: 'evidence coverage', remedy: '0' },
+          { section: 'open gaps', remedy: '1' },
+        ],
+        table: [
+          {
+            provision: 'DPDP Rules 4',
+            effectiveFrom: '2026-11-13',
+            sourceUrl: 'https://www.meity.gov.in/example.pdf',
+            verifiedOn: '2026-11-26',
+          },
+        ],
+      },
+      {
+        id: 'gaps_by_section',
+        title: 'Gaps grouped by section',
+        groups: [
+          {
+            section: '8(4)',
+            rows: [
+              {
+                controlCode: 'DPDPA-8.4-ENC-01',
+                verdict: 'FAIL',
+                reasonCode: 'gap_evidence',
+              },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'evidence_of_safeguards',
+        title: 'Evidence of safeguards',
+        rows: [],
+      },
+      {
+        id: 'could_not_determine',
+        title: 'Could not determine',
+        rows: [
+          {
+            controlCode: 'DPDPA-9-CHILD-01',
+            section: '9',
+            reasonCode: 'detector_unavailable',
+          },
+        ],
+      },
+      {
+        id: 'data_inventory_summary',
+        title: 'Data inventory summary',
+        text: '1 bounded signal at inventory-1.0.0; consent gating 0.75.',
+      },
+      {
+        id: 'fix_plan',
+        title: 'Fix plan',
+        rows: [
+          {
+            controlCode: 'DPDPA-8.4-ENC-01',
+            section: '8(4)',
+            remedy: 'Use a managed credential store.',
+          },
+        ],
+      },
+      {
+        id: 'methodology',
+        title: 'Methodology and provenance',
+        text: 'Detector versions: {"semgrep":"1.95.0"}. Searches: dpdp act section 8(4) safeguards.',
+      },
+      {
+        id: 'limitations',
+        title: 'Limitations',
+        text: 'Repository evidence cannot establish notices, consents, contracts, or processing purposes. Unavailable detectors remain unknown.',
+      },
+      {
+        id: 'disclaimer',
+        title: 'Disclaimer',
+        text: DISCLAIMER,
+      },
+    ],
+  };
+}
+```
+
+Keep `FIXTURE_SCAN_ID`, `FIXTURE_REPORT_ID`, and `getFixtureScan` unchanged. This is a guarded fixture input only; do not change `apps/web/server/api/v1/report/pdf/[reportId]/view.get.ts` or any orchestrator route.
+
+- [ ] **Step 4: Run the focused Playwright suite and confirm GREEN**
+
+```bash
+pnpm --filter @dpdpa/web test:e2e -- phase-e-walkthrough.spec.ts pdf-parity.spec.ts
+```
+
+Expected GREEN output:
+
+```text
+✓ phase-e-walkthrough.spec.ts > Phase E walkthrough > renders the five readiness pages from guarded fixtures
+✓ phase-e-walkthrough.spec.ts > Phase E walkthrough > renders detector explanations and attestation tiles
+✓ phase-e-walkthrough.spec.ts > Phase E walkthrough > exports SARIF and Markdown from control results
+✓ phase-e-walkthrough.spec.ts > Phase E walkthrough > produces a real PDF from the report flow
+✓ pdf-parity.spec.ts > PDF parity (P5-23) > v2 report view model keeps attested verdicts out of evidence coverage
+Test Files  2 passed (2)
+Tests  8 passed (8)
+```
+
+- [ ] **Step 5: Run the full Phase E gate**
+
+```bash
+pnpm lint && pnpm typecheck && pnpm test
+pnpm --filter @dpdpa/web lint:language
+pnpm --filter @dpdpa/rule-packs test
+pnpm test:e2e
+git diff --check
+```
+
+Expected GREEN output ends with:
+
+```text
+lint: clean
+typecheck: 11/11 turbo tasks successful
+test: 100% successful
+lint:language: 0 forbidden phrases
+rule-packs: all tests passed
+Playwright: all specs passed, including Phase E walkthrough and PDF parity
+git diff --check: clean
+```
+
+Full-gate logs can contain intentional error-path fixtures and canary strings from negative tests; those are not failures. No fixture is pilot evidence.
+
+- [ ] **Step 6: Human-observed exit gate — do not skip**
+
+Ask the user for explicit approval before starting any local server. With approval, start only a local dev server, then open Playwright MCP and drive the walkthrough while the user watches:
+
+1. Scan detail: Score, Evidence coverage, Open gaps, Consent-gating, Attested statements, and Detectors unavailable tiles; confirm letter grade withheld when evidence is insufficient.
+2. Data Inventory: bounded tokens, paths, and line numbers; no field values.
+3. Compliance Gaps and Fix Plan: attestations appear as verdicts, never as evidence references.
+4. Attestations: owner/admin write control, audit entry, and expiry state from guarded fixtures.
+5. Rules: detector inputs/outputs, absence-token explanation, and "Could not determine" wording.
+6. Exports: SARIF 2.1.0 JSON and issue-ready Markdown download; confirm no issue was opened on the target repository.
+7. Report v2: open the downloaded PDF locally and confirm all nine sections, commencement table, limitations, and disclaimer are present and no source values appear.
+
+If the user cannot watch live, leave this gate unmet; do not substitute a screenshot-only check. Do not start a shared server, deploy, push, open a PR, merge, change image pins, or touch `infra/` without separate explicit approval.
+
+- [ ] **Step 7: Fresh-context review and final commit**
+
+Dispatch a fresh-context general subagent to review only the Phase E diff against the agreed Phase D HEAD. Instruct it not to modify files. Require it to check:
+
+- attestation writes are org/repo-scoped, owner/admin-only, audited, and expiry-aware;
+- attestation keys come from the validated v2 pack, not hard-coded control IDs;
+- code evidence wins; attestations never become evidence, never raise coverage, and never lift a grade above the coverage cap;
+- `UNKNOWN` and detector-unavailable paths never become `PASS`;
+- legacy v1 scores, reports, and renderer output are unchanged;
+- no source or file contents appear in DB writes, logs, API responses, exports, or PDFs;
+- no forbidden user-facing wording outside quoted disclaimers or CSS token names.
+
+Fix every Required finding with its own RED/GREEN step, rerun the full gate, then record the evidence in this plan and commit:
+
+```bash
+git add apps/web/e2e/phase-e-walkthrough.spec.ts apps/web/e2e/pdf-parity.spec.ts apps/web/server/utils/fixtures/reports.ts docs/superpowers/plans/2026-11-27-dpdp-evidence-backed-readiness-phase-e.md
+git commit -m "test(readiness): add Phase E walkthrough and exit gate"
+```
+
+- [ ] **Step 8: Handoff**
+
+Report the branch, commit list, exact gate output, review findings, and the user-observed walkthrough result. Ask explicitly before pushing the branch or opening PR `feat/dpdp-readiness-phase-e`. Do not merge, deploy, or change `infra/` in this phase.
+
+---
+
+## Final review checklist (agent before handoff)
+
+- [ ] Every task has `Files`, `Consumes`/`Produces` interfaces, a failing test, a RED command with expected output, minimal code, a GREEN command with expected output, a full-gate command, and a commit command.
+- [ ] No placeholder wording such as TBD, TODO, "implement later", "fill in details", "add appropriate validation", "write tests for the above", or "similar to Task N".
+- [ ] Global Constraints are copied verbatim and include readiness-only wording, forbidden-term rule, no source retention, `UNKNOWN` exclusion, deterministic versioned scoring, attestation limits, fixture-only inputs, no unapproved push/PR/merge/deploy, TDD, and per-phase branch/PR.
+- [ ] Forbidden terms occur only in quoted disclaimers, CSS token names, or the lint rule definitions that reject them.
+- [ ] The plan touches only this file; no source, schema, package, or infra file was modified while writing the plan.
+- [ ] Phase E consumes explicit interfaces rather than assuming undocumented Phase C/D behavior.
+
+## Definition of done (execution criteria, not yet met)
+
+- [ ] Tasks 1–16 GREEN with recorded RED/GREEN evidence.
+- [ ] `pnpm lint && pnpm typecheck && pnpm test`, `pnpm --filter @dpdpa/web lint:language`, `pnpm --filter @dpdpa/rule-packs test`, and `pnpm test:e2e` all green; `git diff --check` clean.
+- [ ] v2 pack validates with mapped attestation keys; v1 pack, `scoring.yaml`, legacy scores, and v1 report bytes unchanged.
+- [ ] Attestation writes are scoped, audited, expiry-aware, owner/admin-only, and trigger deterministic rescoring of completed v2 scans.
+- [ ] Five new pages, Rules detector explanations, scan-detail tiles, v2 reports, SARIF 2.1.0, and Markdown exports work against guarded fixtures.
+- [ ] Language lint covers UI, report, export, and rule-pack messages with narrowly scoped exemptions.
+- [ ] Fresh-context review found no Required defects; user watched the Playwright walkthrough and verified the PDF.
+- [ ] No push, PR, merge, deploy, image-pin change, or `infra/` change without explicit approval.

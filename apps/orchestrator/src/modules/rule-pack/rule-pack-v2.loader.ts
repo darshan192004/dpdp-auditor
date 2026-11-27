@@ -4,17 +4,20 @@ import { join, relative, sep } from 'node:path';
 import { parse } from 'yaml';
 import {
   DPDPA_PACK_V2_VERSION,
+  commencementFileSchema,
   controlsFileV2Schema,
   detectorsFileV2Schema,
   mappingsFileV2Schema,
   packManifestV2Schema,
   validatePackV2,
   type ControlV2,
+  type DetectorV2,
   type PackFileV2,
 } from '@dpdpa/contracts';
 import { RulePackError, type InventoryRule, type LoadedRulePack } from './rule-pack.loader.js';
 import {
   scoringFileSchema,
+  type Control,
   type DetectorName,
   type Mapping,
   type Predicate,
@@ -35,8 +38,19 @@ export class RulePackV2Error extends RulePackError {
   }
 }
 
-export type LoadedRulePackV2 = LoadedRulePack & {
+type ReadinessControl = Control & Omit<ControlV2, 'appliesWhen'>;
+
+export type LoadedRulePackV2 = Omit<LoadedRulePack, 'controls' | 'controlsByCode'> & {
+  controls: ReadinessControl[];
+  controlsByCode: Map<string, ReadinessControl>;
   attestationsByKey: Map<string, ControlV2[]>;
+  detectors: DetectorV2[];
+  commencement: Array<{
+    provision: string;
+    effectiveFrom: string;
+    sourceUrl: string;
+    verifiedOn: string;
+  }>;
 };
 
 /** Loads the checksummed v2 pack and adapts it to the Phase A scorer shape. */
@@ -77,7 +91,8 @@ export async function loadRulePackV2(
 
   const byPath = new Map(files.map((file) => [file.path, file.value]));
   const controlsFile = controlsFileV2Schema.parse(byPath.get('controls.yaml'));
-  detectorsFileV2Schema.parse(byPath.get('detectors.yaml'));
+  const detectors = detectorsFileV2Schema.parse(byPath.get('detectors.yaml')).detectors;
+  const commencement = commencementFileSchema.parse(byPath.get('commencement.yaml')).entries;
   const mappingFiles = files
     .filter((file) => file.path.startsWith('mappings/') && file.path.endsWith('.yaml'))
     .map((file) => mappingsFileV2Schema.parse(file.value));
@@ -147,6 +162,8 @@ export async function loadRulePackV2(
     controls,
     controlsByCode: new Map(controls.map((control) => [control.code, control])),
     attestationsByKey,
+    detectors,
+    commencement,
     mappings,
     suppressions: [],
     sectionWeights: legacy.sectionWeights,
@@ -155,7 +172,7 @@ export async function loadRulePackV2(
   };
 }
 
-function toControl(control: ControlV2) {
+function toControl(control: ControlV2): ReadinessControl {
   const rules = [...control.violationRules, ...control.absenceRules, ...control.positiveRules];
   return {
     code: control.code,
@@ -171,6 +188,16 @@ function toControl(control: ControlV2) {
     appliesWhen: toPredicate(control.appliesWhen),
     remediation: control.remediationKey.replaceAll('-', ' '),
     tags: [control.evidenceMode],
+    evidenceMode: control.evidenceMode,
+    attestationKey: control.attestationKey,
+    violationRules: control.violationRules,
+    absenceRules: control.absenceRules,
+    positiveRules: control.positiveRules,
+    partialCredit: control.partialCredit,
+    remediationKey: control.remediationKey,
+    legalRefs: control.legalRefs,
+    actRef: control.actRef,
+    ruleRef: control.ruleRef,
   };
 }
 
