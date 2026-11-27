@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { redactedSinks } from '../src/modules/scoring/redacted-sinks.js';
-import { canaryMarker, fixtureDirs, runFixture } from './helpers/phase-f-fixture.js';
+import { fixtureDirs, hostileSinkInputs, runFixture } from './helpers/phase-f-fixture.js';
 
 const root = fileURLToPath(new URL('../../..', import.meta.url));
 
@@ -11,18 +11,11 @@ describe('Phase F canary containment (offline sinks)', () => {
   it('never emits a fixture canary into DB rows, reports, logs, callbacks, or API fields', async () => {
     for (const dir of fixtureDirs()) {
       const run = await runFixture(dir);
-      const marker = canaryMarker(dir);
-      const sinks = redactedSinks({
-        controlResults: run.evaluation.results,
-        findings: run.findings,
-        score: run.scored,
-        verdictCounts: run.scored.verdictCounts,
-        unknownControls: run.scored.unknownControls,
-        detectorStatuses: run.detectorStatuses,
-        evidenceCoverage: run.scored.evidenceCoverage,
-      });
+      const hostile = hostileSinkInputs(dir, run);
+      expect(hostile.markerPresentInHostileFields).toBe(true);
+      const sinks = redactedSinks(hostile.input);
       for (const [name, text] of Object.entries(sinks)) {
-        expect(text.includes(marker), `${dir}: canary leaked into ${name}`).toBe(false);
+        expect(text.includes(hostile.marker), `${dir}: canary leaked into ${name}`).toBe(false);
       }
     }
   });

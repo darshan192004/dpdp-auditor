@@ -9,9 +9,12 @@ import {
   buildDetectorStatuses,
   evaluateControls,
   type ControlEvaluation,
+  type ControlResultLike,
   type DetectorStatus,
   type EvidenceLike,
+  type EvidenceReferenceLike,
 } from '../../src/modules/scoring/control-evaluator.js';
+import type { RedactedSinkInput } from '../../src/modules/scoring/redacted-sinks.js';
 import { scoreScanV2, type ScoreResultV2 } from '../../src/modules/scoring/scoring.v2.js';
 
 export const ROOT = fileURLToPath(new URL('../../../../', import.meta.url));
@@ -89,6 +92,86 @@ export function syntheticFindings(dir: string, manifest: GoldenManifest): Eviden
     confidence: expected.confidence,
     status: 'open' as const,
   }));
+}
+
+type HostileEvidence = EvidenceLike & {
+  rawSource: string;
+  rawScannerOutput: string;
+  matchedValue: string;
+};
+
+type HostileEvidenceReference = EvidenceReferenceLike & {
+  rawSource: string;
+  matchedValue: string;
+};
+
+type HostileControlResult = ControlResultLike & {
+  rawNotes: string;
+  evidence: HostileEvidenceReference[];
+};
+
+type HostileScore = ScoreResultV2 & { rawNotes: string };
+
+export interface HostileSinkInputs {
+  marker: string;
+  markerPresentInHostileFields: boolean;
+  input: RedactedSinkInput;
+}
+
+/**
+ * Deliberately places a fixture canary in unallowlisted fields. Sinks must
+ * serialize only their allowlisted representations, so the marker must be
+ * present here and absent from every sink output.
+ */
+export function hostileSinkInputs(dir: string, run: FixtureRun): HostileSinkInputs {
+  const marker = canaryMarker(dir);
+  const findings: HostileEvidence[] = run.findings.map((finding) => ({
+    ...finding,
+    rawSource: `${marker} source excerpt`,
+    rawScannerOutput: `${marker} raw scanner output`,
+    matchedValue: marker,
+  }));
+  const controlResults: HostileControlResult[] = run.evaluation.results.map(
+    (result): HostileControlResult => ({
+      ...result,
+      rawNotes: `${marker} internal note`,
+      evidence: result.evidence.map((item): HostileEvidenceReference => ({
+        ...item,
+        rawSource: `${marker} evidence excerpt`,
+        matchedValue: marker,
+      })),
+    }),
+  );
+  const score: HostileScore = { ...run.scored, rawNotes: `${marker} internal note` };
+  const markerPresentInHostileFields =
+    findings.every(
+      (finding) =>
+        finding.rawSource.includes(marker) &&
+        finding.rawScannerOutput.includes(marker) &&
+        finding.matchedValue.includes(marker),
+    ) &&
+    controlResults.every(
+      (result) =>
+        result.rawNotes.includes(marker) &&
+        result.evidence.every(
+          (item: HostileEvidenceReference) =>
+            item.rawSource.includes(marker) && item.matchedValue.includes(marker),
+        ),
+    ) &&
+    score.rawNotes.includes(marker);
+  return {
+    marker,
+    markerPresentInHostileFields,
+    input: {
+      controlResults,
+      findings,
+      score,
+      verdictCounts: run.scored.verdictCounts,
+      unknownControls: run.scored.unknownControls,
+      detectorStatuses: run.detectorStatuses,
+      evidenceCoverage: run.scored.evidenceCoverage,
+    },
+  };
 }
 
 export async function runFixture(dir: string): Promise<FixtureRun> {

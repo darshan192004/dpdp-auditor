@@ -21,6 +21,10 @@ interface CanonicalResult {
   evidence: CanonicalEvidence[];
 }
 
+function compareBytes(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 /**
  * Byte-stable serialization of control_results for CI determinism gates.
  * Volatile fields (timestamps, generated UUIDs, raw source) are not part of
@@ -46,8 +50,8 @@ export function canonicalControlResultsBytes(results: readonly ControlResultLike
           lineEnd: item.lineEnd ?? null,
           fingerprint: item.fingerprint ?? null,
         }))
-        .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
+        .sort((a, b) => compareBytes(JSON.stringify(a), JSON.stringify(b))),
     }))
-    .sort((a, b) => a.controlCode.localeCompare(b.controlCode));
+    .sort((a, b) => compareBytes(a.controlCode, b.controlCode));
   return JSON.stringify(canonical);
 }
