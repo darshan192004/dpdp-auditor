@@ -537,7 +537,7 @@ git commit -m "feat(db): persist readiness control results"
 - Consumes: `Control`, `Mapping`, `Confidence`, `Severity`, `Scanner` from `../rule-pack/rule-pack.schemas.js`; `RepoFacts`, `isApplicable` from `./applicability.js`; `FindingStatus` from `./mapping.resolver.js`.
 - Produces: `evaluateControls(input: ControlEvaluatorInput): ControlEvaluation`; `ControlResultLike`; `EvidenceLike`; `ControlEvidence = EvidenceLike`; `EvidenceReferenceLike`; `DetectorStatus`; `buildDetectorStatuses(coverage: Record<string,string>)`.
 
-- [ ] **Step 1: Write the failing evaluator tests**
+- [x] **Step 1: Write the failing evaluator tests**
 
 ```ts
 // apps/orchestrator/test/control-evaluator.test.ts
@@ -674,12 +674,12 @@ describe('evaluateControls', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `pnpm --filter @dpdpa/orchestrator test -- control-evaluator.test.ts`  
 Expected: FAIL — module missing.
 
-- [ ] **Step 3: Implement the evaluator**
+- [x] **Step 3: Implement the evaluator**
 
 ```ts
 // apps/orchestrator/src/modules/scoring/control-evaluator.ts
@@ -937,12 +937,12 @@ function toEvidenceReference(finding: EvidenceLike): EvidenceReferenceLike {
 }
 ```
 
-- [ ] **Step 4: Run focused tests**
+- [x] **Step 4: Run focused tests**
 
 Run: `pnpm --filter @dpdpa/orchestrator test -- control-evaluator.test.ts`  
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/orchestrator/src/modules/scoring/control-evaluator.ts apps/orchestrator/test/control-evaluator.test.ts
