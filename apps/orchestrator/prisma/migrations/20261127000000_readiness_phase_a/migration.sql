@@ -55,4 +55,4 @@ CREATE TRIGGER trg_control_results_updated
 ALTER TABLE control_results ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY tenant_isolation_control_results ON control_results
-  USING (org_id = current_setting('app.current_org', true)::uuid);
+  USING (org_id = NULLIF(current_setting('app.current_org', true), '')::uuid);
