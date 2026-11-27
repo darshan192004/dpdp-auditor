@@ -1,3 +1,5 @@
+import type { AssessmentSummary } from '@dpdpa/contracts';
+
 import { FINDING_SCANNERS, type FindingScanner } from './findings';
 
 /**
@@ -60,6 +62,8 @@ export interface ScanDetail {
   scannerVersions: Record<string, string>;
   rulePackVersion: string | null;
   scoringVersion: string | null;
+  /** Present only for scoring v2; legacy scans keep their historical badge. */
+  assessment: AssessmentSummary | null;
   error: { code: string; message: string | null } | null;
   timestamps: {
     queuedAt: string;
@@ -122,21 +126,22 @@ export const SECTION_LABELS: Record<string, string> = {
   '16': 'Cross-border transfer',
 };
 
-export type SectionStatus = 'not_assessed' | 'compliant' | 'partial' | 'non_compliant';
+export type SectionStatus =
+  'not_assessed' | 'safeguard_evidence' | 'partial_evidence' | 'gap_evidence';
 
 export const SECTION_STATUS_LABELS: Record<SectionStatus, string> = {
   not_assessed: 'Not assessed by code',
-  compliant: 'Compliant',
-  partial: 'Partial',
-  non_compliant: 'Non-compliant',
+  safeguard_evidence: 'Evidence of a safeguard',
+  partial_evidence: 'Partial evidence',
+  gap_evidence: 'Evidence of a gap',
 };
 
 /** Thresholds match the worked examples in docs/design.md §5.2 (100/85/68.2). */
 export function sectionStatus(score: number | null): SectionStatus {
   if (score === null) return 'not_assessed';
-  if (score >= 90) return 'compliant';
-  if (score >= 75) return 'partial';
-  return 'non_compliant';
+  if (score >= 90) return 'safeguard_evidence';
+  if (score >= 75) return 'partial_evidence';
+  return 'gap_evidence';
 }
 
 export interface ScanSectionRow {

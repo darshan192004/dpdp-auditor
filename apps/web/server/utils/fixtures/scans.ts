@@ -56,6 +56,7 @@ const FULL: ScanDetail = {
   scannerVersions: { semgrep: '1.95.0', checkov: '3.2.0', gitleaks: '8.21.0' },
   rulePackVersion: '2026.10.1',
   scoringVersion: '1.0.0',
+  assessment: null,
   error: null,
   timestamps: {
     queuedAt: '2026-11-04T09:31:22.481Z',
@@ -96,6 +97,7 @@ const PARTIAL: ScanDetail = {
   scannerVersions: { semgrep: '1.95.0', checkov: '3.2.0', gitleaks: '8.21.0' },
   rulePackVersion: '2026.10.1',
   scoringVersion: '1.0.0',
+  assessment: null,
   error: null,
   timestamps: {
     queuedAt: '2026-11-06T08:02:11.004Z',
@@ -125,6 +127,7 @@ const RUNNING: ScanDetail = {
   scannerVersions: { semgrep: '1.95.0', checkov: '3.2.0', gitleaks: '8.21.0' },
   rulePackVersion: '2026.10.1',
   scoringVersion: null,
+  assessment: null,
   error: null,
   timestamps: {
     queuedAt: '2026-11-07T14:20:05.118Z',

@@ -1,0 +1,11 @@
+name: fx-silent-app
+languages:
+  - python
+scanners:
+  - semgrep
+  - checkov
+  - gitleaks
+expectedFindings: []
+expectedCoverage: full
+tolerances:
+  extraFindings: 0

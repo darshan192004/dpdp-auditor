@@ -14,17 +14,18 @@ const props = defineProps<{
 }>();
 
 const STATUS_CLASSES: Record<SectionStatus, string> = {
-  compliant: 'bg-status-compliant-bg text-status-compliant-text border-status-compliant-border',
-  partial: 'bg-status-partial-bg text-status-partial-text border-status-partial-border',
-  non_compliant:
+  safeguard_evidence:
+    'bg-status-compliant-bg text-status-compliant-text border-status-compliant-border',
+  partial_evidence: 'bg-status-partial-bg text-status-partial-text border-status-partial-border',
+  gap_evidence:
     'bg-status-noncompliant-bg text-status-noncompliant-text border-status-noncompliant-border',
   not_assessed: 'bg-status-na-bg text-status-na-text border-status-na-border',
 };
 
 const BAR_CLASSES: Record<SectionStatus, string> = {
-  compliant: 'bg-status-compliant-text',
-  partial: 'bg-status-partial-text',
-  non_compliant: 'bg-status-noncompliant-text',
+  safeguard_evidence: 'bg-status-compliant-text',
+  partial_evidence: 'bg-status-partial-text',
+  gap_evidence: 'bg-status-noncompliant-text',
   not_assessed: 'bg-transparent',
 };
 

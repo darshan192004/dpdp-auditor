@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { DETECTOR_STATUSES, type AssessmentSummary, type DetectorStatus } from '@dpdpa/contracts';
 import {
   Prisma,
   type Organization,
@@ -18,7 +19,9 @@ import { EmailService } from '../reports/email.service.js';
 import { RepoResolverService } from '../repos/repo-resolver.service.js';
 import { RepositoriesRepository } from '../repos/repositories.repository.js';
 import { factsFrom } from '../scoring/applicability.js';
+import { isScoringV2 } from '../scoring/scoring.engine.js';
 import { ScanScoringService } from '../scoring/scan-scoring.service.js';
+import { assessmentEventFields } from '../scoring/assessment-fields.js';
 import {
   ACTIVE_SCAN_STATUSES,
   cancelScanSchema,
@@ -363,6 +366,11 @@ export class ScansService {
           coverageStatus: scored.coverage,
           rulePackVersion: scored.rulePackVersion,
           scoringVersion: scored.scoringVersion,
+          evidenceCoverage:
+            scored.evidenceCoverage === null ? null : new Prisma.Decimal(scored.evidenceCoverage),
+          verdictCounts: scored.verdictCounts,
+          unknownControls: scored.unknownControls,
+          gradeWithheldReason: scored.gradeWithheldReason,
           completedAt,
           durationMs: completedAt.getTime() - (scan.startedAt ?? completedAt).getTime(),
         },
@@ -430,6 +438,7 @@ export class ScansService {
           info: result.counts.info,
           total: result.counts.total,
         },
+        ...assessmentEventFields(result),
       };
       const original = {
         score: scan.score === null ? null : Number(scan.score),
@@ -632,6 +641,44 @@ export function scannerEventType(status: string): string {
 
 type ScanWithRepository = Scan & { repository: Repository };
 
+const DETECTOR_STATUS_VALUES: ReadonlySet<string> = new Set(DETECTOR_STATUSES);
+
+function jsonObject(value: Prisma.JsonValue): Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+/** v2 evidence summary only; legacy scans keep their historical badge alone. */
+function toAssessment(scan: ScanWithRepository): AssessmentSummary | null {
+  if (!isScoringV2(scan.scoringVersion)) return null;
+
+  const verdictCounts = jsonObject(scan.verdictCounts);
+  const failCount = verdictCounts.FAIL;
+  const reason = scan.gradeWithheldReason;
+
+  return {
+    score: scan.score === null ? null : Number(scan.score),
+    evidenceCoverage: scan.evidenceCoverage === null ? null : Number(scan.evidenceCoverage),
+    openGaps: typeof failCount === 'number' && Number.isFinite(failCount) ? failCount : 0,
+    verdictCounts: verdictCounts as AssessmentSummary['verdictCounts'],
+    unknownControls: Array.isArray(scan.unknownControls)
+      ? scan.unknownControls.filter((code): code is string => typeof code === 'string')
+      : [],
+    detectorStatuses: Object.fromEntries(
+      Object.entries(jsonObject(scan.coverage)).map(([name, status]) => [
+        name,
+        typeof status === 'string' && DETECTOR_STATUS_VALUES.has(status)
+          ? (status as DetectorStatus)
+          : 'skipped',
+      ]),
+    ) as AssessmentSummary['detectorStatuses'],
+    gradeWithheldReason:
+      reason === 'partial_coverage' || reason === 'insufficient_evidence' ? reason : null,
+    consentGatingRatio: null,
+  };
+}
+
 function toSummary(scan: ScanWithRepository) {
   return {
     id: scan.id,
@@ -666,6 +713,7 @@ function toDetail(scan: ScanWithRepository, previousScore: number | null) {
     scannerVersions: scan.scannerVersions,
     rulePackVersion: scan.rulePackVersion,
     scoringVersion: scan.scoringVersion,
+    assessment: toAssessment(scan),
     error: scan.errorCode ? { code: scan.errorCode, message: scan.errorMessage } : null,
     timestamps: {
       queuedAt: scan.queuedAt,

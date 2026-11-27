@@ -221,6 +221,12 @@ describe('renderReportPdf (real PDF rendering)', () => {
     expect(raw).toContain('Not assessed');
   });
 
+  it('uses readiness-only section status wording', async () => {
+    const raw = extractText(await pdf());
+    expect(raw).toContain('Partial evidence');
+    expect(raw.toLowerCase()).not.toContain('compliant');
+  });
+
   it('writes a generated sample when RUN_PDF_SAMPLE is set', async () => {
     if (!process.env.RUN_PDF_SAMPLE) return;
     const buffer = await pdf();

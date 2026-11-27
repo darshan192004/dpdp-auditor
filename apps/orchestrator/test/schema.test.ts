@@ -4,10 +4,10 @@ import { describe, expect, it } from 'vitest';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const schema = readFileSync(`${root}prisma/schema.prisma`, 'utf8');
-const migration = readFileSync(
-  `${root}prisma/migrations/20261110000000_init/migration.sql`,
-  'utf8',
-);
+const migration = [
+  readFileSync(`${root}prisma/migrations/20261110000000_init/migration.sql`, 'utf8'),
+  readFileSync(`${root}prisma/migrations/20261127000000_readiness_phase_a/migration.sql`, 'utf8'),
+].join('\n');
 
 const ENUMS: Record<string, string[]> = {
   org_plan: ['free', 'starter', 'growth', 'enterprise'],
@@ -29,6 +29,17 @@ const ENUMS: Record<string, string[]> = {
   scanner_status: ['pending', 'running', 'completed', 'failed', 'timed_out', 'skipped'],
   finding_severity: ['critical', 'high', 'medium', 'low', 'info'],
   finding_status: ['open', 'false_positive', 'accepted_risk', 'fixed', 'reopened'],
+  finding_kind: ['violation', 'missing_control', 'weak_control', 'positive', 'unverified'],
+  control_verdict: [
+    'PASS',
+    'FAIL',
+    'PARTIAL',
+    'UNKNOWN',
+    'NOT_APPLICABLE',
+    'MANUAL',
+    'ATTESTED_PASS',
+    'ATTESTED_FAIL',
+  ],
   mapping_confidence: ['direct', 'inferred', 'advisory'],
   report_status: ['queued', 'rendering', 'ready', 'failed', 'expired'],
   report_format: ['pdf'],
@@ -45,6 +56,7 @@ const TABLES = [
   'dpdpa_rules',
   'rule_mappings',
   'scanner_findings',
+  'control_results',
   'remediation_logs',
   'reports',
   'audit_logs',
@@ -83,5 +95,12 @@ describe('prisma schema mirrors docs/database.md', () => {
       expect(migration).toMatch(new RegExp(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`));
     }
     expect(migration).toContain('CREATE POLICY tenant_isolation_audit');
+    expect(migration).toContain('ALTER TABLE control_results ENABLE ROW LEVEL SECURITY');
+    expect(migration).toContain('CREATE POLICY tenant_isolation_control_results');
+    expect(migration).toContain('CREATE TRIGGER trg_control_results_updated');
+    expect(migration).toContain('control_id uuid NOT NULL REFERENCES dpdpa_rules(id)');
+    expect(migration).toContain('control_code text NOT NULL');
+    expect(migration).toContain('evidence_json jsonb');
+    expect(migration).toContain('UNIQUE (scan_id, control_id)');
   });
 });

@@ -55,12 +55,12 @@ describe('coverageFor (docs/api.md §3.2)', () => {
 
 describe('sectionStatus (docs/design.md §5.2)', () => {
   it('maps the design examples to statuses', () => {
-    expect(sectionStatus(100)).toBe('compliant');
-    expect(sectionStatus(90)).toBe('compliant');
-    expect(sectionStatus(89.9)).toBe('partial');
-    expect(sectionStatus(85)).toBe('partial');
-    expect(sectionStatus(75)).toBe('partial');
-    expect(sectionStatus(68.2)).toBe('non_compliant');
+    expect(sectionStatus(100)).toBe('safeguard_evidence');
+    expect(sectionStatus(90)).toBe('safeguard_evidence');
+    expect(sectionStatus(89.9)).toBe('partial_evidence');
+    expect(sectionStatus(85)).toBe('partial_evidence');
+    expect(sectionStatus(75)).toBe('partial_evidence');
+    expect(sectionStatus(68.2)).toBe('gap_evidence');
     expect(sectionStatus(null)).toBe('not_assessed');
   });
 });

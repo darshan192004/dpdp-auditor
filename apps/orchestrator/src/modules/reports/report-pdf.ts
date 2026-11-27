@@ -64,9 +64,9 @@ function shortSha(sha: string | null): string {
 
 function sectionStatus(value: number | null): string {
   if (value === null) return 'not assessed';
-  if (value >= 90) return 'compliant';
-  if (value >= 75) return 'partial';
-  return 'non-compliant';
+  if (value >= 90) return 'Evidence of a safeguard';
+  if (value >= 75) return 'Partial evidence';
+  return 'Evidence of a gap';
 }
 
 /** Small layout engine over PDFKit: tracks a cursor and paginates blocks. */

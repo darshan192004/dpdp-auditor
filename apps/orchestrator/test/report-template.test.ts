@@ -101,7 +101,14 @@ describe('renderReportHtml (P5-18)', () => {
     expect(notice).toBeGreaterThan(consent);
     expect(access).toBeGreaterThan(notice);
     expect(html).toContain('not assessed');
-    expect(html).toContain('non-compliant');
+    expect(html).toContain('Evidence of a gap');
+  });
+
+  it('uses readiness-only section status wording', () => {
+    const html = renderReportHtml(model());
+    expect(html).toContain('Partial evidence');
+    expect(html).toContain('Evidence of a gap');
+    expect(html.toLowerCase()).not.toContain('compliant');
   });
 
   it('labels unassessed sections and unmapped findings explicitly', () => {

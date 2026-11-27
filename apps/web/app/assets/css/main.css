@@ -103,6 +103,9 @@
   --motion-base: 180ms;
   --motion-slow: 260ms;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-enter-y: 10px;
+  --motion-hover-lift: -2px;
+  --motion-focus-ring: var(--color-brand-500);
   --color-overlay: rgb(0 0 0 / 0.6);
 }
 
@@ -219,6 +222,16 @@
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
+    }
+
+    .motion-enter,
+    .motion-hover,
+    .motion-scroll-reveal {
+      animation: none !important;
+      transition: none !important;
+      transform: none !important;
+      opacity: 1 !important;
+      filter: none !important;
     }
   }
 }

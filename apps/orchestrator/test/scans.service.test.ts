@@ -68,6 +68,10 @@ function scan(overrides: Partial<Scan> = {}): Scan {
     coverage: {},
     coverageStatus: null,
     facts: {},
+    evidenceCoverage: null,
+    verdictCounts: {},
+    unknownControls: [],
+    gradeWithheldReason: null,
     errorCode: null,
     errorMessage: null,
     idempotencyKey: null,
@@ -145,7 +149,20 @@ function make(options?: { scan?: Scan | null; repo?: Repository | null; org?: ty
       coverage: 'full',
       rulePackVersion: 'dpdpa-2026.10.6',
       scoringVersion: '1.0.0',
-      findings: { mapped: 0, unmapped: 0, new: 0, persistent: 0, reopened: 0, resolved: 0 },
+      evidenceCoverage: null,
+      verdictCounts: {},
+      unknownControls: [],
+      openGaps: 0,
+      gradeWithheldReason: null,
+      findings: {
+        mapped: 0,
+        unmapped: 0,
+        suppressed: 0,
+        new: 0,
+        persistent: 0,
+        reopened: 0,
+        resolved: 0,
+      },
     }),
     scorePersisted: vi.fn().mockResolvedValue({
       loaded: { pack: 'dpdpa-2026.10.6', scoringVersion: '1.0.0' },
@@ -411,6 +428,70 @@ describe('ScansService reads', () => {
       status: 'queued',
       timestamps: { queuedAt: scan().queuedAt },
       links: { events: `/api/v1/scan/${SCAN_ID}/events` },
+    });
+  });
+
+  it('exposes a v2 assessment with detector status fidelity', async () => {
+    const { service } = make({
+      scan: scan({
+        status: 'completed',
+        score: new Prisma.Decimal(0),
+        grade: null,
+        scoringVersion: 'scoring-2.0.0',
+        evidenceCoverage: new Prisma.Decimal(0.25),
+        verdictCounts: { UNKNOWN: 12 },
+        unknownControls: ['DPDPA-8.4-SECRET-01'],
+        coverage: {
+          semgrep: 'completed',
+          checkov: 'failed',
+          gitleaks: 'timed_out',
+          inventory: 'skipped',
+          extra: 'pending',
+        },
+        gradeWithheldReason: 'insufficient_evidence',
+      }),
+    });
+
+    await expect(service.detail(ORG_ID, SCAN_ID)).resolves.toMatchObject({
+      score: 0,
+      grade: null,
+      assessment: {
+        score: 0,
+        evidenceCoverage: 0.25,
+        openGaps: 0,
+        verdictCounts: { UNKNOWN: 12 },
+        unknownControls: ['DPDPA-8.4-SECRET-01'],
+        detectorStatuses: {
+          semgrep: 'completed',
+          checkov: 'failed',
+          gitleaks: 'timed_out',
+          inventory: 'skipped',
+          extra: 'skipped',
+        },
+        gradeWithheldReason: 'insufficient_evidence',
+        consentGatingRatio: null,
+      },
+    });
+  });
+
+  it('keeps legacy scans without an assessment even when evidence fields are present', async () => {
+    const { service } = make({
+      scan: scan({
+        status: 'completed',
+        score: new Prisma.Decimal(82.6),
+        grade: 'B',
+        scoringVersion: '1.0.0',
+        evidenceCoverage: new Prisma.Decimal(0.9),
+        verdictCounts: { UNKNOWN: 12 },
+        unknownControls: ['DPDPA-8.4-SECRET-01'],
+        gradeWithheldReason: 'partial_coverage',
+      }),
+    });
+
+    await expect(service.detail(ORG_ID, SCAN_ID)).resolves.toMatchObject({
+      score: 82.6,
+      grade: 'B',
+      assessment: null,
     });
   });
 
@@ -735,6 +816,45 @@ describe('ScansService.complete', () => {
     const { service } = make();
     await expect(service.complete(ORG_ID, SCAN_ID, { scanners: [] })).rejects.toThrow();
   });
+
+  it('stores the v2 assessment summary on scan completion', async () => {
+    const { service, scans, scoring } = make();
+    scoring.mapAndScore.mockResolvedValue({
+      score: null,
+      grade: null,
+      sectionScores: {},
+      counts: { critical: 1, high: 0, medium: 0, low: 0, info: 0, total: 1 },
+      coverage: 'full',
+      rulePackVersion: 'dpdpa-2026.10.6',
+      scoringVersion: 'scoring-2.0.0',
+      evidenceCoverage: 0,
+      verdictCounts: { UNKNOWN: 11, FAIL: 1 },
+      unknownControls: [],
+      openGaps: 1,
+      gradeWithheldReason: 'insufficient_evidence',
+      findings: {
+        mapped: 1,
+        unmapped: 0,
+        suppressed: 0,
+        new: 1,
+        persistent: 0,
+        reopened: 0,
+        resolved: 0,
+      },
+    });
+
+    await service.complete(ORG_ID, SCAN_ID, COMPLETION);
+
+    expect(scans.update).toHaveBeenCalledWith(
+      SCAN_ID,
+      expect.objectContaining({
+        scoringVersion: 'scoring-2.0.0',
+        evidenceCoverage: expect.any(Prisma.Decimal),
+        gradeWithheldReason: 'insufficient_evidence',
+      }),
+      expect.anything(),
+    );
+  });
 });
 
 describe('ScansService.rescore (P4-24)', () => {
@@ -800,6 +920,64 @@ describe('ScansService.rescore (P4-24)', () => {
       status: 'completed',
       derived: { score: 72.5, grade: 'C' },
     });
+  });
+
+  it('includes the v2 assessment summary in the derived rescore event', async () => {
+    const { service, scans, scoring, tx } = make({
+      scan: scan({
+        status: 'completed',
+        scoringVersion: 'scoring-2.0.0',
+        score: { toString: () => '90.00' } as unknown as Scan['score'],
+        grade: 'A',
+        coverage: { gitleaks: 'completed' },
+        coverageStatus: 'full',
+      }),
+    });
+    scoring.scorePersisted.mockResolvedValue({
+      loaded: { pack: 'dpdpa-2026.10.6', scoringVersion: 'scoring-2.0.0' },
+      result: {
+        score: null,
+        grade: null,
+        sectionScores: {},
+        counts: { critical: 0, high: 0, medium: 0, low: 0, info: 0, total: 0 },
+        coverage: 'full',
+        evidenceCoverage: 0,
+        verdictCounts: { UNKNOWN: 12 },
+        unknownControls: ['DPDPA-8.4-SECRET-01'],
+        openGaps: 0,
+        gradeWithheldReason: 'insufficient_evidence',
+      },
+    });
+
+    await service.rescore(ORG_ID, SCAN_ID);
+
+    expect(scans.update).not.toHaveBeenCalled();
+    expect(scans.appendEvent).toHaveBeenCalledWith(
+      SCAN_ID,
+      ORG_ID,
+      'score_recomputed',
+      {
+        original: {
+          score: 90,
+          grade: 'A',
+          sectionScores: {},
+          counts: {},
+        },
+        derived: {
+          score: null,
+          grade: null,
+          coverage: 'full',
+          sectionScores: {},
+          counts: { critical: 0, high: 0, medium: 0, low: 0, info: 0, total: 0 },
+          evidenceCoverage: 0,
+          verdictCounts: { UNKNOWN: 12 },
+          unknownControls: ['DPDPA-8.4-SECRET-01'],
+          openGaps: 0,
+          gradeWithheldReason: 'insufficient_evidence',
+        },
+      },
+      tx,
+    );
   });
 
   it('rejects a scan that has not completed', async () => {

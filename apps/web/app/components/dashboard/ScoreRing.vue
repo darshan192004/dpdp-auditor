@@ -7,12 +7,16 @@ const props = withDefaults(
     score: number | null;
     grade: ScanGrade | null;
     coverage: CoverageAssessment;
+    reason?: 'partial_coverage' | 'insufficient_evidence' | null;
     size?: 'sm' | 'lg';
   }>(),
-  { size: 'lg' },
+  { reason: null, size: 'lg' },
 );
 
-const shownGrade = computed(() => (props.coverage.state === 'full' ? props.grade : null));
+const shownGrade = computed(() => {
+  if (props.coverage.state === 'partial') return null;
+  return props.grade;
+});
 const circumference = 2 * Math.PI * 42;
 const dash = computed(() => {
   const value = Math.max(0, Math.min(100, props.score ?? 0));
@@ -45,6 +49,12 @@ const dash = computed(() => {
     <div class="min-w-0">
       <p class="text-ink-400 font-mono text-xs tracking-widest uppercase">DPDP score</p>
       <p v-if="shownGrade" class="mt-1 text-lg font-semibold">grade {{ shownGrade }}</p>
+      <p v-else-if="reason === 'insufficient_evidence'" class="text-ink-500 mt-1 text-sm">
+        Insufficient evidence — no letter
+      </p>
+      <p v-else-if="reason === 'partial_coverage'" class="text-ink-500 mt-1 text-sm">
+        Partial coverage — no letter
+      </p>
       <p v-else class="text-ink-500 mt-1 text-sm">grade withheld</p>
       <p class="text-ink-400 mt-1 text-xs">{{ coverage.state }} coverage</p>
       <p v-if="coverage.note" class="text-ink-500 mt-1 text-xs">{{ coverage.note }}</p>

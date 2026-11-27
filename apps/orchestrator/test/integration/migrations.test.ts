@@ -1,10 +1,35 @@
 import { afterAll, expect, it } from 'vitest';
 import { makeClient, describeDb } from './helpers/db.js';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const schema = readFileSync(`${root}prisma/schema.prisma`, 'utf8');
+const migrationsDir = join(root, 'prisma/migrations');
+
+/** Replay CREATE/DROP POLICY in migration order to get the final policy set. */
+function expectedPolicyNames(): string[] {
+  const names = new Set<string>();
+  const dirs = readdirSync(migrationsDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
+  for (const dir of dirs) {
+    const sql = readFileSync(join(migrationsDir, dir, 'migration.sql'), 'utf8')
+      .split('\n')
+      .filter((line) => !line.trimStart().startsWith('--'))
+      .join('\n');
+    for (const match of sql.matchAll(/^\s*(CREATE|DROP)\s+POLICY\s+(\w+)\s+ON\s+\w+/gim)) {
+      const action = match[1]?.toUpperCase();
+      const name = match[2];
+      if (!name) continue;
+      if (action === 'CREATE') names.add(name);
+      else if (action === 'DROP') names.delete(name);
+    }
+  }
+  return [...names].sort();
+}
 
 const TABLES = [
   'organizations',
@@ -72,16 +97,17 @@ describeDb('initial migration', () => {
 
     const policies = await prisma.$queryRaw<{ policyname: string; qual: string }[]>`
       SELECT policyname, qual FROM pg_policies WHERE schemaname = 'public'`;
-    expect(policies.length).toBe(5);
+    expect(policies.map((p) => p.policyname).sort()).toEqual(expectedPolicyNames());
     // The NULLIF guard keeps a spent org GUC ('' after a SET LOCAL transaction
     // ends) from raising 22P02 on pooled connections (20261111000001).
     // pg_policies deparse may render NULLIF as its CASE equivalent.
-    for (const p of policies) {
-      if (p.policyname.startsWith('tenant_isolation_')) {
-        const qual = p.qual.toLowerCase();
-        expect(qual.includes('nullif') || qual.includes('case when')).toBe(true);
-      }
-    }
+    const tenantPolicies = policies.filter((p) => p.policyname.startsWith('tenant_isolation_'));
+    expect(tenantPolicies.length).toBeGreaterThan(0);
+    const unguarded = tenantPolicies.filter((p) => {
+      const qual = p.qual.toLowerCase();
+      return !qual.includes('nullif') && !qual.includes('case when');
+    });
+    expect(unguarded.map((p) => p.policyname)).toEqual([]);
   });
 
   it('enum values in the database match schema.prisma exactly', async () => {
