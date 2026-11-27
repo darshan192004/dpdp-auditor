@@ -119,3 +119,27 @@ describe('tests/golden-repos fixtures', () => {
     });
   }
 });
+
+import { readinessVerdictSchema } from '../src/readiness';
+
+it('accepts bounded expected verdicts and rejects unknown control codes', () => {
+  const manifest = {
+    ...FULL_MANIFEST,
+    expectedVerdicts: [
+      {
+        controlCode: 'DPDPA-8.4-MON-01',
+        verdict: 'PASS',
+        reasonCode: 'positive_evidence',
+      },
+    ],
+  };
+
+  expect(goldenManifestSchema.parse(manifest).expectedVerdicts).toEqual(manifest.expectedVerdicts);
+  expect(readinessVerdictSchema.parse('UNKNOWN')).toBe('UNKNOWN');
+  expect(() =>
+    goldenManifestSchema.parse({
+      ...manifest,
+      expectedVerdicts: [{ controlCode: 'DP-6-01', verdict: 'PASS' }],
+    }),
+  ).toThrow();
+});

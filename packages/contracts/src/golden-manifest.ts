@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { CONTROL_CODE_PATTERN } from './fingerprint';
 import { FINDING_SEVERITIES } from './finding';
+import { readinessVerdictSchema } from './readiness';
 
 /** Confidence labels per rules.md §10. */
 export const CONFIDENCE_LABELS = ['direct', 'inferred', 'advisory'] as const;
@@ -32,6 +33,15 @@ export const expectedFindingSchema = z
     }
   });
 
+export const expectedVerdictSchema = z
+  .object({
+    controlCode: z.string().regex(CONTROL_CODE_PATTERN),
+    verdict: readinessVerdictSchema,
+    reasonCode: z.string().min(1).max(64).optional(),
+  })
+  .strict();
+export type ExpectedVerdict = z.infer<typeof expectedVerdictSchema>;
+
 /**
  * Golden-repo manifest schema — read by Phase 4's golden runner (P4-12).
  * Every `tests/golden-repos/<dir>/manifest.yaml` must parse against this schema.
@@ -43,6 +53,7 @@ export const goldenManifestSchema = z.object({
   expectedFindings: z.array(expectedFindingSchema),
   expectedCoverage: z.enum(COVERAGE_LEVELS),
   expectedSectionScores: z.record(z.string(), z.number()).optional(),
+  expectedVerdicts: z.array(expectedVerdictSchema).min(1).max(32).optional(),
   tolerances: z.object({
     extraFindings: z.number().int().nonnegative(),
   }),
