@@ -87,6 +87,37 @@ describe('InternalScansController', () => {
     expect(scans.recordFindings).toHaveBeenCalledWith(ORG_ID, SCAN_ID, batch);
   });
 
+  it('serves the assessment on v2 detail and none on legacy detail', async () => {
+    const { controller, scans } = make();
+    const assessment = {
+      score: null,
+      evidenceCoverage: 0,
+      openGaps: 0,
+      verdictCounts: { UNKNOWN: 12 },
+      unknownControls: [],
+      detectorStatuses: { gitleaks: 'completed' },
+      gradeWithheldReason: 'insufficient_evidence',
+      consentGatingRatio: null,
+    };
+    scans.detail.mockResolvedValueOnce({
+      id: SCAN_ID,
+      scoringVersion: 'scoring-2.0.0',
+      assessment,
+    });
+    scans.detail.mockResolvedValueOnce({
+      id: SCAN_ID,
+      scoringVersion: '1.0.0',
+      assessment: null,
+    });
+
+    const v2 = await controller.detail(ORG_ID, SCAN_ID);
+    expect(v2.data.assessment).toEqual(assessment);
+    expect(v2.data.assessment).not.toBeNull();
+
+    const legacy = await controller.detail(ORG_ID, SCAN_ID);
+    expect(legacy.data.assessment).toBeNull();
+  });
+
   it('tolerates a missing cancel body', async () => {
     const { controller, scans } = make();
     await controller.cancel(ORG_ID, SCAN_ID, undefined as never);

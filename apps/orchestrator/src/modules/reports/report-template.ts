@@ -69,12 +69,12 @@ const SECTION_LABELS: Record<string, string> = {
 
 const SEVERITIES = ['critical', 'high', 'medium', 'low', 'info'] as const;
 
-/** Section score -> design.md A5.2 status words. */
+/** Section score -> readiness evidence wording (never a compliance verdict). */
 function sectionStatus(score: number | null): string {
   if (score === null) return 'not assessed';
-  if (score >= 90) return 'compliant';
-  if (score >= 75) return 'partial';
-  return 'non-compliant';
+  if (score >= 90) return 'Evidence of a safeguard';
+  if (score >= 75) return 'Partial evidence';
+  return 'Evidence of a gap';
 }
 
 function esc(value: unknown): string {

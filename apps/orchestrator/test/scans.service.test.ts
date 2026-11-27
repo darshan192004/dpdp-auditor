@@ -431,6 +431,70 @@ describe('ScansService reads', () => {
     });
   });
 
+  it('exposes a v2 assessment with detector status fidelity', async () => {
+    const { service } = make({
+      scan: scan({
+        status: 'completed',
+        score: new Prisma.Decimal(0),
+        grade: null,
+        scoringVersion: 'scoring-2.0.0',
+        evidenceCoverage: new Prisma.Decimal(0.25),
+        verdictCounts: { UNKNOWN: 12 },
+        unknownControls: ['DPDPA-8.4-SECRET-01'],
+        coverage: {
+          semgrep: 'completed',
+          checkov: 'failed',
+          gitleaks: 'timed_out',
+          inventory: 'skipped',
+          extra: 'pending',
+        },
+        gradeWithheldReason: 'insufficient_evidence',
+      }),
+    });
+
+    await expect(service.detail(ORG_ID, SCAN_ID)).resolves.toMatchObject({
+      score: 0,
+      grade: null,
+      assessment: {
+        score: 0,
+        evidenceCoverage: 0.25,
+        openGaps: 0,
+        verdictCounts: { UNKNOWN: 12 },
+        unknownControls: ['DPDPA-8.4-SECRET-01'],
+        detectorStatuses: {
+          semgrep: 'completed',
+          checkov: 'failed',
+          gitleaks: 'timed_out',
+          inventory: 'skipped',
+          extra: 'skipped',
+        },
+        gradeWithheldReason: 'insufficient_evidence',
+        consentGatingRatio: null,
+      },
+    });
+  });
+
+  it('keeps legacy scans without an assessment even when evidence fields are present', async () => {
+    const { service } = make({
+      scan: scan({
+        status: 'completed',
+        score: new Prisma.Decimal(82.6),
+        grade: 'B',
+        scoringVersion: '1.0.0',
+        evidenceCoverage: new Prisma.Decimal(0.9),
+        verdictCounts: { UNKNOWN: 12 },
+        unknownControls: ['DPDPA-8.4-SECRET-01'],
+        gradeWithheldReason: 'partial_coverage',
+      }),
+    });
+
+    await expect(service.detail(ORG_ID, SCAN_ID)).resolves.toMatchObject({
+      score: 82.6,
+      grade: 'B',
+      assessment: null,
+    });
+  });
+
   it('maps an error code into the error object', async () => {
     const { service } = make({
       scan: scan({ status: 'failed', errorCode: 'INTERNAL_ERROR', errorMessage: 'boom' }),

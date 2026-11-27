@@ -1769,12 +1769,16 @@ git commit -m "feat(scoring): persist v2 control results"
 - Modify: `apps/web/test/scan.test.ts`
 - Modify: `apps/web/test/scorecard.test.ts`
 - Create: `apps/web/test/readiness-language.test.ts`
+- Modify: `apps/web/app/components/new/NewScanDetail.vue` (minimal withheld-grade banner and grade tile)
+- Modify: `apps/web/app/components/scan/SectionBreakdown.vue` (status class keys)
+- Modify: `apps/orchestrator/test/internal-scans.controller.test.ts` (detail shape coverage)
+- Modify: `apps/orchestrator/test/scans.service.test.ts` (assessment derivation coverage)
 
 **Interfaces:**
 - Consumes: `AssessmentSummary` from `@dpdpa/contracts`; `ScanDetail` from `apps/web/shared/scan.ts`.
 - Produces: `ScanDetail.assessment`; readiness-only `SectionStatus` values `not_assessed | safeguard_evidence | partial_evidence | gap_evidence`.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Add to `apps/web/test/new-scan-screens.test.ts`:
 
@@ -1965,12 +1969,12 @@ Add to `apps/orchestrator/test/report-pdf.test.ts`:
   });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `pnpm --filter @dpdpa/orchestrator test -- internal-scans.controller.test.ts report-template.test.ts report-pdf.test.ts && pnpm --filter @dpdpa/web test -- new-scan-screens.test.ts readiness-language.test.ts scan.test.ts scorecard.test.ts`  
 Expected: FAIL — `assessment` missing and forbidden labels present.
 
-- [ ] **Step 3: Add assessment to backend detail**
+- [x] **Step 3: Add assessment to backend detail**
 
 In `toDetail` at `scans.service.ts:649-682`, add:
 
@@ -2001,7 +2005,7 @@ In `toDetail` at `scans.service.ts:649-682`, add:
 
 Import `isScoringV2` from `../scoring/scoring.engine.js`.
 
-- [ ] **Step 4: Replace section labels in `apps/web/shared/scan.ts`**
+- [x] **Step 4: Replace section labels in `apps/web/shared/scan.ts`**
 
 Replace lines 125-140 with:
 
@@ -2027,7 +2031,7 @@ export function sectionStatus(score: number | null): SectionStatus {
 }
 ```
 
-- [ ] **Step 5: Update `ScanDetail`**
+- [x] **Step 5: Update `ScanDetail`**
 
 Add to `ScanDetail` after `scoringVersion`:
 
@@ -2046,7 +2050,7 @@ Add to `ScanDetail` after `scoringVersion`:
 
 Add `assessment: null` to every fixture object in `apps/web/server/utils/fixtures/scans.ts` and to the existing test fixture in `new-scan-screens.test.ts`.
 
-- [ ] **Step 6: Update `SectionBreakdown.vue` status classes**
+- [x] **Step 6: Update `SectionBreakdown.vue` status classes**
 
 Replace `STATUS_CLASSES` and `BAR_CLASSES` with:
 
@@ -2068,7 +2072,7 @@ const BAR_CLASSES: Record<SectionStatus, string> = {
 
 The token names are existing CSS variables; only user-facing labels changed.
 
-- [ ] **Step 7: Replace report/export section status wording**
+- [x] **Step 7: Replace report/export section status wording**
 
 In both `apps/orchestrator/src/modules/reports/report-template.ts` and `apps/orchestrator/src/modules/reports/report-pdf.ts`, replace the section-status helper with:
 
@@ -2083,15 +2087,15 @@ function sectionStatus(score: number | null): string {
 
 Keep HTML escaping in `report-template.ts` and PDFKit text calls in `report-pdf.ts` unchanged. The report title, disclaimer, and v1 methodology text remain unchanged.
 
-- [ ] **Step 8: Run focused tests**
+- [x] **Step 8: Run focused tests**
 
 Run: `pnpm --filter @dpdpa/orchestrator test -- internal-scans.controller.test.ts report-template.test.ts report-pdf.test.ts && pnpm --filter @dpdpa/web test -- new-scan-screens.test.ts readiness-language.test.ts scan.test.ts scorecard.test.ts`  
 Expected: PASS.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
-git add apps/orchestrator/src/modules/scans/scans.service.ts apps/orchestrator/src/modules/reports/report-template.ts apps/orchestrator/src/modules/reports/report-pdf.ts apps/orchestrator/test/report-template.test.ts apps/orchestrator/test/report-pdf.test.ts apps/web/shared/scan.ts apps/web/server/utils/fixtures/scans.ts apps/web/test/new-scan-screens.test.ts apps/web/test/readiness-language.test.ts apps/web/test/scan.test.ts apps/web/test/scorecard.test.ts apps/web/app/components/scan/SectionBreakdown.vue
+git add apps/orchestrator/src/modules/scans/scans.service.ts apps/orchestrator/src/modules/reports/report-template.ts apps/orchestrator/src/modules/reports/report-pdf.ts apps/orchestrator/test/internal-scans.controller.test.ts apps/orchestrator/test/scans.service.test.ts apps/orchestrator/test/report-template.test.ts apps/orchestrator/test/report-pdf.test.ts apps/web/shared/scan.ts apps/web/server/utils/fixtures/scans.ts apps/web/app/components/new/NewScanDetail.vue apps/web/app/components/scan/SectionBreakdown.vue apps/web/test/new-scan-screens.test.ts apps/web/test/readiness-language.test.ts apps/web/test/scan.test.ts apps/web/test/scorecard.test.ts docs/superpowers/plans/2026-11-27-dpdp-evidence-backed-readiness-phase-a.md
 git commit -m "feat(api): expose assessment summary and readiness labels"
 ```
 

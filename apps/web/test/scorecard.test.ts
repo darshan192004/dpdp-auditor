@@ -124,8 +124,11 @@ describe('SectionBreakdown (docs/design.md §5.2)', () => {
 
     const row = wrapper.findAll('tbody tr')[0];
     expect(row?.text()).toContain('61.5');
-    expect(row?.text()).toContain('Non-compliant');
+    expect(row?.text()).toContain('Evidence of a gap');
     expect(row?.find('[aria-hidden="true"] span').attributes('style')).toContain('width: 61.5%');
+
+    const partial = wrapper.findAll('tbody tr').find((item) => item.text().includes('85.0'));
+    expect(partial?.text()).toContain('Partial evidence');
   });
 
   it('marks an unassessed section as muted and explains it', async () => {

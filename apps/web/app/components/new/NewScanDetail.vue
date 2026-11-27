@@ -36,6 +36,10 @@ const running = computed(() => props.scan !== null && !isTerminalStatus(props.sc
 const sections = computed(() =>
   props.scan === null ? [] : scanSections(props.scan.sectionScores),
 );
+const gradeWithheld = computed(() => {
+  const reason = props.scan?.assessment?.gradeWithheldReason;
+  return reason === 'partial_coverage' || reason === 'insufficient_evidence';
+});
 
 function confirmCancel(): void {
   emit('cancel', CANCEL_REASON);
@@ -111,6 +115,15 @@ async function openReport(): Promise<void> {
       </DashboardPageHeader>
 
       <div
+        v-if="gradeWithheld"
+        role="status"
+        data-testid="readiness-banner"
+        class="bg-risk-high-bg border-risk-high-border text-risk-high-text mb-4 rounded-[var(--radius-card)] border p-3 text-sm"
+      >
+        Insufficient evidence — no letter
+      </div>
+
+      <div
         v-show="running && confirming"
         role="alertdialog"
         aria-label="Confirm cancellation"
@@ -139,7 +152,13 @@ async function openReport(): Promise<void> {
       <section
         class="bg-surface grid gap-5 rounded-[var(--radius-card)] p-5 shadow-[var(--shadow-card)] lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]"
       >
-        <ScoreRing :score="scan.score" :grade="scan.grade" :coverage="coverage" />
+        <div>
+          <ScoreRing :score="scan.score" :grade="scan.grade" :coverage="coverage" />
+          <div v-if="gradeWithheld" data-testid="grade-tile" class="mt-3 pl-1">
+            <p class="text-ink-400 font-mono text-xs tracking-widest uppercase">Grade</p>
+            <p class="text-ink-900 text-lg font-semibold">No letter</p>
+          </div>
+        </div>
         <div>
           <CoverageBanner v-if="coverage.note" :note="coverage.note" />
           <ScoreCard
