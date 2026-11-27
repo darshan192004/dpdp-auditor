@@ -5038,7 +5038,7 @@ git commit -m "test(readiness): enforce cross-surface language lint"
 - Consumes: the five readiness pages, the Rules explainer, scan detail tiles, export BFF routes, and the existing PDF report flow.
 - Produces: a repeatable Playwright walkthrough over fixture data, a PDF download assertion, and a recorded human-observation exit gate before any push/PR/merge/deploy.
 
-- [ ] **Step 1: Write the failing Playwright walkthrough**
+- [x] **Step 1: Write the failing Playwright walkthrough**
 
 ```ts
 // apps/web/e2e/phase-e-walkthrough.spec.ts
@@ -5112,7 +5112,7 @@ Add this case to `apps/web/e2e/pdf-parity.spec.ts` inside the existing describe 
   });
 ```
 
-- [ ] **Step 2: Run the focused Playwright suite and confirm RED**
+- [x] **Step 2: Run the focused Playwright suite and confirm RED**
 
 ```bash
 pnpm --filter @dpdpa/web test:e2e -- phase-e-walkthrough.spec.ts pdf-parity.spec.ts
@@ -5129,7 +5129,7 @@ Received: "1.0.0"
 
 The walkthrough cases pass against the Task 7–14 fixtures; only the new v2 assertion fails because `fixtureReportViewModel` still returns a v1 report. Do not change a production route to satisfy this test.
 
-- [ ] **Step 3: Update only the guarded report fixture to v2**
+- [x] **Step 3: Update only the guarded report fixture to v2**
 
 ```ts
 // apps/web/server/utils/fixtures/reports.ts
@@ -5277,7 +5277,7 @@ export function fixtureReportViewModel(scan: ScanDetail) {
 
 Keep `FIXTURE_SCAN_ID`, `FIXTURE_REPORT_ID`, and `getFixtureScan` unchanged. This is a guarded fixture input only; do not change `apps/web/server/api/v1/report/pdf/[reportId]/view.get.ts` or any orchestrator route.
 
-- [ ] **Step 4: Run the focused Playwright suite and confirm GREEN**
+- [x] **Step 4: Run the focused Playwright suite and confirm GREEN**
 
 ```bash
 pnpm --filter @dpdpa/web test:e2e -- phase-e-walkthrough.spec.ts pdf-parity.spec.ts
@@ -5295,7 +5295,7 @@ Test Files  2 passed (2)
 Tests  8 passed (8)
 ```
 
-- [ ] **Step 5: Run the full Phase E gate**
+- [x] **Step 5: Run the full Phase E gate**
 
 ```bash
 pnpm lint && pnpm typecheck && pnpm test
@@ -5333,7 +5333,7 @@ Ask the user for explicit approval before starting any local server. With approv
 
 If the user cannot watch live, leave this gate unmet; do not substitute a screenshot-only check. Do not start a shared server, deploy, push, open a PR, merge, change image pins, or touch `infra/` without separate explicit approval.
 
-- [ ] **Step 7: Fresh-context review and final commit**
+- [x] **Step 7: Fresh-context review and final commit**
 
 Dispatch a fresh-context general subagent to review only the Phase E diff against the agreed Phase D HEAD. Instruct it not to modify files. Require it to check:
 
@@ -5357,6 +5357,32 @@ git commit -m "test(readiness): add Phase E walkthrough and exit gate"
 Report the branch, commit list, exact gate output, review findings, and the user-observed walkthrough result. Ask explicitly before pushing the branch or opening PR `feat/dpdp-readiness-phase-e`. Do not merge, deploy, or change `infra/` in this phase.
 
 ---
+
+
+### Phase E execution evidence (Tasks 10–16)
+
+Task 16 focused RED (`pnpm --filter @dpdpa/web exec playwright test e2e/phase-e-walkthrough.spec.ts e2e/pdf-parity.spec.ts`, exit 1):
+
+```text
+Error: expect(received).toBe(expected) // Object.is equality
+Expected: "scoring-2.0.0"
+Received: "1.0.0"
+1 failed
+  [chromium] › e2e/pdf-parity.spec.ts:48:3 › PDF parity (P5-23) › v2 report view model keeps attested verdicts out of evidence coverage
+7 passed (20.2s)
+```
+
+Task 16 focused GREEN (same command, exit 0):
+
+```text
+8 passed (21.3s)
+```
+
+Task 16 full gate (exit 0): `pnpm lint` clean; `pnpm typecheck` 11/11 Turbo tasks successful; `pnpm test` 12/12 Turbo tasks successful; `pnpm --filter @dpdpa/web lint:language` `lint:language: 0 forbidden phrases`; `pnpm --filter @dpdpa/rule-packs test` 0 failed / 0 skipped / 0 todo; `pnpm test:e2e` `87 passed (43.1s)`; `git diff --check` exit 0.
+
+Human-observed exit gate (Step 6) is **partially met and remains unchecked**. A local Nuxt dev server was started on `http://127.0.0.1:3000/` after explicit approval, the user was notified immediately before the live Playwright MCP walkthrough, and the server was stopped afterwards. Observed: all five readiness pages, the Rules detector explainer, scan-detail readiness links, export links, and the PDF export flow. The guarded attestations API exposed an unexpired record and a future expiry; the audit filter `actionContains=attestation` returned zero rows, and no owner/admin write control was visible in the fixture session. The scan-detail fixture is legacy v1, so the Attested statements / Detectors unavailable tiles and the withheld-letter state were not visible. The downloaded fixture PDF contained only placeholder fixture text; a real v2 PDF was generated locally from the production renderer, opened in the browser, and verified with `pdftotext`: 10 pages, all nine section titles, the commencement row, limitations, disclaimer, and zero matches for source-value patterns. Because the fixture surfaces do not expose every Step 6 item, no completion is claimed for this gate.
+
+Fresh-context review: `opencode run --title 'Phase E fresh-context review'` against base `76e78113861db5ec1848e83eefbe8063a8bc6d43` found **no Required findings**. Four non-blocking suggestions were recorded (shared owner/admin role constant, deterministic attestation selection ordering, configurable half-credit multiplier, detector/control reference sync note); no code changes were made from them.
 
 ## Final review checklist (agent before handoff)
 
