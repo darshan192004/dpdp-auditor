@@ -44,3 +44,43 @@ test('security header catalogue contains web-surface headers', async () => {
   }
   assert.ok(entries.size >= 4);
 });
+
+test('SDK catalogue contains personal-data SDK tokens', async () => {
+  const entries = await load('sdk_catalog.yaml');
+  for (const key of ['googleAnalytics', 'metaPixel', 'sentry']) {
+    assert.ok(entries.has(key), `missing SDK key ${key}`);
+  }
+  assert.ok(entries.size >= 3);
+});
+
+test('web ecosystem catalogue contains framework safeguards', async () => {
+  const entries = await load('ecosystem_patterns/web.yaml');
+  for (const key of ['express.helmet', 'next.middleware', 'vue.composition']) {
+    assert.ok(entries.has(key), `missing ecosystem key ${key}`);
+  }
+  assert.ok(entries.size >= 3);
+});
+
+test('India region catalogue contains approved region tokens', async () => {
+  const entries = await load('india-regions.yaml');
+  for (const key of ['ap-south-1', 'ap-south-2', 'in']) {
+    assert.ok(entries.has(key), `missing region key ${key}`);
+  }
+  assert.ok(entries.size >= 3);
+});
+
+test('field dictionary contains personal-data field tokens', async () => {
+  const entries = await load('field_dictionary.yaml');
+  for (const key of ['email', 'phone', 'aadhaar', 'pan', 'address', 'dob']) {
+    assert.ok(entries.has(key), `missing field key ${key}`);
+  }
+  assert.ok(entries.size >= 6);
+});
+
+test('mechanism catalogue contains safeguards and rights tokens', async () => {
+  const entries = await load('mechanism_catalog.yaml');
+  for (const key of ['consent_gate', 'erase_endpoint', 'grievance_form', 'audit_log']) {
+    assert.ok(entries.has(key), `missing mechanism key ${key}`);
+  }
+  assert.ok(entries.size >= 4);
+});

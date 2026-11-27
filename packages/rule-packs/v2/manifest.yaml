@@ -1,6 +1,6 @@
 version: 1
 pack: dpdpa-2026.11.0
-generatedAt: '2026-11-27T11:26:32.162Z'
+generatedAt: '2026-11-27T11:26:47.168Z'
 files:
   - path: cmp_catalog.yaml
     sha256: 0e8b9137b9b161e30099b71067f450e2bfcfcfafededa2079c84569cf8b6b3fc
@@ -13,19 +13,19 @@ files:
   - path: detectors.yaml
     sha256: f82175cb5091f8824da0b5e97df9a95c053dcf3b5e96f1aadf14368743ee339b
   - path: ecosystem_patterns/web.yaml
-    sha256: 2dd4d19c10bdbf79ddfaf7899a1e66cb029e18adb7284e88fd5c01e62ae375c7
+    sha256: ff1e11fbfe29becb58b8e5f75f25f241ed8bd67c71c2356a545adc542fbfbc29
   - path: field_dictionary.yaml
-    sha256: 198fc22188ef65ea606cfe418408a9b2a49ca63e29dfbc47ad3f0ac079d00a41
+    sha256: aa5777b373a1a8f7c95d6c89bfee362cad0f1f74fa6015b0a835303488d5c0d6
   - path: india-regions.yaml
-    sha256: 2dd4d19c10bdbf79ddfaf7899a1e66cb029e18adb7284e88fd5c01e62ae375c7
+    sha256: a2989dd8691e301ca40ccb9985805e5c49a44237ae3e09ac0a0b20e5d9edbcc2
   - path: mappings/inventory.yaml
     sha256: 3fde52e0f52fe3855f78858f42406a4558a69270d1e3d58ef692d4a3c4b22803
   - path: mechanism_catalog.yaml
-    sha256: 2dd4d19c10bdbf79ddfaf7899a1e66cb029e18adb7284e88fd5c01e62ae375c7
+    sha256: 6fa22525a9405e4012195ca462fd4892491f3caef6514632279783d3afc04244
   - path: penalties.yaml
     sha256: 2dd4d19c10bdbf79ddfaf7899a1e66cb029e18adb7284e88fd5c01e62ae375c7
   - path: sdk_catalog.yaml
-    sha256: 2dd4d19c10bdbf79ddfaf7899a1e66cb029e18adb7284e88fd5c01e62ae375c7
+    sha256: 75ada9a70bc8d998927887670bcbeb37a53dd55c93a889f1d13abe5a7146a904
   - path: security_headers.yaml
     sha256: 4d45c5a76f17abeccfcaa16e79f951c6c5710dc2be3519ece8ef803ab50b0235
   - path: templates/README.md

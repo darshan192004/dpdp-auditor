@@ -1,3 +1,9 @@
 version: 1
 pack: dpdpa-2026.11.0
-entries: []
+entries:
+  - key: googleAnalytics
+    label: Google Analytics browser SDK
+  - key: metaPixel
+    label: Meta Pixel browser SDK
+  - key: sentry
+    label: Sentry error-reporting SDK
