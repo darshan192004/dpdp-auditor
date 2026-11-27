@@ -224,9 +224,12 @@ describe('Phase B pack v2 contracts', () => {
   });
 
   it('reports invalid commencement data', () => {
-    const fixture = packFixture();
-    const commencement = fixture.files[2]!.value as { entries: Array<{ effectiveFrom: string }> };
-    commencement.entries[0]!.effectiveFrom = '15-11-2026';
+    const fixture = packFixture({
+      commencement: {
+        ...validCommencement,
+        entries: [{ ...validCommencement.entries[0], effectiveFrom: '15-11-2026' }],
+      },
+    });
     expect(validatePackV2(fixture).map((issue) => issue.code)).toContain('invalid_commencement');
   });
 
@@ -258,5 +261,156 @@ describe('Phase B pack v2 contracts', () => {
     const issues = validatePackV2(fixture);
     expect(issues.map((issue) => issue.code)).toContain('missing_legal_ref');
     expect(JSON.stringify(issues)).not.toContain('CANARY_RAW_CODE');
+  });
+
+  it('reports an invalid manifest without echoing its contents', () => {
+    const issues = validatePackV2({ ...packFixture(), manifest: null });
+    expect(issues).toEqual([
+      expect.objectContaining({ path: 'manifest.yaml', code: 'invalid_manifest' }),
+    ]);
+    expect(JSON.stringify(issues)).not.toContain('CANARY_MANIFEST');
+  });
+
+  it('reports files that are not declared in the manifest', () => {
+    const fixture = packFixture();
+    fixture.files.push({ path: 'extra.yaml', value: {}, sha256: 'e'.repeat(64) });
+    expect(validatePackV2(fixture).map((issue) => issue.code)).toContain('unknown_file');
+  });
+
+  it('reports manifest entries that have no matching file', () => {
+    const fixture = packFixture();
+    fixture.files = fixture.files.filter((file) => file.path !== 'commencement.yaml');
+    expect(validatePackV2(fixture).map((issue) => issue.code)).toContain('missing_file');
+  });
+
+  it('reports invalid detector definitions', () => {
+    const fixture = packFixture({ detector: { ...validDetector, id: 'BAD_ID' } });
+    expect(validatePackV2(fixture).map((issue) => issue.code)).toContain('invalid_schema');
+  });
+
+  it('reports an ISO-shaped but impossible commencement date', () => {
+    const fixture = packFixture({
+      commencement: {
+        ...validCommencement,
+        entries: [{ ...validCommencement.entries[0], effectiveFrom: '2026-13-45' }],
+      },
+    });
+    expect(validatePackV2(fixture).map((issue) => issue.code)).toContain('invalid_commencement');
+  });
+
+  it('accepts a mapping that references a declared detector', () => {
+    const fixture = packFixture({
+      mapping: {
+        version: 1,
+        pack: DPDPA_PACK_V2_VERSION,
+        mappings: [
+          {
+            detector: 'schema_scan',
+            control: 'DPDPA-8.4-SECRET-01',
+            confidence: 'inferred',
+            rationale: 'declared detector',
+          },
+        ],
+      },
+    });
+    expect(validatePackV2(fixture)).toEqual([]);
+  });
+
+  it('reports mapping references to undeclared detectors', () => {
+    const fixture = packFixture({
+      mapping: {
+        version: 1,
+        pack: DPDPA_PACK_V2_VERSION,
+        mappings: [
+          {
+            detector: 'ghost_detector',
+            control: 'DPDPA-8.4-SECRET-01',
+            confidence: 'inferred',
+            rationale: 'undeclared detector',
+          },
+        ],
+      },
+    });
+    expect(validatePackV2(fixture).map((issue) => issue.code)).toContain('orphan_detector');
+  });
+
+  it('accepts a checksum-bearing catalogue YAML file', () => {
+    const fixture = packFixture();
+    const catalogue = {
+      path: 'catalogs/remediation.yaml',
+      value: {
+        version: 1,
+        pack: DPDPA_PACK_V2_VERSION,
+        entries: [{ key: 'remove-hardcoded-secrets', label: 'Remove hardcoded secrets' }],
+      },
+      sha256: '1'.repeat(64),
+    };
+    fixture.files.push(catalogue);
+    const manifest = fixture.manifest as { files: Array<{ path: string; sha256: string }> };
+    manifest.files.push({ path: catalogue.path, sha256: catalogue.sha256 });
+    expect(validatePackV2(fixture)).toEqual([]);
+  });
+
+  it('reports file types that are not part of the v2 pack', () => {
+    const fixture = packFixture();
+    fixture.files.push({ path: 'notes.txt', value: 'text', sha256: '2'.repeat(64) });
+    const manifest = fixture.manifest as { files: Array<{ path: string; sha256: string }> };
+    manifest.files.push({ path: 'notes.txt', sha256: '2'.repeat(64) });
+    expect(validatePackV2(fixture).map((issue) => issue.code)).toContain('unknown_file');
+  });
+
+  it('accepts violation and positive rules referencing declared detectors', () => {
+    const fixture = packFixture({
+      control: {
+        ...validControl,
+        evidenceMode: 'violation',
+        violationRules: [
+          {
+            id: 'violation.secret',
+            detector: 'schema_scan',
+            provenance: { search: 'secret' },
+            confidence: 'inferred',
+          },
+        ],
+        positiveRules: [
+          {
+            id: 'positive.consent',
+            detector: 'schema_scan',
+            token: 'consent_gate',
+            confidence: 'inferred',
+          },
+        ],
+      },
+    });
+    expect(validatePackV2(fixture)).toEqual([]);
+  });
+
+  it('skips non-object and null control documents without echoing them', () => {
+    const nonObject = packFixture({ control: 'CANARY_RAW_ENTRY' });
+    const issues = validatePackV2(nonObject);
+    expect(issues.map((issue) => issue.code)).toContain('invalid_schema');
+    expect(JSON.stringify(issues)).not.toContain('CANARY_RAW_ENTRY');
+
+    const nullDocument = packFixture();
+    nullDocument.files[0]!.value = null;
+    expect(validatePackV2(nullDocument).map((issue) => issue.code)).toContain('invalid_schema');
+  });
+
+  it('sorts issues deterministically when path and code match', () => {
+    const fixture = packFixture({
+      control: {
+        ...validControl,
+        evidenceMode: 'absence',
+        absenceRules: [
+          { id: 'absence.one', detector: 'ghost_one', token: 'a', confidence: 'inferred' },
+          { id: 'absence.two', detector: 'ghost_two', token: 'b', confidence: 'inferred' },
+        ],
+      },
+    });
+    const orphanIssues = validatePackV2(fixture).filter(
+      (issue) => issue.code === 'orphan_detector',
+    );
+    expect(orphanIssues).toHaveLength(2);
+    expect(orphanIssues[0]!.message.localeCompare(orphanIssues[1]!.message)).toBeLessThanOrEqual(0);
   });
 });
