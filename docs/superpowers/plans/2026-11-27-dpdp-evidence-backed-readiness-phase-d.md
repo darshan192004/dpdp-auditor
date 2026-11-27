@@ -2065,3 +2065,13 @@ Report: branch name, commit SHAs, exact gate counts, fixture results, and the fr
 - [x] No canary, source content, matched value, secret value, or pilot data entered the pack, DB, callbacks, logs, or API responses.
 - [x] Fresh-context review has no Required defects.
 - [x] No push, PR creation, merge, deploy, image-pin change, or `infra/` change occurred without explicit user approval.
+- [x] The Phase D exit gate is tool-independent in Code CI: it statically verifies shipped scanner artifacts and wiring without requiring `semgrep` or `checkov` on PATH.
+
+## Post-merge CI hardening — tool-independent exit gate
+
+Root cause of PR #109 `Code CI` failure: the exit-gate test invoked `python3 tests/semgrep/check.py` and `python3 -m pytest apps/scan-runner/tests/test_custom_checkov_policies.py` directly. Code CI installs only pnpm/Node dependencies (`.github/workflows/ci.yml:41-79`), so `semgrep` is absent. Exact CI output: `FileNotFoundError: [Errno 2] No such file or directory: 'semgrep'`, `Test Files 1 failed | 89 passed (90)`, `Tests 1 failed | 795 passed (796)`.
+
+- RED reproduced locally with the normal PATH (no isolated venv): `pnpm --filter @dpdpa/orchestrator exec vitest run test/phase-d-exit-gate.test.ts` → `FileNotFoundError: [Errno 2] No such file or directory: 'semgrep'`, `Test Files 1 failed (1)`, `Tests 1 failed | 4 passed (5)`. Saved as `tool-independent-red.log`.
+- GREEN after replacing the two shell-outs with static artifact assertions: same focused command → `Test Files 1 passed (1)`, `Tests 5 passed (5)`. Saved as `tool-independent-green.log`.
+- Static assertions now cover: `semgrep==1.95.0` and `checkov==3.2.0` in `apps/scan-runner/src/scan_runner/versions.py`; matching pin comments in both custom rule files; the three custom Semgrep rule IDs; positive (`ruleid:`) and negative (`ok:`) fixture annotations for each; `tests/semgrep/check.py` referencing both configs and the `dpdpa.*` fixture glob, with all fixture files present; `ckv_dpdp_a_1` in the Checkov policy and test; the bad/good fixture expectations in `test_custom_checkov_policies.py`; and both golden fixtures with `main.tf` and `manifest.yaml`. All other exit-gate assertions are unchanged. No skip or tool-missing fallback was introduced.
+- Live Semgrep remains enforced by the dedicated SAST job (`.github/workflows/ci.yml:148-151`, `semgrep/semgrep:1.95.0`); this change does not duplicate it. Live Checkov remains a documented local verification command using the isolated venv: `PATH=/tmp/opencode/phase-d-venv/bin:$PATH PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python python3 -m pytest apps/scan-runner/tests/test_custom_checkov_policies.py -q -v`. No workflow, infra, image-pin, or scanner-pin file was changed.

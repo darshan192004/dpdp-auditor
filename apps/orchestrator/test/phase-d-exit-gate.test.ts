@@ -1,7 +1,6 @@
 // apps/orchestrator/test/phase-d-exit-gate.test.ts
 import { createHash } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import YAML from 'yaml';
@@ -61,19 +60,66 @@ describe('Phase D exit gate', () => {
     expect(pack.controls.length).toBeGreaterThanOrEqual(19);
   });
 
-  it('CMP GTM and header fixtures pass with pinned scanner rules', () => {
-    const semgrep = execFileSync('python3', ['tests/semgrep/check.py'], {
-      cwd: repo,
-      encoding: 'utf8',
-    });
-    expect(semgrep).toMatch(/^Semgrep fixtures passed /m);
-    const checkov = execFileSync(
-      'python3',
-      ['-m', 'pytest', 'apps/scan-runner/tests/test_custom_checkov_policies.py', '-q', '-v'],
-      { cwd: repo, encoding: 'utf8' },
+  it('CMP GTM and header scanner artifacts are statically wired to pinned rules', () => {
+    const readRepoText = (path: string): string =>
+      readFileSync(join(repo, ...path.split('/')), 'utf8');
+
+    const pins = readRepoText('apps/scan-runner/src/scan_runner/versions.py');
+    expect(pins).toMatch(/"semgrep": "1\.95\.0"/);
+    expect(pins).toMatch(/"checkov": "3\.2\.0"/);
+
+    const semgrepRulesPath = 'packages/rule-packs/custom/semgrep/dpdpa-v2-web.yaml';
+    const semgrepRulesRaw = readRepoText(semgrepRulesPath);
+    expect(semgrepRulesRaw).toMatch(/^# semgrep==1\.95\.0$/m);
+    const semgrepRules = YAML.parse(semgrepRulesRaw) as { rules: Array<{ id: string }> };
+    const ruleIds = [
+      'dpdpa.v2.cmp.consent-mode-disabled',
+      'dpdpa.v2.header.hsts-disabled',
+      'dpdpa.v2.cookie.missing-secure-flag',
+    ];
+    expect(semgrepRules.rules.map((rule) => rule.id)).toEqual(ruleIds);
+
+    const semgrepFixture = readRepoText('tests/semgrep/dpdpa.v2-web.js');
+    for (const id of ruleIds) {
+      expect(semgrepFixture).toContain(`ruleid: ${id}`);
+      expect(semgrepFixture).toContain(`ok: ${id}`);
+    }
+
+    const checkScript = readRepoText('tests/semgrep/check.py');
+    expect(checkScript).toContain('packages/rule-packs/semgrep/dpdpa.yaml');
+    expect(checkScript).toContain(semgrepRulesPath);
+    expect(checkScript).toContain('fixtures.glob("dpdpa.*")');
+    for (const name of [
+      'dpdpa.handlers.js',
+      'dpdpa.js',
+      'dpdpa.missing.md',
+      'dpdpa.py',
+      'dpdpa.reference.md',
+      'dpdpa.v2-web.js',
+    ]) {
+      expect(existsSync(join(repo, 'tests', 'semgrep', name))).toBe(true);
+    }
+
+    const checkovPolicy = readRepoText(
+      'packages/rule-packs/custom/checkov/dpdp_security_checks.py',
     );
-    expect(checkov).toMatch(/3 passed/);
-  }, 60_000);
+    expect(checkovPolicy).toMatch(/^# checkov==3\.2\.0$/m);
+    expect(checkovPolicy).toContain('id="ckv_dpdp_a_1"');
+
+    const checkovTest = readRepoText('apps/scan-runner/tests/test_custom_checkov_policies.py');
+    expect(checkovTest).toContain('CHECK_ID = "ckv_dpdp_a_1"');
+    expect(checkovTest).toMatch(
+      /assert CHECK_ID in _failed_ids\(ROOT \/ "tests\/golden-repos\/fx-cmp-header"\)/,
+    );
+    expect(checkovTest).toMatch(
+      /assert CHECK_ID not in _failed_ids\(ROOT \/ "tests\/golden-repos\/fx-gtm-web"\)/,
+    );
+    for (const fixtureName of ['fx-cmp-header', 'fx-gtm-web']) {
+      for (const file of ['main.tf', 'manifest.yaml']) {
+        expect(existsSync(join(repo, 'tests', 'golden-repos', fixtureName, file))).toBe(true);
+      }
+    }
+  });
 
   it('no forbidden product wording is present in v2 pack content', () => {
     const forbidden = ['compliant', 'non-compliant', 'violation of the Act', 'certified'];
