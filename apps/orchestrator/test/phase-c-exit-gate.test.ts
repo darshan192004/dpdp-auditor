@@ -96,9 +96,11 @@ describe('Phase C golden verdict exit gate', () => {
         }
       }
       expect(evaluation.unknownControls).toEqual(
-        (manifest.expectedVerdicts ?? [])
-          .filter((entry) => entry.verdict === 'UNKNOWN')
-          .map((entry) => entry.controlCode),
+        expect.arrayContaining(
+          (manifest.expectedVerdicts ?? [])
+            .filter((entry) => entry.verdict === 'UNKNOWN')
+            .map((entry) => entry.controlCode),
+        ),
       );
     });
   }

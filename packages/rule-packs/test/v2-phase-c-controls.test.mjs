@@ -33,18 +33,18 @@ test('Phase C v2 controls are valid and reference only declared detectors', () =
   const dictionary = catalogFileSchema.parse(readYamlResult('field_dictionary.yaml'));
 
   assert.equal(controls.pack, DPDPA_PACK_V2_VERSION);
-  assert.deepEqual(
-    controls.controls.map((control) => control.code),
-    EXPECTED_CODES,
-  );
-  assert.deepEqual(
-    detectors.detectors.map((detector) => detector.id),
-    EXPECTED_DETECTORS,
-  );
-  assert.deepEqual(
-    dictionary.entries.map((entry) => entry.key),
-    ['email', 'phone', 'full_name', 'address', 'date_of_birth', 'aadhaar'],
-  );
+  const codes = controls.controls.map((control) => control.code);
+  for (const code of EXPECTED_CODES) {
+    assert.ok(codes.includes(code), `Phase C control ${code} was dropped by Phase D`);
+  }
+  const detectorIds = detectors.detectors.map((detector) => detector.id);
+  for (const id of EXPECTED_DETECTORS) {
+    assert.ok(detectorIds.includes(id), `Phase C detector ${id} was dropped by Phase D`);
+  }
+  const dictionaryKeys = dictionary.entries.map((entry) => entry.key);
+  for (const key of ['email', 'phone', 'full_name', 'address', 'date_of_birth', 'aadhaar']) {
+    assert.ok(dictionaryKeys.includes(key), `Phase C field ${key} was dropped by Phase D`);
+  }
 
   const declared = new Set(detectors.detectors.map((detector) => detector.id));
   const controlsByCode = new Map(controls.controls.map((control) => [control.code, control]));

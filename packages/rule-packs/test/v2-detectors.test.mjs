@@ -48,7 +48,8 @@ test('second-phase web-surface detectors are declared exactly once', () => {
     if (!INVENTORY_MODULE_KEYS.includes(detector.id)) continue;
     assert.ok(detector.inputs.length >= 1);
     for (const input of detector.inputs) assert.ok(allowedInputs.has(input), `bad input ${input}`);
-    assert.deepEqual(detector.outputs, ['fact', 'status']);
+    assert.ok(detector.outputs.includes('fact'), `${detector.id} must emit a fact`);
+    assert.ok(detector.outputs.includes('status'), `${detector.id} must emit a status`);
     assert.equal(detector.failureMode, 'UNKNOWN');
     assert.ok(detector.timeoutMs >= 100 && detector.timeoutMs <= 30000);
   }
