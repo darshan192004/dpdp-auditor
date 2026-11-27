@@ -4,13 +4,26 @@ from __future__ import annotations
 
 import hashlib
 import uuid
-from typing import Any
+from typing import Any, Final
 
 import httpx
 
 from scan_runner.callbacks import post_signed
 from scan_runner.config import Config
 from scan_runner.versions import pinned_version
+
+CALLBACK_FINDING_FIELDS: Final[tuple[str, ...]] = (
+    "scannerRuleId",
+    "scannerRuleVersion",
+    "severity",
+    "filePath",
+    "lineStart",
+    "lineEnd",
+    "message",
+    "evidenceHash",
+    "fingerprint",
+    "context",
+)
 
 
 class BatchClient:
@@ -81,7 +94,7 @@ def to_api_finding(finding: dict[str, Any], scanner_version: str) -> dict[str, A
     """
     line = _non_negative_int(finding.get("line", 0))
     evidence = str(finding.get("evidence") or "")
-    return {
+    payload: dict[str, Any] = {
         "scannerRuleId": str(finding.get("rule_id") or "unknown"),
         "scannerRuleVersion": scanner_version,
         "severity": str(finding.get("severity") or "medium").lower(),
@@ -93,6 +106,7 @@ def to_api_finding(finding: dict[str, Any], scanner_version: str) -> dict[str, A
         "fingerprint": str(finding.get("fingerprint") or ""),
         "context": {},
     }
+    return {key: payload[key] for key in CALLBACK_FINDING_FIELDS}
 
 
 def _non_negative_int(value: object) -> int:
