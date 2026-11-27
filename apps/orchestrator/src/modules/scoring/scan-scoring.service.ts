@@ -2,7 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Prisma, type Scan } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { recordMappingMiss } from '../../common/metrics.js';
-import type { Control, Mapping, Scanner, Severity } from '../rule-pack/rule-pack.schemas.js';
+import type {
+  Control,
+  DetectorName,
+  Mapping,
+  Scanner,
+  Severity,
+} from '../rule-pack/rule-pack.schemas.js';
 import { RulePackService } from '../rule-pack/rule-pack.service.js';
 import type { LoadedRulePack } from '../rule-pack/rule-pack.loader.js';
 import { resolveMappings, type FindingStatus, type MappedFinding } from './mapping.resolver.js';
@@ -437,7 +443,7 @@ export class ScanScoringService {
         }
         for (const mapping of loaded.mappings) {
           const dpdpaRuleId = ids.get(mapping.controlCode);
-          if (!dpdpaRuleId) continue;
+          if (!dpdpaRuleId || !isStoredScanner(mapping.scanner)) continue;
           await tx.ruleMapping.upsert({
             where: {
               scanner_scannerRuleId_scannerRuleVersion_dpdpaRuleId: {
@@ -447,8 +453,8 @@ export class ScanScoringService {
                 dpdpaRuleId,
               },
             },
-            create: { ...mappingRow(mapping, dpdpaRuleId) },
-            update: mappingRow(mapping, dpdpaRuleId),
+            create: { ...mappingRow(mapping, dpdpaRuleId, mapping.scanner) },
+            update: mappingRow(mapping, dpdpaRuleId, mapping.scanner),
           });
         }
         return ids;
@@ -542,10 +548,14 @@ function ruleRow(control: Control, pack: string) {
   };
 }
 
-function mappingRow(mapping: Mapping, dpdpaRuleId: string) {
+function isStoredScanner(name: DetectorName): name is Scanner {
+  return name === 'semgrep' || name === 'checkov' || name === 'gitleaks';
+}
+
+function mappingRow(mapping: Mapping, dpdpaRuleId: string, scanner: Scanner) {
   return {
     dpdpaRuleId,
-    scanner: mapping.scanner,
+    scanner,
     scannerRuleId: mapping.ruleId,
     scannerRuleVersion: mapping.scannerRuleVersion,
     confidence: mapping.confidence,

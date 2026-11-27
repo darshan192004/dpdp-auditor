@@ -3,6 +3,7 @@ import { z } from 'zod';
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 export type Confidence = 'direct' | 'inferred' | 'advisory';
 export type Scanner = 'semgrep' | 'checkov' | 'gitleaks';
+export type DetectorName = Scanner | 'inventory' | (string & {});
 
 export interface PredicateLeaf {
   language?: string | undefined;
@@ -29,7 +30,7 @@ export interface Control {
 }
 
 export interface Mapping {
-  scanner: Scanner;
+  scanner: DetectorName;
   ruleId: string;
   scannerRuleVersion: string;
   controlCode: string;

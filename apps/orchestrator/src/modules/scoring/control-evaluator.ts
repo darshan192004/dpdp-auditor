@@ -1,8 +1,8 @@
 import type {
   Confidence,
   Control,
+  DetectorName,
   Mapping,
-  Scanner,
   Severity,
 } from '../rule-pack/rule-pack.schemas.js';
 import { isApplicable, type RepoFacts } from './applicability.js';
@@ -13,7 +13,7 @@ export type DetectorStatus = 'completed' | 'failed' | 'timed_out' | 'skipped';
 export interface EvidenceLike {
   controlCode: string | null;
   kind: 'violation' | 'missing_control' | 'weak_control' | 'positive' | 'unverified';
-  scanner?: Scanner | 'inventory';
+  scanner?: DetectorName;
   scannerRuleId?: string;
   evidenceHash?: string | null;
   filePath?: string | null;
@@ -193,8 +193,9 @@ function evaluateOne(control: Control, input: ControlEvaluatorInput): ControlRes
 
   const violations = grouped.active.filter((finding) => finding.kind === 'violation');
   const weak = grouped.active.filter((finding) => finding.kind === 'weak_control');
-  if (violations.length > 0 || weak.length > 0) {
-    const candidates = [...violations, ...weak];
+  const missing = grouped.active.filter((finding) => finding.kind === 'missing_control');
+  if (violations.length > 0 || weak.length > 0 || missing.length > 0) {
+    const candidates = [...violations, ...weak, ...missing];
     const direct =
       candidates.some((finding) => finding.confidence === 'direct') || grouped.corroborated;
     const verdict = direct ? 'FAIL' : 'PARTIAL';
