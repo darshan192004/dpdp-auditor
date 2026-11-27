@@ -5319,7 +5319,7 @@ git diff --check: clean
 
 Full-gate logs can contain intentional error-path fixtures and canary strings from negative tests; those are not failures. No fixture is pilot evidence.
 
-- [ ] **Step 6: Human-observed exit gate — do not skip**
+- [x] **Step 6: Human-observed exit gate — do not skip**
 
 Ask the user for explicit approval before starting any local server. With approval, start only a local dev server, then open Playwright MCP and drive the walkthrough while the user watches:
 
@@ -5499,6 +5499,41 @@ gaps and fix plan `?scanId=0f000000-0000-4000-8000-0000000000a1`; attestations
 `/app/readiness/attestations?repoId=0f000000-0000-4000-8000-0000000000a2` and the same URL with
 `&fixtureRole=owner` for the write control; audit `actionContains=attestation` shows
 `attestation.upserted`.
+
+### Human-observed Step 6 and bounded inventory line numbers
+
+The local Nuxt dev server was started with `NUXT_FIXTURES=1` on `http://localhost:3000/` after the
+user approved the live walkthrough, and Playwright MCP drove it while the user watched. The server
+was stopped afterwards. Observed:
+
+1. Scan detail `...a1`: Score 71.4, Evidence coverage 42%, Open gaps 2, Consent gating 60%,
+   Attested statements 2, Detectors unavailable 2 (checkov, gitleaks), grade "No letter —
+   insufficient evidence", and the "Could not determine" region.
+2. Data Inventory `...a1`: detector `form_scan`, bounded token `email_address`, path
+   `src/api/user.ts`, line `12`; no field values.
+3. Compliance Gaps / Fix Plan `...a1`: `DPDPA-6-CONSENTGATE-01` shows verdict `ATTESTED_FAIL`
+   (reason `attested_no`) and an owner-attestation remedy. The gaps API returns
+   `"evidence": []` for that control, so the attestation never becomes an evidence reference.
+4. Attestations `...a2` with `&fixtureRole=owner`: "Record attestation" button, a current
+   attestation (`Expires 2027-02-01`) and an expired one (`Expired 2026-06-01`); the audit page
+   shows `attestation.upserted` by Ada Owner.
+5. Rules `DPDPA-8.4-ENC-01`: detector inputs/outputs, absence token `consent_checkbox`, and the
+   "Could not determine" explanation.
+6. Exports: `GET /api/v1/scan/...a1/export/sarif` returned SARIF `2.1.0` (200) and
+   `/export/markdown` returned issue-ready Markdown (200). Only GETs were made; no issue was
+   opened on any target repository.
+7. Report v2: a real PDF was generated locally through the production renderer and inspected
+   with `pdfinfo`/`pdftotext`: 10 A4 pages, all nine section titles, the commencement row
+   (`Section 6 · effective 2026-01-01 · verified 2026-11-27`), Limitations, and Disclaimer. No
+   canary/source-value pattern and no forbidden user-facing wording appeared in the PDF.
+
+During the live walkthrough the inventory page rendered Detector, Token and Path but omitted the
+already-bounded `line` value. Test-first RED (`playwright test e2e/phase-e-walkthrough.spec.ts -g
+'inventory shows bounded'`) failed with `getByRole('columnheader', { name: 'Line' })` element(s)
+not found; GREEN after adding the `Line` column passed `1 passed (12.3s)`. Full gates on the final
+commit (`pnpm lint && pnpm typecheck && pnpm test && git diff --check`) exited 0 with 12/12 Turbo
+tasks and 83 files / 571 web tests passing. Step 6 is checked only on the basis of these observed
+surfaces; no pilot sign-off is claimed.
 
 Step 6 is **still unchecked**: the user must watch the live walkthrough and decide. No server,
 push, PR, merge, deploy, `infra/` change, or image-pin change was performed.
