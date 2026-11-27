@@ -36,6 +36,8 @@ interface Row {
   evidenceHash: string | null;
   fingerprint: string;
   status: string;
+  kind: 'violation' | 'missing_control' | 'weak_control' | 'positive' | 'unverified';
+  confidence: 'inferred' | 'direct';
   isNew: boolean;
   firstSeenAt: Date;
   context: Record<string, unknown>;
@@ -58,6 +60,8 @@ function row(overrides: Partial<Row> = {}): Row {
     evidenceHash: 'sha256:abc',
     fingerprint: 'fpt_1',
     status: 'open',
+    kind: 'violation',
+    confidence: 'direct',
     isNew: true,
     firstSeenAt: new Date('2026-11-01T00:00:00.000Z'),
     context: { resourceType: 'aws_s3_bucket' },
@@ -139,6 +143,7 @@ function make(previous: Row[] | null = null, current: Row[] = [row()]) {
     },
     ruleMapping: { upsert: vi.fn().mockResolvedValue({}) },
     controlResult: {
+      findMany: vi.fn().mockResolvedValue([]),
       upsert: vi.fn().mockResolvedValue({}),
     },
   };
@@ -516,6 +521,78 @@ describe('ScanScoringService (P4-06, P4-10, P4-11)', () => {
         }),
       }),
     );
+  });
+
+  it('recomputes stale control results from triaged findings on scorePersisted', async () => {
+    const harness = make(null, [
+      row({
+        scanner: 'gitleaks',
+        scannerRuleId: 'generic-api-key',
+        severity: 'high',
+        fingerprint: 'fpt_secret',
+        status: 'false_positive',
+      }),
+    ]);
+    harness.setPack(pack);
+    harness.tx.controlResult.findMany.mockResolvedValue([
+      {
+        controlCode: 'DPDPA-8.4-SECRET-01',
+        verdict: 'FAIL',
+        reasonCode: 'cited_gap',
+        confidence: 'direct',
+        rulePackVersion: pack.pack,
+        scoringVersion: 'scoring-2.0.0',
+      },
+    ]);
+
+    const { result } = await harness.service.scorePersisted(
+      scan({
+        scoringVersion: 'scoring-2.0.0',
+        coverage: { semgrep: 'completed', checkov: 'completed', gitleaks: 'completed' },
+        coverageStatus: 'full',
+      }),
+      FACTS,
+      harness.tx as unknown as Prisma.TransactionClient,
+    );
+
+    expect(harness.tx.controlResult.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          scanId_controlId: {
+            scanId: SCAN_ID,
+            controlId: 'rule-DPDPA-8.4-SECRET-01',
+          },
+        },
+        create: expect.objectContaining({
+          controlCode: 'DPDPA-8.4-SECRET-01',
+          verdict: 'UNKNOWN',
+          reasonCode: 'no_determinable_evidence',
+        }),
+        update: expect.objectContaining({
+          verdict: 'UNKNOWN',
+          reasonCode: 'no_determinable_evidence',
+        }),
+      }),
+    );
+    expect(result).toMatchObject({
+      verdictCounts: { FAIL: 0 },
+      openGaps: 0,
+      counts: { total: 0, critical: 0, high: 0 },
+    });
+  });
+
+  it('does not rewrite legacy control results on scorePersisted', async () => {
+    const harness = make(null, [row()]);
+    harness.setPack(pack);
+
+    const { result } = await harness.service.scorePersisted(
+      scan({ scoringVersion: '1.0.0' }),
+      FACTS,
+      harness.tx as unknown as Prisma.TransactionClient,
+    );
+
+    expect(harness.tx.controlResult.upsert).not.toHaveBeenCalled();
+    expect(result).not.toHaveProperty('evidenceCoverage');
   });
 
   it('keeps legacy score/grade and null evidence coverage when the flag is off', async () => {

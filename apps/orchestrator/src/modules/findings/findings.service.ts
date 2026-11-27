@@ -6,6 +6,7 @@ import { AuditService } from '../audit/audit.service.js';
 import { ScansRepository } from '../scans/scans.repository.js';
 import { factsFrom } from '../scoring/applicability.js';
 import { ScanScoringService } from '../scoring/scan-scoring.service.js';
+import { assessmentEventFields, scanAssessmentUpdate } from '../scoring/assessment-fields.js';
 import { FindingsRepository } from './findings.repository.js';
 import {
   listFindingsSchema,
@@ -119,6 +120,7 @@ export class FindingsService {
           total: result.counts.total,
         },
         coverageStatus: result.coverage,
+        ...scanAssessmentUpdate(result),
       },
       tx,
     );
@@ -138,6 +140,7 @@ export class FindingsService {
           info: result.counts.info,
           total: result.counts.total,
         },
+        ...assessmentEventFields(result),
       },
       tx,
     );

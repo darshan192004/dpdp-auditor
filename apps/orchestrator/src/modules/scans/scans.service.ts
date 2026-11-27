@@ -21,6 +21,7 @@ import { RepositoriesRepository } from '../repos/repositories.repository.js';
 import { factsFrom } from '../scoring/applicability.js';
 import { isScoringV2 } from '../scoring/scoring.engine.js';
 import { ScanScoringService } from '../scoring/scan-scoring.service.js';
+import { assessmentEventFields } from '../scoring/assessment-fields.js';
 import {
   ACTIVE_SCAN_STATUSES,
   cancelScanSchema,
@@ -437,6 +438,7 @@ export class ScansService {
           info: result.counts.info,
           total: result.counts.total,
         },
+        ...assessmentEventFields(result),
       };
       const original = {
         score: scan.score === null ? null : Number(scan.score),

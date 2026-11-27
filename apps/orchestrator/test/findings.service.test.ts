@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { DpdpaRule, Prisma, ScannerFinding, Scan } from '@prisma/client';
+import { Prisma, type DpdpaRule, type ScannerFinding, type Scan } from '@prisma/client';
 import {
   FindingsService,
   sectionOf,
@@ -257,6 +257,54 @@ describe('FindingsService.triage (P4-18)', () => {
       status: 'accepted_risk',
       triage: { actor: USER_ID, at: new Date('2026-11-12T10:00:00.000Z') },
     });
+  });
+
+  it('writes the v2 assessment summary when triage changes a control verdict', async () => {
+    const { service, scans, scoring, tx } = make({ existing: finding() });
+    scoring.scorePersisted.mockResolvedValue({
+      loaded: { pack: 'dpdpa-2026.10.6', scoringVersion: 'scoring-2.0.0' },
+      result: {
+        score: null,
+        grade: null,
+        sectionScores: {},
+        counts: { critical: 0, high: 0, medium: 0, low: 0, info: 0, total: 0 },
+        coverage: 'full',
+        evidenceCoverage: 0,
+        verdictCounts: { UNKNOWN: 1 },
+        unknownControls: ['DPDPA-8.4-LOG-01'],
+        openGaps: 0,
+        gradeWithheldReason: 'insufficient_evidence',
+      },
+    });
+
+    await service.triage(ORG_ID, FINDING_ID, {
+      status: 'false_positive',
+      note: 'Confirmed logger does not receive personal data.',
+    });
+
+    expect(scans.update).toHaveBeenCalledWith(
+      SCAN_ID,
+      expect.objectContaining({
+        evidenceCoverage: expect.any(Prisma.Decimal),
+        verdictCounts: { UNKNOWN: 1 },
+        unknownControls: ['DPDPA-8.4-LOG-01'],
+        gradeWithheldReason: 'insufficient_evidence',
+      }),
+      tx,
+    );
+    expect(scans.appendEvent).toHaveBeenCalledWith(
+      SCAN_ID,
+      ORG_ID,
+      'score_recomputed',
+      expect.objectContaining({
+        evidenceCoverage: 0,
+        verdictCounts: { UNKNOWN: 1 },
+        unknownControls: ['DPDPA-8.4-LOG-01'],
+        openGaps: 0,
+        gradeWithheldReason: 'insufficient_evidence',
+      }),
+      tx,
+    );
   });
 
   it('requires a longer note for accepted_risk', async () => {

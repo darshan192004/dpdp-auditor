@@ -922,6 +922,64 @@ describe('ScansService.rescore (P4-24)', () => {
     });
   });
 
+  it('includes the v2 assessment summary in the derived rescore event', async () => {
+    const { service, scans, scoring, tx } = make({
+      scan: scan({
+        status: 'completed',
+        scoringVersion: 'scoring-2.0.0',
+        score: { toString: () => '90.00' } as unknown as Scan['score'],
+        grade: 'A',
+        coverage: { gitleaks: 'completed' },
+        coverageStatus: 'full',
+      }),
+    });
+    scoring.scorePersisted.mockResolvedValue({
+      loaded: { pack: 'dpdpa-2026.10.6', scoringVersion: 'scoring-2.0.0' },
+      result: {
+        score: null,
+        grade: null,
+        sectionScores: {},
+        counts: { critical: 0, high: 0, medium: 0, low: 0, info: 0, total: 0 },
+        coverage: 'full',
+        evidenceCoverage: 0,
+        verdictCounts: { UNKNOWN: 12 },
+        unknownControls: ['DPDPA-8.4-SECRET-01'],
+        openGaps: 0,
+        gradeWithheldReason: 'insufficient_evidence',
+      },
+    });
+
+    await service.rescore(ORG_ID, SCAN_ID);
+
+    expect(scans.update).not.toHaveBeenCalled();
+    expect(scans.appendEvent).toHaveBeenCalledWith(
+      SCAN_ID,
+      ORG_ID,
+      'score_recomputed',
+      {
+        original: {
+          score: 90,
+          grade: 'A',
+          sectionScores: {},
+          counts: {},
+        },
+        derived: {
+          score: null,
+          grade: null,
+          coverage: 'full',
+          sectionScores: {},
+          counts: { critical: 0, high: 0, medium: 0, low: 0, info: 0, total: 0 },
+          evidenceCoverage: 0,
+          verdictCounts: { UNKNOWN: 12 },
+          unknownControls: ['DPDPA-8.4-SECRET-01'],
+          openGaps: 0,
+          gradeWithheldReason: 'insufficient_evidence',
+        },
+      },
+      tx,
+    );
+  });
+
   it('rejects a scan that has not completed', async () => {
     const { service, scoring } = make({ scan: scan({ status: 'scanning' }) });
 

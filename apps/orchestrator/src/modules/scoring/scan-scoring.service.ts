@@ -14,6 +14,7 @@ import {
 } from './control-evaluator.js';
 import {
   isScoringV2,
+  LEGACY_SCORING_VERSION,
   scoreScanVersioned,
   scoringVersionForNewScan,
   type ScoreCounts,
@@ -247,37 +248,7 @@ export class ScanScoringService {
       scoringVersion,
     });
 
-    for (const controlResult of evaluation.results) {
-      const controlId = ruleIds.get(controlResult.controlCode);
-      if (!controlId) {
-        throw new Error(`Missing persisted rule for ${controlResult.controlCode}`);
-      }
-      await tx.controlResult.upsert({
-        where: {
-          scanId_controlId: { scanId: scan.id, controlId },
-        },
-        create: {
-          orgId: scan.orgId,
-          scanId: scan.id,
-          controlId,
-          controlCode: controlResult.controlCode,
-          verdict: controlResult.verdict,
-          reasonCode: controlResult.reasonCode,
-          confidence: controlResult.confidence,
-          evidence: controlResult.evidence as unknown as Prisma.InputJsonValue,
-          rulePackVersion: loaded.pack,
-          scoringVersion,
-        },
-        update: {
-          verdict: controlResult.verdict,
-          reasonCode: controlResult.reasonCode,
-          confidence: controlResult.confidence,
-          evidence: controlResult.evidence as unknown as Prisma.InputJsonValue,
-          rulePackVersion: loaded.pack,
-          scoringVersion,
-        },
-      });
-    }
+    await this.persistControlResults(scan, tx, loaded, ruleIds, evaluation.results, scoringVersion);
 
     const versioned = scoreScanVersioned({
       findings: scored,
@@ -320,69 +291,76 @@ export class ScanScoringService {
     };
   }
 
-  /** Score-only pass for triage and rescore, from the persisted findings. */
-  async scorePersisted(
-    scan: Scan,
-    facts: RepoFacts,
-    tx: Prisma.TransactionClient,
-    findings?: readonly { controlCode: string | null; severity: Severity; status: FindingStatus }[],
-  ) {
+  /**
+   * Recompute verdicts and score from persisted findings. Triage and rescore
+   * both go through here so a status change cannot leave a stale FAIL behind.
+   */
+  async scorePersisted(scan: Scan, facts: RepoFacts, tx: Prisma.TransactionClient) {
     const loaded = await this.pack.load();
-    const v2 = isScoringV2(scan.scoringVersion);
+    const scoringVersion = scan.scoringVersion ?? LEGACY_SCORING_VERSION;
+    const rows = await tx.scannerFinding.findMany({
+      where: { scanId: scan.id },
+      select: {
+        controlCode: true,
+        severity: true,
+        status: true,
+        kind: true,
+        confidence: true,
+        evidenceHash: true,
+        filePath: true,
+        lineStart: true,
+        lineEnd: true,
+        fingerprint: true,
+        scanner: true,
+        scannerRuleId: true,
+      },
+    });
     const findingsForScore: {
       controlCode: string | null;
       severity: Severity;
       status: FindingStatus;
-    }[] = findings ? [...findings] : [];
-    const evidenceByControl = new Map<string, ControlEvidence[]>();
-    // Persisted scannerFinding rows are the source for scoring inputs and, for
-    // v2, for reconstructing ControlEvidence (severity + confidence); persisted
-    // control_results evidence JSON is not trusted as ControlEvidence.
-    if (!findings || v2) {
-      const rows = await tx.scannerFinding.findMany({
-        where: { scanId: scan.id },
-        select: {
-          controlCode: true,
-          severity: true,
-          status: true,
-          kind: true,
-          confidence: true,
-          evidenceHash: true,
-          filePath: true,
-          lineStart: true,
-          lineEnd: true,
-          fingerprint: true,
-          scanner: true,
-          scannerRuleId: true,
-        },
-      });
-      for (const row of rows) {
-        if (!findings) {
-          findingsForScore.push({
-            controlCode: row.controlCode,
-            severity: row.severity as Severity,
-            status: row.status as FindingStatus,
-          });
-        }
-        if (row.controlCode === null) continue;
-        const list = evidenceByControl.get(row.controlCode) ?? [];
-        list.push({
-          controlCode: row.controlCode,
-          kind: row.kind as ControlEvidence['kind'],
-          scanner: row.scanner as Scanner,
-          scannerRuleId: row.scannerRuleId,
-          evidenceHash: row.evidenceHash,
-          filePath: row.filePath,
-          lineStart: row.lineStart,
-          lineEnd: row.lineEnd,
-          fingerprint: row.fingerprint,
-          severity: row.severity as Severity,
-          confidence: row.confidence as ControlEvidence['confidence'],
-          status: row.status as FindingStatus,
-        });
-        evidenceByControl.set(row.controlCode, list);
-      }
+    }[] = rows.map((row) => ({
+      controlCode: row.controlCode,
+      severity: row.severity as Severity,
+      status: row.status as FindingStatus,
+    }));
+    // Only v2 carries an evidence-backed assessment. Legacy triage must keep
+    // its original no-control-result-rewrite semantics.
+    let results: readonly ControlResultLike[] | undefined;
+    if (isScoringV2(scoringVersion)) {
+      const evidence: ControlEvidence[] = rows.flatMap((row) =>
+        row.controlCode === null
+          ? []
+          : [
+              {
+                controlCode: row.controlCode,
+                kind: row.kind as ControlEvidence['kind'],
+                scanner: row.scanner as Scanner,
+                scannerRuleId: row.scannerRuleId,
+                evidenceHash: row.evidenceHash,
+                filePath: row.filePath,
+                lineStart: row.lineStart,
+                lineEnd: row.lineEnd,
+                fingerprint: row.fingerprint,
+                severity: row.severity as Severity,
+                confidence: row.confidence as ControlEvidence['confidence'],
+                status: row.status as FindingStatus,
+              },
+            ],
+      );
+      results = evaluateControls({
+        controls: loaded.controls,
+        facts,
+        mappings: loaded.mappings,
+        detectorStatuses: buildDetectorStatuses(coverageRecord(scan.coverage)),
+        findings: evidence,
+        rulePackVersion: loaded.pack,
+        scoringVersion,
+      }).results;
+      const ruleIds = await this.ensureRules(loaded);
+      await this.persistControlResults(scan, tx, loaded, ruleIds, results, scoringVersion);
     }
+
     const input: VersionedScoreInput = {
       findings: findingsForScore,
       controls: loaded.controls,
@@ -390,32 +368,52 @@ export class ScanScoringService {
       coverage: coverageFor(scan.coverage),
       sectionWeights: loaded.sectionWeights,
       grades: loaded.grades,
-      scoringVersion: scan.scoringVersion,
+      scoringVersion,
+      ...(results === undefined ? {} : { results }),
     };
-    if (v2) {
-      const rows = await tx.controlResult.findMany({
-        where: { scanId: scan.id },
-        select: {
-          controlCode: true,
-          verdict: true,
-          reasonCode: true,
-          confidence: true,
-          rulePackVersion: true,
-          scoringVersion: true,
-        },
-      });
-      input.results = rows.map((row) => ({
-        controlCode: row.controlCode,
-        verdict: row.verdict as ControlResultLike['verdict'],
-        reasonCode: row.reasonCode,
-        confidence: row.confidence as ControlResultLike['confidence'],
-        evidence: evidenceByControl.get(row.controlCode) ?? [],
-        rulePackVersion: row.rulePackVersion,
-        scoringVersion: row.scoringVersion,
-      }));
-    }
     const result = scoreScanVersioned(input);
     return { loaded, result };
+  }
+
+  private async persistControlResults(
+    scan: Scan,
+    tx: Prisma.TransactionClient,
+    loaded: LoadedRulePack,
+    ruleIds: Map<string, string>,
+    results: readonly ControlResultLike[],
+    scoringVersion: string,
+  ): Promise<void> {
+    for (const controlResult of results) {
+      const controlId = ruleIds.get(controlResult.controlCode);
+      if (!controlId) {
+        throw new Error(`Missing persisted rule for ${controlResult.controlCode}`);
+      }
+      await tx.controlResult.upsert({
+        where: {
+          scanId_controlId: { scanId: scan.id, controlId },
+        },
+        create: {
+          orgId: scan.orgId,
+          scanId: scan.id,
+          controlId,
+          controlCode: controlResult.controlCode,
+          verdict: controlResult.verdict,
+          reasonCode: controlResult.reasonCode,
+          confidence: controlResult.confidence,
+          evidence: controlResult.evidence as unknown as Prisma.InputJsonValue,
+          rulePackVersion: loaded.pack,
+          scoringVersion,
+        },
+        update: {
+          verdict: controlResult.verdict,
+          reasonCode: controlResult.reasonCode,
+          confidence: controlResult.confidence,
+          evidence: controlResult.evidence as unknown as Prisma.InputJsonValue,
+          rulePackVersion: loaded.pack,
+          scoringVersion,
+        },
+      });
+    }
   }
 
   /**
@@ -509,6 +507,15 @@ export function coverageFor(coverage: unknown): 'full' | 'partial' {
   const values = Object.values(coverage as Record<string, unknown>);
   if (values.length === 0) return 'partial';
   return values.every((value) => value === 'completed') ? 'full' : 'partial';
+}
+
+function coverageRecord(value: unknown): Record<string, string> {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).filter(
+      (entry): entry is [string, string] => typeof entry[1] === 'string',
+    ),
+  );
 }
 
 function asRecord(value: Prisma.JsonValue): Record<string, unknown> {
