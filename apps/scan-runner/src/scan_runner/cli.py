@@ -25,6 +25,7 @@ import httpx
 
 from scan_runner.adapters import CheckovAdapter, GitleaksAdapter, SemgrepAdapter
 from scan_runner.batches import BatchClient
+from scan_runner.budgets import INVENTORY_BUDGET_SECONDS, enforce_inventory_budget
 from scan_runner.callbacks import post_signed
 from scan_runner.config import ALL_SCANNERS, SECRETS_ONLY_SCANNERS, Config
 from scan_runner.dpdp_inventory import analyze_repo
@@ -364,7 +365,17 @@ def run_scan(config: Config) -> int:
         )
         inventory_report: dict[str, object] | None = None
         try:
-            report = analyze_repo(workspace)
+            inventory_started = time.monotonic()
+            report = analyze_repo(workspace, deadline_s=INVENTORY_BUDGET_SECONDS)
+            inventory_elapsed_s = time.monotonic() - inventory_started
+            if (
+                enforce_inventory_budget(
+                    inventory_elapsed_s, time.monotonic() - scan_started
+                )
+                != "within_budget"
+            ):
+                log.warning("inventory analyzer exceeded its time budget")
+                statuses["dpdp_inventory"] = "timed_out"
             log.info("inventory detector statuses: %s", report["detectorStatuses"])
             inventory_report = report
         except Exception as exc:  # pragma: no cover - defensive
