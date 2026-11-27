@@ -3,43 +3,210 @@ pack: dpdpa-2026.11.0
 detectors:
   - id: schema_scan
     module: inventory
-    inputs: [source]
-    outputs: [fact, signal, status]
+    inputs:
+      - source
+    outputs:
+      - fact
+      - status
     timeoutMs: 30000
     stacks: []
-    confidence: direct
+    confidence: inferred
     failureMode: UNKNOWN
-    controlRefs:
-      - DPDPA-8.4-MON-01
+    controlRefs: []
   - id: form_scan
     module: inventory
-    inputs: [source]
-    outputs: [fact, signal, status]
+    inputs:
+      - source
+    outputs:
+      - fact
+      - status
     timeoutMs: 30000
-    stacks: [web]
-    confidence: direct
+    stacks:
+      - web
+    confidence: inferred
     failureMode: UNKNOWN
-    controlRefs:
-      - DPDPA-6-CONSENTGATE-01
-      - DPDPA-6-FORMPURPOSE-01
+    controlRefs: []
   - id: mechanism_scan
     module: inventory
-    inputs: [source]
-    outputs: [fact, signal, status]
+    inputs:
+      - source
+    outputs:
+      - fact
+      - status
     timeoutMs: 30000
     stacks: []
-    confidence: direct
+    confidence: inferred
     failureMode: UNKNOWN
-    controlRefs:
-      - DPDPA-6-CONSENTGATE-01
+    controlRefs: []
   - id: artefact_scan
     module: inventory
-    inputs: [artefacts]
-    outputs: [fact, signal, status]
+    inputs:
+      - artefacts
+    outputs:
+      - fact
+      - status
     timeoutMs: 30000
+    stacks: []
+    confidence: inferred
+    failureMode: UNKNOWN
+    controlRefs: []
+  - id: dep_scan
+    module: inventory
+    inputs:
+      - source
+      - dependencies
+    outputs:
+      - fact
+      - status
+    timeoutMs: 30000
+    stacks: []
+    confidence: inferred
+    failureMode: UNKNOWN
+    controlRefs:
+      - DPDPA-8.4-DEP-01
+      - DPDPA-8.4-ECOSYSTEM-01
+  - id: sdk_init_scan
+    module: inventory
+    inputs:
+      - source
+    outputs:
+      - fact
+      - status
+    timeoutMs: 30000
+    stacks:
+      - web
+    confidence: inferred
+    failureMode: UNKNOWN
+    controlRefs:
+      - DPDPA-6-SDK-01
+  - id: region_scan
+    module: inventory
+    inputs:
+      - source
+      - config
+    outputs:
+      - fact
+      - status
+    timeoutMs: 30000
+    stacks: []
+    confidence: inferred
+    failureMode: UNKNOWN
+    controlRefs:
+      - DPDPA-16-REGION-01
+  - id: pii_literal_scan
+    module: inventory
+    inputs:
+      - source
+    outputs:
+      - fact
+      - status
+    timeoutMs: 30000
+    stacks: []
+    confidence: inferred
+    failureMode: UNKNOWN
+    controlRefs:
+      - DPDPA-6-PII-LITERAL-01
+  - id: cookie_scan
+    module: inventory
+    inputs:
+      - source
+    outputs:
+      - fact
+      - status
+    timeoutMs: 30000
+    stacks:
+      - web
+    confidence: inferred
+    failureMode: UNKNOWN
+    controlRefs:
+      - DPDPA-8.4-COOKIE-01
+  - id: cmp_scan
+    module: inventory
+    inputs:
+      - source
+    outputs:
+      - fact
+      - status
+    timeoutMs: 30000
+    stacks:
+      - web
+    confidence: inferred
+    failureMode: UNKNOWN
+    controlRefs:
+      - DPDPA-8.4-CMP-01
+      - DPDPA-6-CONSENT-GATE-01
+  - id: header_scan
+    module: inventory
+    inputs:
+      - source
+      - config
+    outputs:
+      - fact
+      - status
+    timeoutMs: 30000
+    stacks:
+      - web
+    confidence: inferred
+    failureMode: UNKNOWN
+    controlRefs:
+      - DPDPA-8.4-HEADER-01
+      - DPDPA-8.4-TLS-01
+      - DPDPA-8.4-SESSION-01
+  - id: cms_scan
+    module: inventory
+    inputs:
+      - source
+      - dependencies
+    outputs:
+      - fact
+      - status
+    timeoutMs: 30000
+    stacks:
+      - web
+    confidence: inferred
+    failureMode: UNKNOWN
+    controlRefs:
+      - DPDPA-6-CMS-01
+  - id: gitleaks_scan
+    module: scanner
+    inputs:
+      - source
+    outputs:
+      - finding
+      - status
+    timeoutMs: 60000
     stacks: []
     confidence: direct
     failureMode: UNKNOWN
     controlRefs:
-      - DPDPA-5-NOTICE-01
-      - DPDPA-8.4-BACKUP-01
+      - DPDPA-8.4-SECRET-01
+  - id: semgrep_scan
+    module: scanner
+    inputs:
+      - source
+    outputs:
+      - finding
+      - status
+    timeoutMs: 120000
+    stacks: []
+    confidence: inferred
+    failureMode: UNKNOWN
+    controlRefs:
+      - DPDPA-6-CONSENT-01
+      - DPDPA-8.4-LOG-01
+      - DPDPA-8.4-HEADER-01
+  - id: checkov_scan
+    module: scanner
+    inputs:
+      - source
+      - config
+    outputs:
+      - finding
+      - status
+    timeoutMs: 120000
+    stacks: []
+    confidence: direct
+    failureMode: UNKNOWN
+    controlRefs:
+      - DPDPA-8.4-ENC-01
+      - DPDPA-8.5-ENCRYPTION-01

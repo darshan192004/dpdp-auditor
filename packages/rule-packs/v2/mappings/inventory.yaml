@@ -1,6 +1,54 @@
 version: 1
 pack: dpdpa-2026.11.0
 mappings:
+  - detector: dep_scan
+    control: DPDPA-8.4-DEP-01
+    confidence: inferred
+    rationale: Dependency manifests reveal unpinned libraries that process personal data.
+  - detector: dep_scan
+    control: DPDPA-8.4-ECOSYSTEM-01
+    confidence: inferred
+    rationale: Dependency manifests identify the web framework whose safeguards must be checked.
+  - detector: sdk_init_scan
+    control: DPDPA-6-SDK-01
+    confidence: inferred
+    rationale: SDK initialisation calls show third-party collection surfaces in browser code.
+  - detector: region_scan
+    control: DPDPA-16-REGION-01
+    confidence: inferred
+    rationale: Region strings in source and config show where data stores are pinned.
+  - detector: pii_literal_scan
+    control: DPDPA-6-PII-LITERAL-01
+    confidence: inferred
+    rationale: Allowlisted personal-data field names show literals that need purpose documentation.
+  - detector: cookie_scan
+    control: DPDPA-8.4-COOKIE-01
+    confidence: inferred
+    rationale: Cookie configuration calls show flags applied to personal-data cookies.
+  - detector: cmp_scan
+    control: DPDPA-8.4-CMP-01
+    confidence: inferred
+    rationale: CMP configuration calls show whether a consent platform is enabled.
+  - detector: cmp_scan
+    control: DPDPA-6-CONSENT-GATE-01
+    confidence: inferred
+    rationale: CMP signal paths identify forms that have a recorded consent gate.
+  - detector: header_scan
+    control: DPDPA-8.4-HEADER-01
+    confidence: inferred
+    rationale: Response-header configuration shows which security headers are set.
+  - detector: header_scan
+    control: DPDPA-8.4-TLS-01
+    confidence: inferred
+    rationale: Strict-Transport-Security configuration shows enforced transport encryption.
+  - detector: header_scan
+    control: DPDPA-8.4-SESSION-01
+    confidence: inferred
+    rationale: Session cookie and header settings show how sessions are protected.
+  - detector: cms_scan
+    control: DPDPA-6-CMS-01
+    confidence: inferred
+    rationale: CMS dependency and plugin tokens show personal-data handling surfaces to review.
   - detector: artefact_scan
     control: DPDPA-5-NOTICE-01
     confidence: direct

@@ -6,7 +6,10 @@ import subprocess
 from pathlib import Path
 
 fixtures = Path(__file__).resolve().parent
-config = fixtures.parents[1] / "packages/rule-packs/semgrep/dpdpa.yaml"
+configs = [
+    fixtures.parents[1] / "packages/rule-packs/semgrep/dpdpa.yaml",
+    fixtures.parents[1] / "packages/rule-packs/custom/semgrep/dpdpa-v2-web.yaml",
+]
 targets = sorted(fixtures.glob("dpdpa.*"))
 expected = set()
 rules = set()
@@ -22,13 +25,18 @@ for target in targets:
                     number += 1
                 expected.add((target.name, number + 1, rule))
 
-result = subprocess.check_output(
-    [
-        "semgrep", "scan", "--metrics=off", "--no-rewrite-rule-ids", "--json", "--quiet",
-        "--config", str(config), *(str(target) for target in targets),
-    ],
-    text=True,
-)
+command = [
+    "semgrep",
+    "scan",
+    "--metrics=off",
+    "--no-rewrite-rule-ids",
+    "--json",
+    "--quiet",
+]
+for config in configs:
+    command += ["--config", str(config)]
+command += [str(target) for target in targets]
+result = subprocess.check_output(command, text=True)
 scan = json.loads(result)
 if scan["errors"]:
     raise SystemExit(scan["errors"])

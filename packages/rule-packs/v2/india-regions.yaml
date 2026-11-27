@@ -1,3 +1,9 @@
 version: 1
 pack: dpdpa-2026.11.0
-entries: []
+entries:
+  - key: ap-south-1
+    label: AWS Mumbai region
+  - key: ap-south-2
+    label: AWS Hyderabad region
+  - key: in
+    label: India-prefixed region identifier

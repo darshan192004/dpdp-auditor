@@ -74,7 +74,9 @@ async function readPack(dir: string): Promise<{ manifest: ManifestLike; files: P
       const bytes = await readFile(join(dir, ...path.split('/')));
       return {
         path,
-        value: parse(bytes.toString('utf8')) as unknown,
+        value: path.endsWith('.md')
+          ? bytes.toString('utf8')
+          : (parse(bytes.toString('utf8')) as unknown),
         sha256: createHash('sha256').update(bytes).digest('hex'),
       };
     }),

@@ -1,6 +1,6 @@
 version: 1
 pack: dpdpa-2026.11.0
-effectiveFrom: '2026-11-15'
+effectiveFrom: 2026-11-15
 controls:
   - code: DPDPA-5-NOTICE-01
     section: '5'
@@ -29,6 +29,974 @@ controls:
     legalRefs:
       - DPDPA Section 5
       - DPDP Rules 4
+  - code: DPDPA-5-NOTICE-CONTENT-01
+    section: '5'
+    actRef: DPDPA Section 5
+    ruleRef: complete-notice-content
+    title: Notice covers purposes and rights
+    severity: medium
+    weight: 2
+    evidenceMode: positive
+    appliesWhen:
+      - stack: web
+    violationRules: []
+    absenceRules: []
+    positiveRules:
+      - id: positive.notice_purposes
+        detector: artefact_scan
+        token: notice_purposes
+        confidence: advisory
+    partialCredit: false
+    remediationKey: complete-notice-content
+    legalRefs:
+      - DPDPA Section 5
+  - code: DPDPA-5-NOTICE-LINK-01
+    section: '5'
+    actRef: DPDPA Section 5
+    ruleRef: link-privacy-notice-from-forms
+    title: Notice link is visible at collection forms
+    severity: medium
+    weight: 2
+    evidenceMode: absence
+    appliesWhen:
+      - stack: web
+    violationRules: []
+    absenceRules:
+      - id: absence.privacy_notice_link
+        detector: form_scan
+        token: privacy_notice_link
+        confidence: inferred
+    positiveRules: []
+    partialCredit: false
+    remediationKey: link-privacy-notice-from-forms
+    legalRefs:
+      - DPDPA Section 5
+  - code: DPDPA-5-ARTEFACT-01
+    section: '5'
+    actRef: DPDPA Section 5
+    ruleRef: add-privacy-artefacts
+    title: Privacy artefacts are present in repository
+    severity: medium
+    weight: 2
+    evidenceMode: absence
+    appliesWhen: []
+    violationRules: []
+    absenceRules:
+      - id: absence.privacy_artefact
+        detector: artefact_scan
+        token: privacy_artefact
+        confidence: advisory
+    positiveRules: []
+    partialCredit: false
+    remediationKey: add-privacy-artefacts
+    legalRefs:
+      - DPDPA Section 5
+  - code: DPDPA-6-CONSENT-01
+    section: '6'
+    actRef: DPDPA Section 6
+    ruleRef: gate-processing-on-consent
+    title: Consent is captured before personal data processing
+    severity: high
+    weight: 5
+    evidenceMode: violation
+    appliesWhen: []
+    violationRules:
+      - id: violation.dpdpa_6_consent_01
+        detector: semgrep_scan
+        provenance:
+          search: dpdpa.python.no-consent-check
+        confidence: inferred
+    absenceRules: []
+    positiveRules: []
+    partialCredit: false
+    remediationKey: gate-processing-on-consent
+    legalRefs:
+      - DPDPA Section 6
+  - code: DPDPA-6-CONSENT-GATE-01
+    section: '6'
+    actRef: DPDPA Section 6
+    ruleRef: gate-web-forms-on-consent
+    title: Personal-data forms have a recorded consent gate
+    severity: high
+    weight: 5
+    evidenceMode: absence
+    appliesWhen:
+      - stack: web
+    violationRules: []
+    absenceRules:
+      - id: absence.consent_gate
+        detector: form_scan
+        token: consent_gate
+        confidence: inferred
+    positiveRules: []
+    partialCredit: false
+    remediationKey: gate-web-forms-on-consent
+    legalRefs:
+      - DPDPA Section 6
+  - code: DPDPA-6-MIN-01
+    section: '6'
+    actRef: DPDPA Section 6
+    ruleRef: remove-unnecessary-fields
+    title: Only necessary personal data fields are collected
+    severity: high
+    weight: 4
+    evidenceMode: violation
+    appliesWhen: []
+    violationRules:
+      - id: violation.dpdpa_6_min_01
+        detector: semgrep_scan
+        provenance:
+          search: dpdpa.generic.overcollection
+        confidence: inferred
+    absenceRules: []
+    positiveRules: []
+    partialCredit: false
+    remediationKey: remove-unnecessary-fields
+    legalRefs:
+      - DPDPA Section 6
+  - code: DPDPA-6-WD-01
+    section: '6'
+    actRef: DPDPA Section 6
+    ruleRef: add-consent-withdrawal
+    title: Consent withdrawal is implemented
+    severity: medium
+    weight: 3
+    evidenceMode: violation
+    appliesWhen: []
+    violationRules:
+      - id: violation.dpdpa_6_wd_01
+        detector: semgrep_scan
+        provenance:
+          search: dpdpa.python.consent-withdrawal-missing
+        confidence: inferred
+    absenceRules: []
+    positiveRules: []
+    partialCredit: false
+    remediationKey: add-consent-withdrawal
+    legalRefs:
+      - DPDPA Section 6
+  - code: DPDPA-7-LAWFUL-01
+    section: '7'
+    actRef: DPDPA Section 7
+    ruleRef: record-lawful-basis
+    title: A lawful basis is recorded for processing
+    severity: medium
+    weight: 2
+    evidenceMode: violation
+    appliesWhen: []
+    violationRules:
+      - id: violation.dpdpa_7_lawful_01
+        detector: semgrep_scan
+        provenance:
+          search: dpdpa.generic.lawful-basis-missing
+        confidence: advisory
+    absenceRules: []
+    positiveRules: []
+    partialCredit: false
+    remediationKey: record-lawful-basis
+    legalRefs:
+      - DPDPA Section 7
+  - code: DPDPA-6-THIRDPARTY-01
+    section: '6'
+    actRef: DPDPA Section 6
+    ruleRef: publish-processor-list
+    title: Processor list is published
+    severity: medium
+    weight: 2
+    evidenceMode: absence
+    appliesWhen: []
+    violationRules: []
+    absenceRules:
+      - id: absence.processor_list
+        detector: artefact_scan
+        token: processor_list
+        confidence: inferred
+    positiveRules: []
+    partialCredit: false
+    remediationKey: publish-processor-list
+    legalRefs:
+      - DPDPA Section 6
+  - code: DPDPA-6-SDK-01
+    section: '6'
+    actRef: DPDPA Section 6
+    ruleRef: document-sdk-purpose
+    title: SDK initialisation discloses personal-data use
+    severity: medium
+    weight: 3
+    evidenceMode: absence
+    appliesWhen:
+      - stack: web
+    violationRules: []
+    absenceRules:
+      - id: absence.sdk_purpose
+        detector: sdk_init_scan
+        token: sdk_purpose
+        confidence: inferred
+    positiveRules: []
+    partialCredit: false
+    remediationKey: document-sdk-purpose
+    legalRefs:
+      - DPDPA Section 6
+  - code: DPDPA-6-CMS-01
+    section: '6'
+    actRef: DPDPA Section 6
+    ruleRef: review-cms-plugins
+    title: CMS plugins handling personal data are reviewed
+    severity: medium
+    weight: 3
+    evidenceMode: absence
+    appliesWhen:
+      - stack: web
+    violationRules: []
+    absenceRules:
+      - id: absence.cms_pii_plugin
+        detector: cms_scan
+        token: cms_pii_plugin
+        confidence: inferred
+    positiveRules: []
+    partialCredit: false
+    remediationKey: review-cms-plugins
+    legalRefs:
+      - DPDPA Section 6
+  - code: DPDPA-6-PII-LITERAL-01
+    section: '6'
+    actRef: DPDPA Section 6
+    ruleRef: document-pii-literals
+    title: Personal-data literals are documented
+    severity: medium
+    weight: 2
+    evidenceMode: absence
+    appliesWhen: []
+    violationRules: []
+    absenceRules:
+      - id: absence.pii_literal
+        detector: pii_literal_scan
+        token: pii_literal
+        confidence: inferred
+    positiveRules: []
+    partialCredit: false
+    remediationKey: document-pii-literals
+    legalRefs:
+      - DPDPA Section 6
+  - code: DPDPA-6-FORM-PURPOSE-01
+    section: '6'
+    actRef: DPDPA Section 6
+    ruleRef: add-form-purpose
+    title: Collection forms state a purpose
+    severity: medium
+    weight: 2
+    evidenceMode: absence
+    appliesWhen:
+      - stack: web
+    violationRules: []
+    absenceRules:
+      - id: absence.purpose_statement
+        detector: form_scan
+        token: purpose_statement
+        confidence: inferred
+    positiveRules: []
+    partialCredit: false
+    remediationKey: add-form-purpose
+    legalRefs:
+      - DPDPA Section 6
+  - code: DPDPA-6-DSR-SOP-01
+    section: '6'
+    actRef: DPDPA Section 6
+    ruleRef: publish-dsr-sop
+    title: DSR SOP artefact exists
+    severity: medium
+    weight: 2
+    evidenceMode: absence
+    appliesWhen: []
+    violationRules: []
+    absenceRules:
+      - id: absence.dsr_sop
+        detector: artefact_scan
+        token: dsr_sop
+        confidence: inferred
+    positiveRules: []
+    partialCredit: false
+    remediationKey: publish-dsr-sop
+    legalRefs:
+      - DPDPA Section 6
+  - code: DPDPA-8.4-ENC-01
+    section: 8(4)
+    actRef: DPDPA Section 8(4)
+    ruleRef: enable-encryption-at-rest
+    title: Personal data is encrypted at rest
+    severity: high
+    weight: 5
+    evidenceMode: violation
+    appliesWhen: []
+    violationRules:
+      - id: violation.dpdpa_8.4_enc_01
+        detector: checkov_scan
+        provenance:
+          search: ckv_dpdp_a_1
+        confidence: direct
+    absenceRules: []
+    positiveRules: []
+    partialCredit: false
+    remediationKey: enable-encryption-at-rest
+    legalRefs:
+      - DPDPA Section 8(4)
+      - DPDP Rules 4
+  - code: DPDPA-8.4-TLS-01
+    section: 8(4)
+    actRef: DPDPA Section 8(4)
+    ruleRef: enforce-tls
+    title: Transport encryption is enforced
+    severity: high
+    weight: 5
+    evidenceMode: absence
+    appliesWhen:
+      - stack: web
+    violationRules: []
+    absenceRules:
+      - id: absence.strict-transport-security
+        detector: header_scan
+        token: strict-transport-security
+        confidence: inferred
+    positiveRules: []
+    partialCredit: false
+    remediationKey: enforce-tls
+    legalRefs:
+      - DPDPA Section 8(4)
+      - DPDP Rules 4
+  - code: DPDPA-8.4-ACCESS-01
+    section: 8(4)
+    actRef: DPDPA Section 8(4)
+    ruleRef: restrict-public-access
+    title: Data stores and services are not publicly exposed
+    severity: critical
+    weight: 8
+    evidenceMode: violation
+    appliesWhen: []
+    violationRules:
+      - id: violation.dpdpa_8.4_access_01
+        detector: checkov_scan
+        provenance:
+          search: ckv_dpdp_a_1
+        confidence: direct
+    absenceRules: []
+    positiveRules: []
+    partialCredit: false
+    remediationKey: restrict-public-access
+    legalRefs:
+      - DPDPA Section 8(4)
+      - DPDP Rules 4
+  - code: DPDPA-8.4-SECRET-01
+    section: 8(4)
+    actRef: DPDPA Section 8(4)
+    ruleRef: remove-hardcoded-secrets
+    title: Secrets are not stored in source
+    severity: critical
+    weight: 8
+    evidenceMode: violation
+    appliesWhen: []
+    violationRules:
+      - id: violation.dpdpa_8.4_secret_01
+        detector: gitleaks_scan
+        provenance:
+          search: generic-api-key
+        confidence: direct
+    absenceRules: []
+    positiveRules: []
+    partialCredit: false
+    remediationKey: remove-hardcoded-secrets
+    legalRefs:
+      - DPDPA Section 8(4)
+      - DPDP Rules 4
+  - code: DPDPA-8.4-LOG-01
+    section: 8(4)
+    actRef: DPDPA Section 8(4)
+    ruleRef: redact-personal-data-from-logs
+    title: Personal data is not written to logs
+    severity: critical
+    weight: 7
+    evidenceMode: violation
+    appliesWhen: []
+    violationRules:
+      - id: violation.dpdpa_8.4_log_01
+        detector: semgrep_scan
+        provenance:
+          search: dpdpa.python.pii-in-logs
+        confidence: direct
+    absenceRules: []
+    positiveRules: []
+    partialCredit: false
+    remediationKey: redact-personal-data-from-logs
+    legalRefs:
+      - DPDPA Section 8(4)
+      - DPDP Rules 4
+  - code: DPDPA-8.4-MON-01
+    section: 8(4)
+    actRef: DPDPA Section 8(4)
+    ruleRef: add-audit-logging
+    title: Audit logging is present in the data schema
+    severity: medium
+    weight: 3
+    evidenceMode: absence
+    appliesWhen: []
+    violationRules: []
+    absenceRules:
+      - id: absence.audit_log
+        detector: schema_scan
+        token: audit_log
+        pathHint: schema.py
+        confidence: direct
+    positiveRules:
+      - id: positive.audit_log
+        detector: schema_scan
+        token: audit_log
+        confidence: direct
+    partialCredit: false
+    remediationKey: add-audit-logging
+    legalRefs:
+      - DPDPA Section 8(4)
+      - DPDP Rules 4
+  - code: DPDPA-8.4-BACKUP-01
+    section: 8(4)
+    actRef: DPDPA Section 8(4)
+    ruleRef: add-backup-policy
+    title: Backup policy artefact is present
+    severity: medium
+    weight: 2
+    evidenceMode: absence
+    appliesWhen: []
+    violationRules: []
+    absenceRules:
+      - id: absence.backup_policy
+        detector: artefact_scan
+        token: backup_policy
+        pathHint: backup-policy.md
+        confidence: direct
+    positiveRules:
+      - id: positive.backup_policy
+        detector: artefact_scan
+        token: backup_policy
+        confidence: direct
+    partialCredit: false
+    remediationKey: add-backup-policy
+    legalRefs:
+      - DPDPA Section 8(4)
+      - DPDP Rules 4
+  - code: DPDPA-8.4-RET-01
+    section: 8(4)
+    actRef: DPDPA Section 8(4)
+    ruleRef: enforce-retention-limit
+    title: Retention limits are enforced in code
+    severity: high
+    weight: 4
+    evidenceMode: violation
+    appliesWhen: []
+    violationRules:
+      - id: violation.dpdpa_8.4_ret_01
+        detector: semgrep_scan
+        provenance:
+          search: dpdpa.generic.unbounded-retention
+        confidence: inferred
+    absenceRules: []
+    positiveRules: []
+    partialCredit: false
+    remediationKey: enforce-retention-limit
+    legalRefs:
+      - DPDPA Section 8(4)
+      - DPDP Rules 4
+  - code: DPDPA-8.4-PASSWORD-01
+    section: 8(4)
+    actRef: DPDPA Section 8(4)
+    ruleRef: enforce-password-policy
+    title: Credential policy is documented
+    severity: medium
+    weight: 3
+    evidenceMode: absence
+    appliesWhen: []
+    violationRules: []
+    absenceRules:
+      - id: absence.password_policy
+        detector: schema_scan
+        token: password_policy
+        confidence: inferred
+    positiveRules: []
+    partialCredit: false
+    remediationKey: enforce-password-policy
+    legalRefs:
+      - DPDPA Section 8(4)
+      - DPDP Rules 4
+  - code: DPDPA-8.4-SESSION-01
+    section: 8(4)
+    actRef: DPDPA Section 8(4)
+    ruleRef: secure-session-config
+    title: Session configuration protects personal data
+    severity: medium
+    weight: 3
+    evidenceMode: absence
+    appliesWhen:
+      - stack: web
+    violationRules: []
+    absenceRules:
+      - id: absence.session_secure
+        detector: header_scan
+        token: session_secure
+        confidence: inferred
+    positiveRules: []
+    partialCredit: false
+    remediationKey: secure-session-config
+    legalRefs:
+      - DPDPA Section 8(4)
+      - DPDP Rules 4
+  - code: DPDPA-8.4-HEADER-01
+    section: 8(4)
+    actRef: DPDPA Section 8(4)
+    ruleRef: configure-security-headers
+    title: Security headers are configured
+    severity: high
+    weight: 4
+    evidenceMode: violation
+    appliesWhen:
+      - stack: web
+    violationRules:
+      - id: violation.dpdpa_8.4_header_01
+        detector: semgrep_scan
+        provenance:
+          search: dpdpa.v2.header.hsts-disabled
+        confidence: direct
+    absenceRules: []
+    positiveRules: []
+    partialCredit: false
+    remediationKey: configure-security-headers
+    legalRefs:
+      - DPDPA Section 8(4)
+      - DPDP Rules 4
+  - code: DPDPA-8.4-COOKIE-01
+    section: 8(4)
+    actRef: DPDPA Section 8(4)
+    ruleRef: harden-cookie-flags
+    title: Cookies carrying personal data are hardened
+    severity: high
+    weight: 4
+    evidenceMode: violation
+    appliesWhen:
+      - stack: web
+    violationRules:
+      - id: violation.dpdpa_8.4_cookie_01
+        detector: semgrep_scan
+        provenance:
+          search: dpdpa.v2.cookie.missing-secure-flag
+        confidence: direct
+    absenceRules: []
+    positiveRules: []
+    partialCredit: false
+    remediationKey: harden-cookie-flags
+    legalRefs:
+      - DPDPA Section 8(4)
+      - DPDP Rules 4
+  - code: DPDPA-8.4-CMP-01
+    section: 8(4)
+    actRef: DPDPA Section 8(4)
+    ruleRef: enable-cmp-consent-mode
+    title: Consent management platform is enabled
+    severity: high
+    weight: 4
+    evidenceMode: violation
+    appliesWhen:
+      - stack: web
+    violationRules:
+      - id: violation.dpdpa_8.4_cmp_01
+        detector: semgrep_scan
+        provenance:
+          search: dpdpa.v2.cmp.consent-mode-disabled
+        confidence: direct
+    absenceRules: []
+    positiveRules: []
+    partialCredit: false
+    remediationKey: enable-cmp-consent-mode
+    legalRefs:
+      - DPDPA Section 8(4)
+      - DPDP Rules 4
+  - code: DPDPA-8.4-DEP-01
+    section: 8(4)
+    actRef: DPDPA Section 8(4)
+    ruleRef: pin-dependency-versions
+    title: Dependencies with known personal-data risk are pinned
+    severity: medium
+    weight: 3
+    evidenceMode: absence
+    appliesWhen: []
+    violationRules: []
+    absenceRules:
+      - id: absence.vulnerable_dependency
+        detector: dep_scan
+        token: vulnerable_dependency
+        confidence: inferred
+    positiveRules: []
+    partialCredit: false
+    remediationKey: pin-dependency-versions
+    legalRefs:
+      - DPDPA Section 8(4)
+      - DPDP Rules 4
+  - code: DPDPA-8.4-ECOSYSTEM-01
+    section: 8(4)
+    actRef: DPDPA Section 8(4)
+    ruleRef: apply-framework-safeguards
+    title: Framework-specific safeguards are applied
+    severity: medium
+    weight: 3
+    evidenceMode: absence
+    appliesWhen:
+      - stack: web
+    violationRules: []
+    absenceRules:
+      - id: absence.ecosystem_pattern
+        detector: dep_scan
+        token: ecosystem_pattern
+        confidence: inferred
+    positiveRules: []
+    partialCredit: false
+    remediationKey: apply-framework-safeguards
+    legalRefs:
+      - DPDPA Section 8(4)
+      - DPDP Rules 4
+  - code: DPDPA-8.5-BREACH-01
+    section: 8(5)
+    actRef: DPDPA Section 8(5)
+    ruleRef: add-breach-alert-hook
+    title: Breach detection and alerting hooks exist
+    severity: medium
+    weight: 3
+    evidenceMode: violation
+    appliesWhen: []
+    violationRules:
+      - id: violation.dpdpa_8.5_breach_01
+        detector: semgrep_scan
+        provenance:
+          search: dpdpa.generic.breach-alert-missing
+        confidence: inferred
+    absenceRules: []
+    positiveRules: []
+    partialCredit: false
+    remediationKey: add-breach-alert-hook
+    legalRefs:
+      - DPDPA Section 8(5)
+  - code: DPDPA-8.5-RUNBOOK-01
+    section: 8(5)
+    actRef: DPDPA Section 8(5)
+    ruleRef: publish-breach-runbook
+    title: Breach response runbook artefact exists
+    severity: medium
+    weight: 2
+    evidenceMode: absence
+    appliesWhen: []
+    violationRules: []
+    absenceRules:
+      - id: absence.breach_runbook
+        detector: artefact_scan
+        token: breach_runbook
+        confidence: inferred
+    positiveRules: []
+    partialCredit: false
+    remediationKey: publish-breach-runbook
+    legalRefs:
+      - DPDPA Section 8(5)
+  - code: DPDPA-8.5-ENCRYPTION-01
+    section: 8(5)
+    actRef: DPDPA Section 8(5)
+    ruleRef: enable-encryption-at-rest
+    title: Encryption safeguards are evidenced for the safeguards register
+    severity: high
+    weight: 4
+    evidenceMode: violation
+    appliesWhen: []
+    violationRules:
+      - id: violation.dpdpa_8.5_encryption_01
+        detector: checkov_scan
+        provenance:
+          search: ckv_dpdp_a_1
+        confidence: direct
+    absenceRules: []
+    positiveRules: []
+    partialCredit: false
+    remediationKey: enable-encryption-at-rest
+    legalRefs:
+      - DPDPA Section 8(5)
+  - code: DPDPA-8.6-BREACH-01
+    section: 8(6)
+    actRef: DPDPA Section 8(6)
+    ruleRef: document-breach-intimation
+    title: Breach intimation path is documented
+    severity: medium
+    weight: 3
+    evidenceMode: absence
+    appliesWhen: []
+    violationRules: []
+    absenceRules:
+      - id: absence.breach_intimation
+        detector: artefact_scan
+        token: breach_intimation
+        confidence: inferred
+    positiveRules: []
+    partialCredit: false
+    remediationKey: document-breach-intimation
+    legalRefs:
+      - DPDPA Section 8(6)
+  - code: DPDPA-8.6-ALERT-01
+    section: 8(6)
+    actRef: DPDPA Section 8(6)
+    ruleRef: route-security-events
+    title: Security events escalate to the response owner
+    severity: medium
+    weight: 3
+    evidenceMode: violation
+    appliesWhen: []
+    violationRules:
+      - id: violation.dpdpa_8.6_alert_01
+        detector: semgrep_scan
+        provenance:
+          search: dpdpa.generic.breach-alert-missing
+        confidence: inferred
+    absenceRules: []
+    positiveRules: []
+    partialCredit: false
+    remediationKey: route-security-events
+    legalRefs:
+      - DPDPA Section 8(6)
+  - code: DPDPA-8.7-ERASE-01
+    section: 8(7)
+    actRef: DPDPA Section 8(7)
+    ruleRef: implement-hard-delete
+    title: Erasure is implemented as hard deletion
+    severity: high
+    weight: 4
+    evidenceMode: violation
+    appliesWhen: []
+    violationRules:
+      - id: violation.dpdpa_8.7_erase_01
+        detector: semgrep_scan
+        provenance:
+          search: dpdpa.generic.hard-delete-missing
+        confidence: inferred
+    absenceRules: []
+    positiveRules: []
+    partialCredit: false
+    remediationKey: implement-hard-delete
+    legalRefs:
+      - DPDPA Section 8(7)
+  - code: DPDPA-8.7-RET-01
+    section: 8(7)
+    actRef: DPDPA Section 8(7)
+    ruleRef: publish-retention-schedule
+    title: Retention schedule artefact exists
+    severity: medium
+    weight: 2
+    evidenceMode: absence
+    appliesWhen: []
+    violationRules: []
+    absenceRules:
+      - id: absence.retention_schedule
+        detector: artefact_scan
+        token: retention_schedule
+        confidence: advisory
+    positiveRules: []
+    partialCredit: false
+    remediationKey: publish-retention-schedule
+    legalRefs:
+      - DPDPA Section 8(7)
+  - code: DPDPA-8.9-CONTACT-01
+    section: 8(9)
+    actRef: DPDPA Section 8(9)
+    ruleRef: publish-privacy-contact
+    title: Published data protection contact exists
+    severity: medium
+    weight: 2
+    evidenceMode: absence
+    appliesWhen: []
+    violationRules: []
+    absenceRules:
+      - id: absence.privacy_contact
+        detector: artefact_scan
+        token: privacy_contact
+        confidence: inferred
+    positiveRules: []
+    partialCredit: false
+    remediationKey: publish-privacy-contact
+    legalRefs:
+      - DPDPA Section 8(9)
+  - code: DPDPA-8.10-GRIEVANCE-01
+    section: 8(10)
+    actRef: DPDPA Section 8(10)
+    ruleRef: publish-grievance-mechanism
+    title: Grievance mechanism is published
+    severity: medium
+    weight: 2
+    evidenceMode: absence
+    appliesWhen: []
+    violationRules: []
+    absenceRules:
+      - id: absence.grievance_mechanism
+        detector: artefact_scan
+        token: grievance_mechanism
+        confidence: inferred
+    positiveRules: []
+    partialCredit: false
+    remediationKey: publish-grievance-mechanism
+    legalRefs:
+      - DPDPA Section 8(10)
+  - code: DPDPA-9-CHILD-01
+    section: '9'
+    actRef: DPDPA Section 9
+    ruleRef: add-child-consent-gate
+    title: Children's data includes verifiable consent
+    severity: high
+    weight: 4
+    evidenceMode: violation
+    appliesWhen: []
+    violationRules:
+      - id: violation.dpdpa_9_child_01
+        detector: semgrep_scan
+        provenance:
+          search: dpdpa.generic.children-data-no-age-gate
+        confidence: advisory
+    absenceRules: []
+    positiveRules: []
+    partialCredit: false
+    remediationKey: add-child-consent-gate
+    legalRefs:
+      - DPDPA Section 9
+  - code: DPDPA-9-AGEGATE-01
+    section: '9'
+    actRef: DPDPA Section 9
+    ruleRef: add-age-gate
+    title: Age gate is present on child-directed surfaces
+    severity: high
+    weight: 4
+    evidenceMode: absence
+    appliesWhen:
+      - stack: web
+    violationRules: []
+    absenceRules:
+      - id: absence.age_gate
+        detector: form_scan
+        token: age_gate
+        confidence: advisory
+    positiveRules: []
+    partialCredit: false
+    remediationKey: add-age-gate
+    legalRefs:
+      - DPDPA Section 9
+  - code: DPDPA-10-SDF-01
+    section: '10'
+    actRef: DPDPA Section 10
+    ruleRef: document-sdf-governance
+    title: SDF governance artefacts are present
+    severity: low
+    weight: 1
+    evidenceMode: manual
+    appliesWhen: []
+    violationRules: []
+    absenceRules: []
+    positiveRules: []
+    partialCredit: false
+    remediationKey: document-sdf-governance
+    legalRefs:
+      - DPDPA Section 10
+  - code: DPDPA-12-ACCESS-01
+    section: '12'
+    actRef: DPDPA Section 12
+    ruleRef: add-access-export
+    title: Data access and export endpoint exists
+    severity: medium
+    weight: 1
+    evidenceMode: manual
+    appliesWhen: []
+    violationRules: []
+    absenceRules: []
+    positiveRules: []
+    partialCredit: false
+    remediationKey: add-access-export
+    legalRefs:
+      - DPDPA Section 12
+  - code: DPDPA-13-ERASE-01
+    section: '13'
+    actRef: DPDPA Section 13
+    ruleRef: add-erasure-endpoint
+    title: Correction and erasure endpoints exist
+    severity: high
+    weight: 4
+    evidenceMode: positive
+    appliesWhen: []
+    violationRules: []
+    absenceRules: []
+    positiveRules:
+      - id: positive.erase_endpoint
+        detector: schema_scan
+        token: erase_endpoint
+        confidence: inferred
+    partialCredit: false
+    remediationKey: add-erasure-endpoint
+    legalRefs:
+      - DPDPA Section 13
+  - code: DPDPA-13-GRIEVANCE-01
+    section: '13'
+    actRef: DPDPA Section 13
+    ruleRef: add-grievance-redressal
+    title: Grievance redressal path exists for data principals
+    severity: medium
+    weight: 2
+    evidenceMode: absence
+    appliesWhen: []
+    violationRules: []
+    absenceRules:
+      - id: absence.grievance_form
+        detector: mechanism_scan
+        token: grievance_form
+        confidence: inferred
+    positiveRules: []
+    partialCredit: false
+    remediationKey: add-grievance-redressal
+    legalRefs:
+      - DPDPA Section 13
+  - code: DPDPA-16-XBORDER-01
+    section: '16'
+    actRef: DPDPA Section 16
+    ruleRef: restrict-cross-border-transfer
+    title: Cross-border transfer is restricted or disclosed
+    severity: high
+    weight: 4
+    evidenceMode: violation
+    appliesWhen: []
+    violationRules:
+      - id: violation.dpdpa_16_xborder_01
+        detector: semgrep_scan
+        provenance:
+          search: dpdpa.javascript.cross-border-sdk
+        confidence: inferred
+    absenceRules: []
+    positiveRules: []
+    partialCredit: false
+    remediationKey: restrict-cross-border-transfer
+    legalRefs:
+      - DPDPA Section 16
+  - code: DPDPA-16-REGION-01
+    section: '16'
+    actRef: DPDPA Section 16
+    ruleRef: pin-india-region
+    title: Data stores are pinned to India regions
+    severity: high
+    weight: 4
+    evidenceMode: absence
+    appliesWhen: []
+    violationRules: []
+    absenceRules:
+      - id: absence.ap-south-1
+        detector: region_scan
+        token: ap-south-1
+        confidence: inferred
+    positiveRules: []
+    partialCredit: false
+    remediationKey: pin-india-region
+    legalRefs:
+      - DPDPA Section 16
   - code: DPDPA-6-CONSENTGATE-01
     section: '6'
     actRef: DPDPA Section 6
@@ -86,56 +1054,4 @@ controls:
     remediationKey: add-form-purpose
     legalRefs:
       - DPDPA Section 6
-      - DPDP Rules 4
-  - code: DPDPA-8.4-MON-01
-    section: '8(4)'
-    actRef: DPDPA Section 8(4)
-    ruleRef: add-audit-logging
-    title: Audit logging is present in the data schema
-    severity: medium
-    weight: 3
-    evidenceMode: absence
-    appliesWhen: []
-    violationRules: []
-    absenceRules:
-      - id: absence.audit_log
-        detector: schema_scan
-        token: audit_log
-        pathHint: schema.py
-        confidence: direct
-    positiveRules:
-      - id: positive.audit_log
-        detector: schema_scan
-        token: audit_log
-        confidence: direct
-    partialCredit: false
-    remediationKey: add-audit-logging
-    legalRefs:
-      - DPDPA Section 8(4)
-      - DPDP Rules 4
-  - code: DPDPA-8.4-BACKUP-01
-    section: '8(4)'
-    actRef: DPDPA Section 8(4)
-    ruleRef: add-backup-policy
-    title: Backup policy artefact is present
-    severity: medium
-    weight: 2
-    evidenceMode: absence
-    appliesWhen: []
-    violationRules: []
-    absenceRules:
-      - id: absence.backup_policy
-        detector: artefact_scan
-        token: backup_policy
-        pathHint: backup-policy.md
-        confidence: direct
-    positiveRules:
-      - id: positive.backup_policy
-        detector: artefact_scan
-        token: backup_policy
-        confidence: direct
-    partialCredit: false
-    remediationKey: add-backup-policy
-    legalRefs:
-      - DPDPA Section 8(4)
       - DPDP Rules 4

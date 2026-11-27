@@ -1,3 +1,11 @@
 version: 1
 pack: dpdpa-2026.11.0
-entries: []
+entries:
+  - key: oneTrust
+    label: OneTrust consent banner initialisation
+  - key: cookiebot
+    label: Cookiebot consent banner initialisation
+  - key: gtm.consentMode
+    label: Google Tag Manager consent mode configuration
+  - key: consent_gate
+    label: Recorded consent gate before personal data collection

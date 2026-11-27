@@ -5,11 +5,15 @@ entries:
     label: Email address field
   - key: phone
     label: Phone number field
-  - key: full_name
-    label: Full name field
-  - key: address
-    label: Postal address field
-  - key: date_of_birth
-    label: Date of birth field
   - key: aadhaar
     label: Aadhaar identifier field
+  - key: pan
+    label: PAN identifier field
+  - key: address
+    label: Postal address field
+  - key: dob
+    label: Date of birth field
+  - key: full_name
+    label: Full name field
+  - key: date_of_birth
+    label: Date of birth field

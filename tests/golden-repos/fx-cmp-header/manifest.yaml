@@ -1,0 +1,23 @@
+name: fx-cmp-header
+languages:
+  - terraform
+scanners:
+  - checkov
+expectedFindings:
+  - scanner: checkov
+    ruleId: CKV_AWS_19
+    control: DPDPA-8.4-ENC-01
+    confidence: direct
+    severity: high
+    minCount: 1
+    maxCount: 1
+  - scanner: checkov
+    ruleId: ckv_dpdp_a_1
+    control: DPDPA-8.4-ENC-01
+    confidence: direct
+    severity: high
+    minCount: 1
+    maxCount: 1
+expectedCoverage: full
+tolerances:
+  extraFindings: 0
