@@ -2660,7 +2660,7 @@ git commit -m "feat(ui): add pro motion primitives for Nuxt"
 - Consumes: `ScanDetail.assessment`, `MetricTile`, `MotionTextReveal`, `ScrollReveal`, `HoverCard`, `CommandPalette`.
 - Produces: four headline tiles, legacy badge, “Could not determine” panel, command palette entry point.
 
-- [ ] **Step 1: Add failing assertions**
+- [x] **Step 1: Add failing assertions**
 
 Append to `apps/web/test/new-scan-screens.test.ts`:
 
@@ -2703,12 +2703,12 @@ Append to `apps/web/test/new-scan-screens.test.ts`:
   });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `pnpm --filter @dpdpa/web test -- new-scan-screens.test.ts`  
 Expected: FAIL — tiles/badge/panel absent.
 
-- [ ] **Step 3: Update `ScoreRing.vue`**
+- [x] **Step 3: Update `ScoreRing.vue`**
 
 Replace `shownGrade` logic:
 
@@ -2736,7 +2736,7 @@ with default `null`, and replace the grade paragraph block:
        <p v-else class="text-ink-500 mt-1 text-sm">grade withheld</p>
 ```
 
-- [ ] **Step 4: Update `CoverageBanner.vue`**
+- [x] **Step 4: Update `CoverageBanner.vue`**
 
 Add prop:
 
@@ -2750,7 +2750,7 @@ Render the extra note:
       <span v-if="evidenceNote" class="mt-1 block">{{ evidenceNote }}</span>
 ```
 
-- [ ] **Step 5: Update `ScoreCard.vue`**
+- [x] **Step 5: Update `ScoreCard.vue`**
 
 Add `legacy?: boolean` prop with default `false`. Add before the score:
 
@@ -2764,7 +2764,7 @@ Add `legacy?: boolean` prop with default `false`. Add before the score:
     </p>
 ```
 
-- [ ] **Step 6: Compose `NewScanDetail.vue`**
+- [x] **Step 6: Compose `NewScanDetail.vue`**
 
 Add imports:
 
@@ -2908,12 +2908,12 @@ Replace the score section with:
        />
 ```
 
-- [ ] **Step 7: Run focused tests**
+- [x] **Step 7: Run focused tests**
 
 Run: `pnpm --filter @dpdpa/web test -- new-scan-screens.test.ts motion-primitives.test.ts readiness-language.test.ts`  
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add apps/web/app/components/new/NewScanDetail.vue apps/web/app/components/dashboard/ScoreRing.vue apps/web/app/components/scan/ScoreCard.vue apps/web/app/components/scan/CoverageBanner.vue apps/web/app/components/motion/MotionTextReveal.vue apps/web/test/new-scan-screens.test.ts

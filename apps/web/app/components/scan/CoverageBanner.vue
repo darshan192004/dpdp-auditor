@@ -5,8 +5,9 @@ withDefaults(
   defineProps<{
     note: string;
     withheld?: boolean;
+    evidenceNote?: string | null;
   }>(),
-  { withheld: false },
+  { withheld: false, evidenceNote: null },
 );
 </script>
 
@@ -19,6 +20,7 @@ withDefaults(
     <p>
       {{ note }}
       <span v-if="withheld" class="font-medium">Grade withheld until every scanner completes.</span>
+      <span v-if="evidenceNote" class="mt-1 block">{{ evidenceNote }}</span>
     </p>
   </div>
 </template>

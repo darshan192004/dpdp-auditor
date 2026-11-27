@@ -21,8 +21,9 @@ const props = withDefaults(
     coverageNote?: string | null;
     counts: ScanCounts;
     isLoading?: boolean;
+    legacy?: boolean;
   }>(),
-  { grade: null, previousScore: null, coverageNote: null, isLoading: false },
+  { grade: null, previousScore: null, coverageNote: null, isLoading: false, legacy: false },
 );
 
 const COUNT_ITEMS = [
@@ -78,6 +79,13 @@ const gaugeLabel = computed(() => {
     <template v-else>
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div class="min-w-0">
+          <p
+            v-if="legacy"
+            data-testid="legacy-scoring-badge"
+            class="bg-status-partial-bg text-status-partial-text border-status-partial-border mb-3 inline-flex rounded-[var(--radius-pill)] border px-2 py-0.5 text-xs"
+          >
+            Legacy scoring: no evidence was treated as pass
+          </p>
           <h2 id="score-heading" class="text-ink-400 font-mono text-xs tracking-widest uppercase">
             DPDPA score
           </h2>
