@@ -1350,7 +1350,7 @@ git commit -m "feat(scoring): add version-dispatched scoring v2"
 - Consumes: `FeatureFlagsService.isEnabled(flag: string, fallback?: boolean): boolean`; `evaluateControls`; `scoreScanVersioned`; `scoringVersionForNewScan`.
 - Produces: `MapAndScoreResult` gains `evidenceCoverage`, `verdictCounts`, `unknownControls`, `openGaps`, `gradeWithheldReason`; `dpdpa_readiness_v2` feature flag.
 
-- [ ] **Step 1: Write failing service tests**
+- [x] **Step 1: Write failing service tests**
 
 Add `FeatureFlagsService` to the imports at the top of `apps/orchestrator/test/scan-scoring.service.test.ts`:
 
@@ -1476,12 +1476,12 @@ Add to `apps/orchestrator/test/scans.service.test.ts`:
   });
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `pnpm --filter @dpdpa/orchestrator test -- scan-scoring.service.test.ts scans.service.test.ts`  
 Expected: FAIL — new result fields/upsert expectations missing.
 
-- [ ] **Step 3: Inject the feature flag**
+- [x] **Step 3: Inject the feature flag**
 
 In `apps/orchestrator/src/modules/scans/scans.module.ts`:
 
@@ -1505,7 +1505,7 @@ import { FeatureFlagsService } from '../feature-flags/feature-flags.service.js';
 
 The `make()` helper modified in Step 1 already passes the flag mock. Apply the same third argument to any other direct `new ScanScoringService(pack, prisma)` construction in tests.
 
-- [ ] **Step 4: Extend result types and map evidence**
+- [x] **Step 4: Extend result types and map evidence**
 
 In `scan-scoring.service.ts`, extend `MapAndScoreResult`:
 
@@ -1557,7 +1557,7 @@ Add to the finding `data` object:
           detector: finding.scanner,
 ```
 
-- [ ] **Step 5: Evaluate, persist, and dispatch**
+- [x] **Step 5: Evaluate, persist, and dispatch**
 
 Replace the scoring block at `scan-scoring.service.ts:200-208` with:
 
@@ -1672,7 +1672,7 @@ import {
 
 Change the existing import of `scoreScan` to `scoreScanVersioned`.
 
-- [ ] **Step 6: Dispatch `scorePersisted` by stored version**
+- [x] **Step 6: Dispatch `scorePersisted` by stored version**
 
 Replace `scorePersisted` with:
 
@@ -1727,7 +1727,7 @@ Replace `scorePersisted` with:
 
 `isScoringV2` and `ControlResultLike` are already included in the imports from Step 5.
 
-- [ ] **Step 7: Persist assessment summary in `ScansService.complete`**
+- [x] **Step 7: Persist assessment summary in `ScansService.complete`**
 
 In the `scans.update` payload at `scans.service.ts:355-369`, add:
 
@@ -1741,12 +1741,12 @@ In the `scans.update` payload at `scans.service.ts:355-369`, add:
           gradeWithheldReason: scored.gradeWithheldReason,
 ```
 
-- [ ] **Step 8: Run focused tests**
+- [x] **Step 8: Run focused tests**
 
 Run: `pnpm --filter @dpdpa/orchestrator test -- scan-scoring.service.test.ts scans.service.test.ts`  
 Expected: PASS.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add apps/orchestrator/src/modules/scoring/scan-scoring.service.ts apps/orchestrator/src/modules/scans/scans.module.ts apps/orchestrator/src/modules/scans/scans.service.ts apps/orchestrator/test/scan-scoring.service.test.ts apps/orchestrator/test/scans.service.test.ts

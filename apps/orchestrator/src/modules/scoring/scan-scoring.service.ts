@@ -2,13 +2,26 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Prisma, type Scan } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { recordMappingMiss } from '../../common/metrics.js';
-import type { Control, Mapping, Severity } from '../rule-pack/rule-pack.schemas.js';
+import type { Control, Mapping, Scanner, Severity } from '../rule-pack/rule-pack.schemas.js';
 import { RulePackService } from '../rule-pack/rule-pack.service.js';
 import type { LoadedRulePack } from '../rule-pack/rule-pack.loader.js';
-import { resolveMappings, type FindingStatus } from './mapping.resolver.js';
-import { scoreScan, type ScoreCounts } from './scoring.engine.js';
+import { resolveMappings, type FindingStatus, type MappedFinding } from './mapping.resolver.js';
+import {
+  buildDetectorStatuses,
+  evaluateControls,
+  type ControlEvidence,
+  type ControlResultLike,
+} from './control-evaluator.js';
+import {
+  isScoringV2,
+  scoreScanVersioned,
+  scoringVersionForNewScan,
+  type ScoreCounts,
+  type VersionedScoreInput,
+} from './scoring.engine.js';
 import { isSuppressed } from './suppression.js';
 import type { RepoFacts } from './applicability.js';
+import { FeatureFlagsService } from '../feature-flags/feature-flags.service.js';
 
 export interface MapAndScoreResult {
   score: number | null;
@@ -18,6 +31,11 @@ export interface MapAndScoreResult {
   coverage: 'full' | 'partial';
   rulePackVersion: string;
   scoringVersion: string;
+  evidenceCoverage: number | null;
+  verdictCounts: Record<string, number>;
+  unknownControls: string[];
+  openGaps: number;
+  gradeWithheldReason: 'partial_coverage' | 'insufficient_evidence' | null;
   findings: {
     mapped: number;
     unmapped: number;
@@ -51,6 +69,7 @@ export class ScanScoringService {
   constructor(
     private readonly pack: RulePackService,
     private readonly prisma: PrismaService,
+    private readonly flags: FeatureFlagsService,
   ) {}
 
   async mapAndScore(
@@ -78,6 +97,7 @@ export class ScanScoringService {
       persistent: 0,
       reopened: 0,
     };
+    const evidence: ControlEvidence[] = [];
 
     for (const row of raw) {
       const mapped = resolveMappings(
@@ -141,6 +161,8 @@ export class ScanScoringService {
 
         const data = {
           controlCode: finding.controlCode,
+          kind: kindFor(finding),
+          detector: finding.scanner,
           dpdpaRuleId: finding.controlCode ? (ruleIds.get(finding.controlCode) ?? null) : null,
           severity: finding.severity,
           confidence: finding.confidence,
@@ -179,6 +201,20 @@ export class ScanScoringService {
 
         currentFingerprints.add(finding.fingerprint);
         scored.push({ controlCode: finding.controlCode, severity: finding.severity, status });
+        evidence.push({
+          controlCode: finding.controlCode,
+          kind: kindFor(finding),
+          scanner: finding.scanner,
+          scannerRuleId: finding.scannerRuleId,
+          evidenceHash: finding.evidenceHash,
+          filePath: finding.filePath,
+          lineStart: finding.lineStart,
+          lineEnd: finding.lineEnd,
+          fingerprint: finding.fingerprint,
+          severity: finding.severity,
+          confidence: finding.confidence,
+          status,
+        });
         if (finding.controlCode === null) {
           tally.unmapped += 1;
           recordMappingMiss(row.scanner, row.scannerRuleId);
@@ -198,35 +234,88 @@ export class ScanScoringService {
     }
 
     const coverageMode = coverageFor(coverage);
-    const result = scoreScan({
+    const scoringVersion = scoringVersionForNewScan(
+      this.flags.isEnabled('dpdpa_readiness_v2', false),
+    );
+    const evaluation = evaluateControls({
+      controls: loaded.controls,
+      facts,
+      mappings: loaded.mappings,
+      detectorStatuses: buildDetectorStatuses(coverage),
+      findings: evidence,
+      rulePackVersion: loaded.pack,
+      scoringVersion,
+    });
+
+    for (const controlResult of evaluation.results) {
+      const controlId = ruleIds.get(controlResult.controlCode);
+      if (!controlId) {
+        throw new Error(`Missing persisted rule for ${controlResult.controlCode}`);
+      }
+      await tx.controlResult.upsert({
+        where: {
+          scanId_controlId: { scanId: scan.id, controlId },
+        },
+        create: {
+          orgId: scan.orgId,
+          scanId: scan.id,
+          controlId,
+          controlCode: controlResult.controlCode,
+          verdict: controlResult.verdict,
+          reasonCode: controlResult.reasonCode,
+          confidence: controlResult.confidence,
+          evidence: controlResult.evidence as unknown as Prisma.InputJsonValue,
+          rulePackVersion: loaded.pack,
+          scoringVersion,
+        },
+        update: {
+          verdict: controlResult.verdict,
+          reasonCode: controlResult.reasonCode,
+          confidence: controlResult.confidence,
+          evidence: controlResult.evidence as unknown as Prisma.InputJsonValue,
+          rulePackVersion: loaded.pack,
+          scoringVersion,
+        },
+      });
+    }
+
+    const versioned = scoreScanVersioned({
       findings: scored,
       controls: loaded.controls,
       facts,
       coverage: coverageMode,
       sectionWeights: loaded.sectionWeights,
       grades: loaded.grades,
+      scoringVersion,
+      results: evaluation.results,
     });
+    const v2 = 'evidenceCoverage' in versioned ? versioned : null;
 
     const resolved = [...lifecycle.keys()].filter(
       (fingerprint) => !currentFingerprints.has(fingerprint),
     ).length;
     const counts = {
-      critical: result.counts.critical,
-      high: result.counts.high,
-      medium: result.counts.medium,
-      low: result.counts.low,
-      info: result.counts.info,
-      total: result.counts.total,
+      critical: versioned.counts.critical,
+      high: versioned.counts.high,
+      medium: versioned.counts.medium,
+      low: versioned.counts.low,
+      info: versioned.counts.info,
+      total: versioned.counts.total,
     };
 
     return {
-      score: result.score,
-      grade: result.grade,
-      sectionScores: result.sectionScores,
+      score: versioned.score,
+      grade: versioned.grade,
+      sectionScores: versioned.sectionScores,
       counts,
       coverage: coverageMode,
       rulePackVersion: loaded.pack,
-      scoringVersion: loaded.scoringVersion,
+      scoringVersion,
+      evidenceCoverage: v2?.evidenceCoverage ?? null,
+      verdictCounts: v2?.verdictCounts ?? {},
+      unknownControls: v2?.unknownControls ?? [],
+      openGaps: v2?.openGaps ?? 0,
+      gradeWithheldReason: v2?.gradeWithheldReason ?? null,
       findings: { ...tally, resolved },
     };
   }
@@ -239,23 +328,94 @@ export class ScanScoringService {
     findings?: readonly { controlCode: string | null; severity: Severity; status: FindingStatus }[],
   ) {
     const loaded = await this.pack.load();
-    const rows =
-      findings ??
-      (await tx.scannerFinding.findMany({
+    const v2 = isScoringV2(scan.scoringVersion);
+    const findingsForScore: {
+      controlCode: string | null;
+      severity: Severity;
+      status: FindingStatus;
+    }[] = findings ? [...findings] : [];
+    const evidenceByControl = new Map<string, ControlEvidence[]>();
+    // Persisted scannerFinding rows are the source for scoring inputs and, for
+    // v2, for reconstructing ControlEvidence (severity + confidence); persisted
+    // control_results evidence JSON is not trusted as ControlEvidence.
+    if (!findings || v2) {
+      const rows = await tx.scannerFinding.findMany({
         where: { scanId: scan.id },
-        select: { controlCode: true, severity: true, status: true },
-      }));
-    return {
-      loaded,
-      result: scoreScan({
-        findings: rows,
-        controls: loaded.controls,
-        facts,
-        coverage: coverageFor(scan.coverage),
-        sectionWeights: loaded.sectionWeights,
-        grades: loaded.grades,
-      }),
+        select: {
+          controlCode: true,
+          severity: true,
+          status: true,
+          kind: true,
+          confidence: true,
+          evidenceHash: true,
+          filePath: true,
+          lineStart: true,
+          lineEnd: true,
+          fingerprint: true,
+          scanner: true,
+          scannerRuleId: true,
+        },
+      });
+      for (const row of rows) {
+        if (!findings) {
+          findingsForScore.push({
+            controlCode: row.controlCode,
+            severity: row.severity as Severity,
+            status: row.status as FindingStatus,
+          });
+        }
+        if (row.controlCode === null) continue;
+        const list = evidenceByControl.get(row.controlCode) ?? [];
+        list.push({
+          controlCode: row.controlCode,
+          kind: row.kind as ControlEvidence['kind'],
+          scanner: row.scanner as Scanner,
+          scannerRuleId: row.scannerRuleId,
+          evidenceHash: row.evidenceHash,
+          filePath: row.filePath,
+          lineStart: row.lineStart,
+          lineEnd: row.lineEnd,
+          fingerprint: row.fingerprint,
+          severity: row.severity as Severity,
+          confidence: row.confidence as ControlEvidence['confidence'],
+          status: row.status as FindingStatus,
+        });
+        evidenceByControl.set(row.controlCode, list);
+      }
+    }
+    const input: VersionedScoreInput = {
+      findings: findingsForScore,
+      controls: loaded.controls,
+      facts,
+      coverage: coverageFor(scan.coverage),
+      sectionWeights: loaded.sectionWeights,
+      grades: loaded.grades,
+      scoringVersion: scan.scoringVersion,
     };
+    if (v2) {
+      const rows = await tx.controlResult.findMany({
+        where: { scanId: scan.id },
+        select: {
+          controlCode: true,
+          verdict: true,
+          reasonCode: true,
+          confidence: true,
+          rulePackVersion: true,
+          scoringVersion: true,
+        },
+      });
+      input.results = rows.map((row) => ({
+        controlCode: row.controlCode,
+        verdict: row.verdict as ControlResultLike['verdict'],
+        reasonCode: row.reasonCode,
+        confidence: row.confidence as ControlResultLike['confidence'],
+        evidence: evidenceByControl.get(row.controlCode) ?? [],
+        rulePackVersion: row.rulePackVersion,
+        scoringVersion: row.scoringVersion,
+      }));
+    }
+    const result = scoreScanVersioned(input);
+    return { loaded, result };
   }
 
   /**
@@ -333,6 +493,10 @@ export class ScanScoringService {
     }
     return lifecycle;
   }
+}
+
+function kindFor(finding: MappedFinding): 'violation' | 'unverified' {
+  return finding.controlCode === null ? 'unverified' : 'violation';
 }
 
 /**

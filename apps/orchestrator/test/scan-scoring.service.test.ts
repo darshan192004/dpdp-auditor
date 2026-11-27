@@ -4,7 +4,9 @@ import type { Prisma, Scan } from '@prisma/client';
 import { loadRulePack, type LoadedRulePack } from '../src/modules/rule-pack/rule-pack.loader.js';
 import type { RulePackService } from '../src/modules/rule-pack/rule-pack.service.js';
 import { coverageFor, ScanScoringService } from '../src/modules/scoring/scan-scoring.service.js';
+import { scoreScan } from '../src/modules/scoring/scoring.engine.js';
 import type { PrismaService } from '../src/prisma/prisma.service.js';
+import type { FeatureFlagsService } from '../src/modules/feature-flags/feature-flags.service.js';
 
 const PACK_DIR = fileURLToPath(new URL('../../../packages/rule-packs', import.meta.url));
 const SCAN_ID = '88888888-8888-4888-8888-888888888888';
@@ -107,6 +109,9 @@ function scan(overrides: Partial<Scan> = {}): Scan {
 function make(previous: Row[] | null = null, current: Row[] = [row()]) {
   const updates: { id: string; data: Record<string, unknown> }[] = [];
   const creates: Record<string, unknown>[] = [];
+  const flags = {
+    isEnabled: vi.fn().mockReturnValue(false),
+  };
   const tx = {
     scan: {
       findFirst: vi.fn().mockResolvedValue(previous === null ? null : { id: PREV_ID }),
@@ -133,16 +138,24 @@ function make(previous: Row[] | null = null, current: Row[] = [row()]) {
       })),
     },
     ruleMapping: { upsert: vi.fn().mockResolvedValue({}) },
+    controlResult: {
+      upsert: vi.fn().mockResolvedValue({}),
+    },
   };
   const prisma = {
     $transaction: vi.fn(async (fn: (client: unknown) => Promise<unknown>) => fn(tx)),
   };
   let pack: LoadedRulePack;
   const packService = { load: async () => pack } as unknown as RulePackService;
-  const service = new ScanScoringService(packService, prisma as unknown as PrismaService);
+  const service = new ScanScoringService(
+    packService,
+    prisma as unknown as PrismaService,
+    flags as unknown as FeatureFlagsService,
+  );
   return {
     service,
     tx,
+    flags,
     updates,
     creates,
     setPack: (loaded: LoadedRulePack) => {
@@ -459,6 +472,99 @@ describe('ScanScoringService (P4-06, P4-10, P4-11)', () => {
 
     expect(harness.tx.scannerFinding.delete).toHaveBeenCalled();
     expect(result.findings.suppressed).toBe(1);
+  });
+
+  it('uses scoring v2 and persists a FAIL control result when the flag is enabled', async () => {
+    const harness = make(null, [
+      row({
+        scanner: 'gitleaks',
+        scannerRuleId: 'generic-api-key',
+        severity: 'high',
+        evidenceHash: 'sha256:2389c7fb2b3b53c985eba440fc8f23bc38c62d4abe0b6f857dc698dd8468f876',
+        fingerprint: 'fpt_secret',
+      }),
+    ]);
+    harness.setPack(pack);
+    harness.flags.isEnabled.mockImplementation((flag: string) => flag === 'dpdpa_readiness_v2');
+
+    const scored = await harness.service.mapAndScore(
+      scan(),
+      FACTS,
+      { gitleaks: 'completed' },
+      harness.tx as unknown as Prisma.TransactionClient,
+    );
+
+    expect(scored.scoringVersion).toBe('scoring-2.0.0');
+    // The full dpdpa-2026.10.6 pack leaves most controls UNKNOWN with a single
+    // cited secret, so v2 withholds the grade for insufficient evidence rather
+    // than fabricating a letter grade.
+    expect(scored.grade).toBeNull();
+    expect(scored.gradeWithheldReason).toBe('insufficient_evidence');
+    expect(scored.verdictCounts.FAIL).toBeGreaterThan(0);
+    expect(harness.tx.controlResult.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          scanId_controlId: {
+            scanId: SCAN_ID,
+            controlId: 'rule-DPDPA-8.4-SECRET-01',
+          },
+        },
+        create: expect.objectContaining({
+          controlCode: 'DPDPA-8.4-SECRET-01',
+          verdict: 'FAIL',
+          reasonCode: 'cited_gap',
+        }),
+      }),
+    );
+  });
+
+  it('keeps legacy score/grade and null evidence coverage when the flag is off', async () => {
+    const harness = make(null, [
+      row({
+        scanner: 'gitleaks',
+        scannerRuleId: 'generic-api-key',
+        severity: 'high',
+        evidenceHash: 'sha256:2389c7fb2b3b53c985eba440fc8f23bc38c62d4abe0b6f857dc698dd8468f876',
+        fingerprint: 'fpt_secret',
+      }),
+    ]);
+    harness.setPack(pack);
+    // dpdpa_readiness_v2 is off: legacy engine runs unchanged.
+
+    const scored = await harness.service.mapAndScore(
+      scan(),
+      FACTS,
+      { gitleaks: 'completed' },
+      harness.tx as unknown as Prisma.TransactionClient,
+    );
+
+    expect(scored.scoringVersion).toBe('1.0.0');
+    expect(scored.evidenceCoverage).toBeNull();
+    expect(scored.verdictCounts).toEqual({});
+    expect(scored.unknownControls).toEqual([]);
+    expect(scored.openGaps).toBe(0);
+    expect(scored.gradeWithheldReason).toBeNull();
+    expect(harness.flags.isEnabled).toHaveBeenCalledWith('dpdpa_readiness_v2', false);
+    // Legacy engine is unchanged: identical output to a direct scoreScan call.
+    const legacy = scoreScan({
+      findings: [{ controlCode: 'DPDPA-8.4-SECRET-01', severity: 'critical', status: 'open' }],
+      controls: pack.controls,
+      facts: FACTS,
+      coverage: 'full',
+      sectionWeights: pack.sectionWeights,
+      grades: pack.grades,
+    });
+    expect(scored.score).toBe(legacy.score);
+    expect(scored.grade).toBe(legacy.grade);
+    expect(scored.sectionScores).toEqual(legacy.sectionScores);
+    expect(scored.counts).toEqual({
+      critical: legacy.counts.critical,
+      high: legacy.counts.high,
+      medium: legacy.counts.medium,
+      low: legacy.counts.low,
+      info: legacy.counts.info,
+      total: legacy.counts.total,
+    });
   });
 });
 

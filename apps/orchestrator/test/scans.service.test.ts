@@ -149,7 +149,20 @@ function make(options?: { scan?: Scan | null; repo?: Repository | null; org?: ty
       coverage: 'full',
       rulePackVersion: 'dpdpa-2026.10.6',
       scoringVersion: '1.0.0',
-      findings: { mapped: 0, unmapped: 0, new: 0, persistent: 0, reopened: 0, resolved: 0 },
+      evidenceCoverage: null,
+      verdictCounts: {},
+      unknownControls: [],
+      openGaps: 0,
+      gradeWithheldReason: null,
+      findings: {
+        mapped: 0,
+        unmapped: 0,
+        suppressed: 0,
+        new: 0,
+        persistent: 0,
+        reopened: 0,
+        resolved: 0,
+      },
     }),
     scorePersisted: vi.fn().mockResolvedValue({
       loaded: { pack: 'dpdpa-2026.10.6', scoringVersion: '1.0.0' },
@@ -738,6 +751,45 @@ describe('ScansService.complete', () => {
   it('validates the completion payload', async () => {
     const { service } = make();
     await expect(service.complete(ORG_ID, SCAN_ID, { scanners: [] })).rejects.toThrow();
+  });
+
+  it('stores the v2 assessment summary on scan completion', async () => {
+    const { service, scans, scoring } = make();
+    scoring.mapAndScore.mockResolvedValue({
+      score: null,
+      grade: null,
+      sectionScores: {},
+      counts: { critical: 1, high: 0, medium: 0, low: 0, info: 0, total: 1 },
+      coverage: 'full',
+      rulePackVersion: 'dpdpa-2026.10.6',
+      scoringVersion: 'scoring-2.0.0',
+      evidenceCoverage: 0,
+      verdictCounts: { UNKNOWN: 11, FAIL: 1 },
+      unknownControls: [],
+      openGaps: 1,
+      gradeWithheldReason: 'insufficient_evidence',
+      findings: {
+        mapped: 1,
+        unmapped: 0,
+        suppressed: 0,
+        new: 1,
+        persistent: 0,
+        reopened: 0,
+        resolved: 0,
+      },
+    });
+
+    await service.complete(ORG_ID, SCAN_ID, COMPLETION);
+
+    expect(scans.update).toHaveBeenCalledWith(
+      SCAN_ID,
+      expect.objectContaining({
+        scoringVersion: 'scoring-2.0.0',
+        evidenceCoverage: expect.any(Prisma.Decimal),
+        gradeWithheldReason: 'insufficient_evidence',
+      }),
+      expect.anything(),
+    );
   });
 });
 

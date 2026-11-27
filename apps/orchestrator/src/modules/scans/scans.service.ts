@@ -363,6 +363,11 @@ export class ScansService {
           coverageStatus: scored.coverage,
           rulePackVersion: scored.rulePackVersion,
           scoringVersion: scored.scoringVersion,
+          evidenceCoverage:
+            scored.evidenceCoverage === null ? null : new Prisma.Decimal(scored.evidenceCoverage),
+          verdictCounts: scored.verdictCounts,
+          unknownControls: scored.unknownControls,
+          gradeWithheldReason: scored.gradeWithheldReason,
           completedAt,
           durationMs: completedAt.getTime() - (scan.startedAt ?? completedAt).getTime(),
         },
