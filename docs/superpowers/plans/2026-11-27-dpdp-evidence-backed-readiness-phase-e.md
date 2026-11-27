@@ -4785,7 +4785,7 @@ git commit -m "feat(readiness): add SARIF and Markdown exports"
 - Consumes: the new readiness Vue pages/components from Task 9–11, v2 report/exports sources from Task 12–14, and v2 rule-pack YAML messages.
 - Produces: `scanReadinessLanguage(files)` with exemptions only for CSS token names and quoted disclaimers; a `pnpm --filter @dpdpa/web lint:language` script and tests that fail on forbidden user-facing wording anywhere in those surfaces.
 
-- [ ] **Step 1: Write the failing language-lint tests**
+- [x] **Step 1: Write the failing language-lint tests**
 
 ```ts
 // apps/web/test/phase-e-language-lint.test.ts
@@ -4902,7 +4902,7 @@ describe('report and export language lint', () => {
 });
 ```
 
-- [ ] **Step 2: Run the focused language tests and confirm RED**
+- [x] **Step 2: Run the focused language tests and confirm RED**
 
 ```bash
 pnpm --filter @dpdpa/web exec vitest run test/phase-e-language-lint.test.ts && pnpm --filter @dpdpa/orchestrator exec vitest run test/readiness-language-lint.test.ts
@@ -4914,7 +4914,7 @@ Expected RED output:
 Error: Cannot find module '../scripts/lint-readiness-language.mjs'
 ```
 
-- [ ] **Step 3: Add the shared lint script and package command**
+- [x] **Step 3: Add the shared lint script and package command**
 
 ```js
 // apps/web/scripts/lint-readiness-language.mjs
@@ -4992,7 +4992,7 @@ In `apps/web/package.json`, add to `scripts`:
     "lint:language": "node scripts/lint-readiness-language.mjs",
 ```
 
-- [ ] **Step 4: Run the focused language tests and confirm GREEN**
+- [x] **Step 4: Run the focused language tests and confirm GREEN**
 
 ```bash
 pnpm --filter @dpdpa/web exec vitest run test/phase-e-language-lint.test.ts && pnpm --filter @dpdpa/orchestrator exec vitest run test/readiness-language-lint.test.ts && pnpm --filter @dpdpa/web lint:language
@@ -5011,7 +5011,7 @@ Test Files  1 passed (1)
 Tests  1 passed (1)
 ```
 
-- [ ] **Step 5: Run full gates and commit**
+- [x] **Step 5: Run full gates and commit**
 
 ```bash
 pnpm lint && pnpm typecheck && pnpm test

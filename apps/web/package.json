@@ -8,6 +8,7 @@
     "build": "nuxt build",
     "preview": "nuxt preview",
     "typecheck": "nuxt typecheck",
+    "lint:language": "node scripts/lint-readiness-language.mjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "pnpm --filter @dpdpa/contracts build && nuxt build && playwright test"
