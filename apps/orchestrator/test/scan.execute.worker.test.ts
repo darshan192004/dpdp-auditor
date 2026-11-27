@@ -134,6 +134,7 @@ describe('createScanExecuteWorker', () => {
       WORKSPACE: '/workspace',
       PROFILE: 'standard',
       SEMGREP_RULES: '/dpdpa.yaml',
+      HOME: '/home/scanner/.cache',
     });
     // P3-16: persist Job/Secret correlation, then hand off to the watcher queue.
     expect(scans.setJobInfo).toHaveBeenCalledWith('s1', 'scan-s1', 'scan-s1');
@@ -172,6 +173,7 @@ describe('createScanExecuteWorker', () => {
 
     const secretData = executor.run.mock.calls[0]?.[3] as Record<string, string>;
     expect(secretData.SEMGREP_RULES).toBe('/dpdpa.yaml');
+    expect(secretData.HOME).toBe('/home/scanner/.cache');
     expect(secretData.TIMEOUT_CLONE).toBe('900');
     expect(secretData.TIMEOUT_SEMGREP).toBe('600');
     expect(secretData).not.toHaveProperty('TIMEOUT_CHECKOV');

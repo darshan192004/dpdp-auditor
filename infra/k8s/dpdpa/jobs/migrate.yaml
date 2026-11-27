@@ -1,0 +1,42 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: dpdpa-migrate
+  namespace: dpdpa
+  labels:
+    app.kubernetes.io/name: dpdpa
+    app.kubernetes.io/component: migrate
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: dpdpa
+        app.kubernetes.io/component: migrate
+    spec:
+      restartPolicy: Never
+      nodeSelector:
+        workload: scanner
+      containers:
+        - name: migrate
+          image: registry.dpdpa.svc.cluster.local:5000/dpdpa/orchestrator@sha256:5f3a00aec3fe88a8848ab07009f0e2afd52465838ac7a663bcb1684cbffe6af6
+          # Prisma 7 reads prisma.config.ts from the current directory. It must
+          # run inside the orchestrator workspace or datasource.url is missing.
+          workingDir: /app/apps/orchestrator
+          command: ['/nodejs/bin/node', 'node_modules/prisma/build/index.js', 'migrate', 'deploy']
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: dpdpa-db
+                  key: DATABASE_URL
+          securityContext:
+            # Prisma CLI writes its engine cache at startup. The directory is
+            # owned by UID 65532 in the distroless image, so run as that UID;
+            # root with drop:ALL lacks CAP_DAC_OVERRIDE and cannot write it.
+            runAsUser: 65532
+            runAsGroup: 65532
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ['ALL']

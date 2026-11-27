@@ -1,3 +1,5 @@
+import { createError } from 'h3';
+
 import { fixturesEnabled } from '../utils/fixtures/guard';
 import {
   SESSION_COOKIE_NAME,
@@ -26,9 +28,13 @@ export default defineEventHandler(async (event) => {
   if (!getCookie(event, SESSION_COOKIE_NAME)) return;
 
   let sessionId: unknown;
+  // The sealed session carries the rotation flag alongside its id. Declaring
+  // `user` here is required: assigning to an undeclared binding threw in the
+  // Nitro ESM bundle, which was swallowed below and deleted a valid cookie.
+  let user: unknown;
   let resolved: ResolvedSession | null = null;
   try {
-    ({ sessionId } = await getUserSession(event));
+    ({ sessionId, user } = await getUserSession(event));
     if (typeof sessionId === 'string' && sessionId !== '') {
       resolved = await fetchResolvedSession(event, sessionId);
     }
@@ -47,4 +53,13 @@ export default defineEventHandler(async (event) => {
   event.context.session = resolved;
   event.context.userId = identity.userId;
   if (identity.orgId !== null) event.context.orgId = identity.orgId;
+
+  // Forced first-login rotation: a seeded account cannot use any API except
+  // `/api/v1/me` (needed to hydrate) until it has replaced its temporary
+  // password. `/api/auth/*` is exempt earlier in this middleware.
+  const mustRotate = (user as unknown as { mustChangePassword?: boolean } | undefined)
+    ?.mustChangePassword;
+  if (path.startsWith('/api/') && path !== '/api/v1/me' && mustRotate === true) {
+    throw createError({ statusCode: 403, statusMessage: 'Password change required.' });
+  }
 });

@@ -1,0 +1,209 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: orchestrator-runner
+  namespace: dpdpa
+  labels:
+    app.kubernetes.io/name: dpdpa
+    app.kubernetes.io/component: orchestrator
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orchestrator
+  namespace: dpdpa
+  labels:
+    app.kubernetes.io/name: dpdpa
+    app.kubernetes.io/component: orchestrator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orchestrator
+  template:
+    metadata:
+      labels:
+        app: orchestrator
+        app.kubernetes.io/name: dpdpa
+        app.kubernetes.io/component: orchestrator
+    spec:
+      nodeSelector:
+        workload: scanner
+      serviceAccountName: orchestrator-runner
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: orchestrator
+          image: registry.dpdpa.svc.cluster.local:5000/dpdpa/orchestrator@sha256:5f3a00aec3fe88a8848ab07009f0e2afd52465838ac7a663bcb1684cbffe6af6
+          ports:
+            - name: http
+              containerPort: 3001
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: PORT
+              value: '3001'
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: dpdpa-secrets
+                  key: POSTGRES_PASSWORD
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: dpdpa-secrets
+                  key: REDIS_PASSWORD
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: dpdpa-secrets
+                  key: MINIO_ROOT_USER
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: dpdpa-secrets
+                  key: MINIO_ROOT_PASSWORD
+            - name: ORCHESTRATOR_HMAC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: dpdpa-app-secrets
+                  key: ORCHESTRATOR_HMAC_KEY
+            - name: ORCHESTRATOR_INTERNAL_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: dpdpa-app-secrets
+                  key: ORCHESTRATOR_INTERNAL_KEY
+            - name: DATABASE_URL
+              value: postgresql://dpdpa:$(POSTGRES_PASSWORD)@postgres:5432/dpdpa_auditor
+            - name: REDIS_URL
+              value: redis://:$(REDIS_PASSWORD)@redis:6379
+            - name: RUNNER_DRIVER
+              value: kubernetes
+            - name: SCANNERS_NAMESPACE
+              value: dpdpa-scanners
+            # Task 9 replaces registry.dpdpa.svc.cluster.local:5000/dpdpa/scan-runner@sha256:97aca88c0c5a51e87683ee812e45d2da5c97a1a4d9154ad0f71d012c25d7b517 with the resolved
+            # 64-hex digest of dpdpa/scan-runner@sha256:97aca88c0c5a51e87683ee812e45d2da5c97a1a4d9154ad0f71d012c25d7b517
+            - name: RUNNER_IMAGE
+              value: registry.dpdpa.svc.cluster.local:5000/dpdpa/scan-runner@sha256:97aca88c0c5a51e87683ee812e45d2da5c97a1a4d9154ad0f71d012c25d7b517
+            - name: ORCHESTRATOR_CALLBACK_URL
+              value: http://orchestrator.dpdpa.svc.cluster.local:3001
+            # Chromium's DevTools endpoint rejects Host headers that are not
+            # localhost or an IP literal, and configuration only permits ws://
+            # over loopback. The sidecar forwards this loopback port to the
+            # renderer Service ClusterIP (10.43.220.236), which passes both
+            # checks. A DNS name or a remote ws:// endpoint is rejected.
+            - name: REPORTS_BROWSER_WS_ENDPOINT
+              value: ws://127.0.0.1:9222
+            - name: S3_ENDPOINT
+              value: http://minio:9000
+            - name: S3_BUCKET
+              value: dpdpa-reports
+            - name: S3_ACCESS_KEY_ID
+              value: $(MINIO_ROOT_USER)
+            - name: S3_SECRET_ACCESS_KEY
+              value: $(MINIO_ROOT_PASSWORD)
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: '1'
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ['ALL']
+        # Loopback-only forwarder to the headless Chromium renderer. It keeps
+        # the browser WebSocket inside the pod network and satisfies the
+        # configuration guard that allows plaintext WS only on loopback.
+        - name: browser-proxy
+          image: registry.dpdpa.svc.cluster.local:5000/dpdpa/chromium@sha256:783c7c72f8dc1c85a7671c1f5b13dcd8eb0443bb115126654cd65dfe8eaa1594
+          command:
+            - /usr/bin/socat
+            - TCP4-LISTEN:9222,fork,reuseaddr
+            - TCP4:10.43.220.236:9222
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ['ALL']
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orchestrator
+  namespace: dpdpa
+  labels:
+    app.kubernetes.io/name: dpdpa
+    app.kubernetes.io/component: orchestrator
+spec:
+  type: ClusterIP
+  selector:
+    app: orchestrator
+  ports:
+    - name: http
+      port: 3001
+      targetPort: http
+      protocol: TCP
+---
+# The orchestrator creates scan Jobs and their per-scan Secrets in the
+# dpdpa-scanners namespace using its own ServiceAccount in dpdpa.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: orchestrator-runner
+  namespace: dpdpa-scanners
+  labels:
+    app.kubernetes.io/name: dpdpa
+    app.kubernetes.io/component: orchestrator
+rules:
+  - apiGroups: ['batch']
+    resources: ['jobs']
+    verbs: ['create', 'get', 'list', 'delete']
+  # The watcher reads the Job's status subresource to reconcile scan outcomes.
+  - apiGroups: ['batch']
+    resources: ['jobs/status']
+    verbs: ['get', 'list', 'watch']
+  - apiGroups: ['']
+    resources: ['secrets']
+    # patch is required to attach the ownerReference after Job creation.
+    verbs: ['create', 'get', 'list', 'patch', 'delete']
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: orchestrator-runner
+  namespace: dpdpa-scanners
+  labels:
+    app.kubernetes.io/name: dpdpa
+    app.kubernetes.io/component: orchestrator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: orchestrator-runner
+subjects:
+  - kind: ServiceAccount
+    name: orchestrator-runner
+    namespace: dpdpa

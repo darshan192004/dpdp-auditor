@@ -44,7 +44,11 @@ export const envSchema = z
           const url = new URL(value);
           return (
             url.protocol === 'wss:' ||
-            (url.protocol === 'ws:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname))
+            (url.protocol === 'ws:' &&
+              (['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) ||
+                // In-cluster service traffic stays on the private CNI network
+                // and is restricted by default-deny NetworkPolicies.
+                url.hostname.endsWith('.svc.cluster.local')))
           );
         } catch {
           return false;

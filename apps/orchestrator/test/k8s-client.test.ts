@@ -86,7 +86,7 @@ describe('K8sClient', () => {
           namespace: 'scanners',
           body: {
             metadata: { name: 'scan-1', namespace: 'scanners' },
-            data: { TOKEN: 'abc' },
+            stringData: { TOKEN: 'abc' },
             type: 'Opaque',
           },
         },

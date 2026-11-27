@@ -35,7 +35,10 @@ export class K8sClient {
   async createSecret(name: string, data: Record<string, string>): Promise<void> {
     const body: V1Secret = {
       metadata: { name, namespace: this.namespace },
-      data,
+      // Caller supplies plain values (URLs, UUIDs, HMAC keys). `data` requires
+      // pre-encoded base64 and the API rejects UUID hyphens; `stringData`
+      // makes Kubernetes encode the values server-side.
+      stringData: data,
       type: 'Opaque',
     };
     await this.core.createNamespacedSecret({ namespace: this.namespace, body });

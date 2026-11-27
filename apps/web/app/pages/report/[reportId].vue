@@ -6,6 +6,7 @@
  */
 import { computed } from 'vue';
 
+import { formatTimestamp } from '~~/shared/scan';
 import DsSkeleton from '~/components/ds/DsSkeleton.vue';
 import DownloadButton from '~/components/report/DownloadButton.vue';
 import {
@@ -123,7 +124,7 @@ const severityClass = (s: string) => {
             </div>
             <div>
               <dt class="font-medium">Generated</dt>
-              <dd>{{ new Date(report.generatedAt).toLocaleString() }}</dd>
+              <dd>{{ formatTimestamp(report.generatedAt) }}</dd>
             </div>
             <div>
               <dt class="font-medium">Organization</dt>
@@ -224,7 +225,7 @@ const severityClass = (s: string) => {
         </section>
 
         <footer class="border-ink-200 text-ink-500 border-t pt-4 text-xs">
-          Report generated on {{ new Date(report.generatedAt).toLocaleString() }} by DPDPA Auditor.
+          Report generated on {{ formatTimestamp(report.generatedAt) }} by DPDPA Auditor.
         </footer>
       </article>
     </template>

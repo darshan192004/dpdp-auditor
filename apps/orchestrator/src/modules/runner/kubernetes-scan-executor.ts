@@ -39,7 +39,9 @@ export class KubernetesScanExecutor implements ScanExecutor {
           spec: {
             backoffLimit: 0,
             activeDeadlineSeconds: 900,
-            ttlSecondsAfterFinished: 300,
+            // Keep finished Jobs long enough for launch sign-off to capture
+            // the completed pod's RuntimeClass evidence.
+            ttlSecondsAfterFinished: 3600,
             template: {
               metadata: {
                 annotations: {
@@ -119,34 +121,43 @@ export class KubernetesScanExecutor implements ScanExecutor {
           } as V1JobSpec,
         };
 
+        let jobMeta: V1Job;
         try {
           // create job
-          const jobMeta = await this.k8s.createJob(jobSpec);
-
-          // patch secret with ownerReference to job
-          const jobNameFinal = (jobMeta.metadata?.name ?? jobName) as string;
-          await this.k8s.patchSecret(jobName, {
-            metadata: {
-              ownerReferences: [
-                {
-                  apiVersion: 'batch/v1',
-                  kind: 'Job',
-                  name: jobNameFinal,
-                  uid: jobMeta.metadata?.uid ?? '',
-                },
-              ],
-            },
-          });
-
-          span.setStatus({ code: SpanStatusCode.OK });
-          return jobNameFinal;
+          jobMeta = await this.k8s.createJob(jobSpec);
         } catch (error) {
-          // cleanup secret on job creation failure (architecture.md §7.2)
-          await this.k8s.deleteSecret(jobName).catch(() => {
-            // ignore cleanup errors
-          });
-          throw error;
+          const code =
+            (error as { code?: number; status?: number }).code ??
+            (error as { status?: number }).status;
+          // A retry after a partially completed run must reuse the existing
+          // Job; deleting the Secret here would strand its Pod in
+          // CreateContainerConfigError forever.
+          if (code !== 409) {
+            await this.k8s.deleteSecret(jobName).catch(() => {
+              // ignore cleanup errors
+            });
+            throw error;
+          }
+          jobMeta = { metadata: { name: jobName } } as V1Job;
         }
+
+        // patch secret with ownerReference to job
+        const jobNameFinal = (jobMeta.metadata?.name ?? jobName) as string;
+        await this.k8s.patchSecret(jobName, {
+          metadata: {
+            ownerReferences: [
+              {
+                apiVersion: 'batch/v1',
+                kind: 'Job',
+                name: jobNameFinal,
+                uid: jobMeta.metadata?.uid ?? '',
+              },
+            ],
+          },
+        });
+
+        span.setStatus({ code: SpanStatusCode.OK });
+        return jobNameFinal;
       } catch (error) {
         span.recordException(error as Error);
         span.setStatus({ code: SpanStatusCode.ERROR });

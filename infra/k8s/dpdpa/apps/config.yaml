@@ -1,0 +1,15 @@
+# Deploy-time template only. Never commit real values: the deploy script
+# replaces REPLACE_AT_DEPLOY with generated keys before applying.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dpdpa-app-secrets
+  namespace: dpdpa
+  labels:
+    app.kubernetes.io/name: dpdpa
+    app.kubernetes.io/component: app-config
+type: Opaque
+stringData:
+  ORCHESTRATOR_HMAC_KEY: REPLACE_AT_DEPLOY
+  ORCHESTRATOR_INTERNAL_KEY: REPLACE_AT_DEPLOY
+  NUXT_APP_SECRET: REPLACE_AT_DEPLOY

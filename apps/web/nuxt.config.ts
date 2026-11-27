@@ -1,9 +1,10 @@
 // Nuxt 4 config — see docs/design.md (framework pin) and docs/security.md §8 (headers, added in P1-23).
 // Nuxt 4 config — see docs/design.md (framework pin) and docs/security.md §8 (headers, added in P1-23).
-const isProduction = process.env.NODE_ENV === 'production';
+import { sessionCookieSettings } from './shared/session-cookie';
+
 // security.md §3.1: `__Host-` requires Secure + Path=/ + no Domain, so it is
 // only valid when production cookies are HTTPS-only.
-const sessionCookieName = isProduction ? '__Host-dpdpa_session' : 'dpdpa_session';
+const sessionCookie = sessionCookieSettings();
 
 export default defineNuxtConfig({
   modules: ['nuxt-security', '@nuxt/ui', 'nuxt-auth-utils'],
@@ -40,11 +41,11 @@ export default defineNuxtConfig({
     // nuxt-auth-utils seals the cookie with Nuxt's `appSecret` (`NUXT_APP_SECRET`).
     // security.md §3.1: 8 h absolute; the 30 min idle timeout is server-side.
     session: {
-      name: sessionCookieName,
+      name: sessionCookie.name,
       maxAge: 60 * 60 * 8,
       cookie: {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: sessionCookie.secure,
         sameSite: 'lax' as const,
         path: '/',
       },
@@ -60,6 +61,8 @@ export default defineNuxtConfig({
       // P1-32: empty in dev/CI → telemetry plugins never load.
       sentryDsn: process.env.NUXT_PUBLIC_SENTRY_DSN ?? '',
       posthogKey: process.env.NUXT_PUBLIC_POSTHOG_KEY ?? '',
+      // Internal pilot: exposes the email/password form and hides GitHub OAuth.
+      passwordLoginEnabled: process.env.NUXT_PUBLIC_PASSWORD_LOGIN_ENABLED === 'true',
     },
   },
 

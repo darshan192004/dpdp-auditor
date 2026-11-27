@@ -1,0 +1,97 @@
+# Object storage endpoint. The official minio/minio images were removed from
+# public registries in 2026; this pilot uses SeaweedFS's S3 gateway instead.
+# Service/PVC names stay `minio` to match the approved plan's interfaces.
+# NOTE: dpdp-auditor currently stores report PDFs on a local volume
+# (REPORTS_STORAGE_DIR); this endpoint is provisioned for the design's object
+# storage requirement and future artifact offload, not an active code path.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: minio-data
+  namespace: dpdpa
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minio
+  namespace: dpdpa
+  labels:
+    app.kubernetes.io/name: dpdpa
+    app.kubernetes.io/component: minio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minio
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: minio
+    spec:
+      nodeSelector:
+        workload: scanner
+      containers:
+        - name: minio
+          image: chrislusf/seaweedfs:latest
+          command:
+            - /usr/bin/weed
+            - server
+            - -dir=/data
+            - -s3
+            - -s3.port=9000
+            - -master.port=9333
+            - -filer.port=8888
+            - -volume.port=8080
+          ports:
+            - containerPort: 9000
+              name: api
+            - containerPort: 9333
+              name: master
+            - containerPort: 8888
+              name: filer
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            tcpSocket:
+              port: 9000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: '1'
+              memory: 1Gi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: minio-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+  namespace: dpdpa
+spec:
+  selector:
+    app: minio
+  ports:
+    - port: 9000
+      targetPort: 9000
+      name: api
+    - port: 9333
+      targetPort: 9333
+      name: master
+    - port: 8888
+      targetPort: 8888
+      name: filer

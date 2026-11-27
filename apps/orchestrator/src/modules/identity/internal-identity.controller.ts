@@ -14,13 +14,16 @@ import { ApiError } from '../../common/api-error.js';
 import { FeatureFlagsService } from '../feature-flags/feature-flags.service.js';
 import { InternalHmacGuard } from '../internal-auth/internal-hmac.guard.js';
 import { IdentityService } from './identity.service.js';
-import type {
-  AddMemberByEmailInput,
-  ChangeRoleInput,
-  CreateSessionInput,
-  GithubProfileInput,
-  UpdateOrganizationInput,
+import {
+  passwordChangeSchema,
+  passwordLoginSchema,
+  type AddMemberByEmailInput,
+  type ChangeRoleInput,
+  type CreateSessionInput,
+  type GithubProfileInput,
+  type UpdateOrganizationInput,
 } from './identity.schemas.js';
+import { PasswordLoginService } from './password-login.service.js';
 import { SessionService } from './session.service.js';
 
 function userIdFrom(header: string | undefined): string {
@@ -45,7 +48,31 @@ export class InternalIdentityController {
     private readonly identity: IdentityService,
     private readonly sessions: SessionService,
     private readonly flags: FeatureFlagsService,
+    private readonly passwords: PasswordLoginService,
   ) {}
+
+  /** Email/password login for the internal pilot (Nitro mints the session). */
+  @Post('password/login')
+  @HttpCode(200)
+  async passwordLogin(@Body() body: unknown) {
+    const input = passwordLoginSchema.parse(body);
+    const result = await this.passwords.login(input);
+    const session = await this.sessions.create({
+      userId: result.user.id,
+      activeOrgId: null,
+      ip: input.ip ?? null,
+      userAgent: input.userAgent ?? 'password-login',
+    });
+    return { data: { ...result, sessionId: session.id } };
+  }
+
+  /** First-login password rotation for seeded accounts. */
+  @Post('password/change')
+  @HttpCode(200)
+  async passwordChange(@Body() body: unknown) {
+    const input = passwordChangeSchema.parse(body);
+    return { data: await this.passwords.changePassword(input) };
+  }
 
   /** GitHub profile → user; safe to replay on every sign-in. */
   @Post('users/upsert')

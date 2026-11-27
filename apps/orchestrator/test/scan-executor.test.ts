@@ -50,6 +50,22 @@ describe('KubernetesScanExecutor', () => {
     expect(k8s.patchSecret).not.toHaveBeenCalled();
   });
 
+  it('reuses an existing Job on a 409 retry and keeps the Secret', async () => {
+    const k8s = mockK8s();
+    (k8s.createJob as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      Object.assign(new Error('already exists'), { code: 409 }),
+    );
+    const executor = new KubernetesScanExecutor(k8s);
+
+    await expect(executor.run('scan-1', 's1', 'o1', { TOKEN: 'abc' })).resolves.toBe('scan-1');
+    expect(k8s.deleteSecret).not.toHaveBeenCalled();
+    expect(k8s.patchSecret).toHaveBeenCalledWith('scan-1', {
+      metadata: {
+        ownerReferences: [{ apiVersion: 'batch/v1', kind: 'Job', name: 'scan-1', uid: '' }],
+      },
+    });
+  });
+
   it('swallows secret cleanup errors and rethrows the original failure', async () => {
     const k8s = mockK8s();
     (k8s.createJob as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('job boom'));

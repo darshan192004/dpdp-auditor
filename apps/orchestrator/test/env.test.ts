@@ -30,6 +30,7 @@ describe('loadEnv', () => {
     'ws://localhost:9222/devtools/browser/id',
     'ws://127.0.0.1:9222/devtools/browser/id',
     'ws://[::1]:9222/devtools/browser/id',
+    'ws://renderer.dpdpa.svc.cluster.local:3000',
   ])('accepts protected browser transport %s', (endpoint) => {
     expect(
       loadEnv({ ...KEYS, REPORTS_BROWSER_WS_ENDPOINT: endpoint }).REPORTS_BROWSER_WS_ENDPOINT,

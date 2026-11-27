@@ -71,6 +71,10 @@ export function createScanExecuteWorker(
         // The image bundles the DPDPA rule pack here. Pass it explicitly so the
         // container does not fall back to Semgrep's unmapped registry rules.
         SEMGREP_RULES: env.SEMGREP_RULES ?? '/dpdpa.yaml',
+        // The scanner container has a read-only root filesystem. Semgrep,
+        // Checkov and the git client write state under $HOME, so point it at
+        // the writable cache volume instead of the image's /home/runner.
+        HOME: '/home/scanner/.cache',
         ...runnerTimeoutEnv(env),
       };
       const name = await executor.run(jobName, scanId, orgId, secretData);

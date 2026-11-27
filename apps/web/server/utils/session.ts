@@ -1,11 +1,12 @@
 import type { H3Event } from 'h3';
 import { $fetch } from 'ofetch';
 import type { MeMembership, MeUser } from '~~/shared/auth';
+import { sessionCookieSettings } from '~~/shared/session-cookie';
 import { apiError } from './api-error';
 import { assertOrchestratorConfig, buildInternalRequest, orchestratorConfig } from './orchestrator';
 
 /** Must match `runtimeConfig.session.name` in `nuxt.config.ts`. */
-export const SESSION_COOKIE_NAME = 'dpdpa_session';
+export const SESSION_COOKIE_NAME = sessionCookieSettings().name;
 
 /** Orchestrator view of a validated session (api.md §8/§10). */
 export interface ResolvedSession {

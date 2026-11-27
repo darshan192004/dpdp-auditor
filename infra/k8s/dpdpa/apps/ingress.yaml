@@ -1,0 +1,26 @@
+# Private, internal-only ingress: no public DNS record and no LoadBalancer or
+# NodePort exposure. Internal clients trust the self-signed CA in dpdpa-tls.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dpdpa-ingress
+  namespace: dpdpa
+  labels:
+    app.kubernetes.io/name: dpdpa
+    app.kubernetes.io/component: ingress
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [dpdpa.pride.improwised.dev]
+      secretName: dpdpa-tls
+  rules:
+    - host: dpdpa.pride.improwised.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  number: 3000

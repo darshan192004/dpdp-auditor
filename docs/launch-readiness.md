@@ -37,7 +37,7 @@ This checklist tracks readiness for launching DPDPA GitHub Code Auditor as an op
 ### Security
 
 - [x] STRIDE threat model documented (`docs/threat-model.md`)
-- [x] External penetration test completed (`docs/security/external-penetration-test-report.md`)
+- [ ] External penetration test completed — Pending — deferred for internal pilot (`docs/security/external-penetration-test-report.md`); repository owner `darshan192004` accountable, due before any non-internal exposure.
 - [x] Dependency audit procedure (`docs/security/dependency-audit-procedure.md`)
 - [x] Container images: digest-pinned, distroless base, non-root user
 - [x] SBOM generation and cosign signing in CI

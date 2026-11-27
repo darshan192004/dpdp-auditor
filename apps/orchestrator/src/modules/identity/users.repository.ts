@@ -64,6 +64,20 @@ export class UsersRepository {
     });
   }
 
+  updateCredentials(
+    id: string,
+    input: { passwordHash: string; mustChangePassword: boolean },
+    tx?: Prisma.TransactionClient,
+  ): Promise<User> {
+    return this.client(tx).user.update({
+      where: { id },
+      data: {
+        passwordHash: input.passwordHash,
+        mustChangePassword: input.mustChangePassword,
+      },
+    });
+  }
+
   softDelete(id: string, tx?: Prisma.TransactionClient): Promise<User> {
     return this.client(tx).user.update({
       where: { id },

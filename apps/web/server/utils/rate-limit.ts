@@ -113,10 +113,13 @@ export function getRateLimitClient(redisUrl: string): RateLimitStore {
     void client.quit().catch(() => undefined);
   }
   clientUrl = redisUrl;
+  // ioredis connects on construction and queues commands until it is ready.
+  // A lazy socket with offline queuing disabled made the first request fail
+  // closed with 503 before any login attempt could reach the orchestrator.
+  // Keeping the queue enabled preserves fail-closed behaviour: a genuinely
+  // unavailable Redis still rejects the command after maxRetriesPerRequest.
   client = new Redis(redisUrl, {
-    enableOfflineQueue: false,
     maxRetriesPerRequest: 1,
-    lazyConnect: true,
   });
   client.on('error', () => {
     // Errors are surfaced per-command; keep the process quiet.

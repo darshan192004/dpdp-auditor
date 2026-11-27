@@ -6,6 +6,7 @@ import {
   createReportRenderWorker,
   renderPdf,
   ReportRenderRunner,
+  resolveBrowserWsEndpoint,
 } from '../src/modules/reports/report-render.worker.js';
 
 const fakes = vi.hoisted(() => {
@@ -66,6 +67,20 @@ afterEach(() => {
 });
 
 describe('report rendering', () => {
+  it('resolves a bare browser endpoint to the advertised DevTools target', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        webSocketDebuggerUrl: 'ws://renderer:9222/devtools/browser/abc123',
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    expect(await resolveBrowserWsEndpoint('ws://127.0.0.1:9222')).toBe(
+      'ws://127.0.0.1:9222/devtools/browser/abc123',
+    );
+    expect(fetchMock.mock.calls[0]![0]).toBe('http://127.0.0.1:9222/json/version');
+    vi.unstubAllGlobals();
+  });
   it('uses the isolated browser and closes the page and connection after rendering', async () => {
     const { env } = setup();
     expect(await renderPdf('<html>Report</html>', env.REPORTS_BROWSER_WS_ENDPOINT)).toEqual(
@@ -77,6 +92,28 @@ describe('report rendering', () => {
     });
     expect(fakes.page.close).toHaveBeenCalledOnce();
     expect(fakes.browser.disconnect).toHaveBeenCalledOnce();
+  });
+  it('resolves a bare browser endpoint before connecting to render a report', async () => {
+    setup();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        webSocketDebuggerUrl: 'ws://browser:9222/devtools/browser/abc123',
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      expect(await renderPdf('<html>Report</html>', 'ws://browser:9222')).toEqual(
+        Buffer.from('%PDF-rendered report'),
+      );
+      expect(fetchMock.mock.calls[0]![0]).toBe('http://browser:9222/json/version');
+      expect(fakes.connect).toHaveBeenCalledWith({
+        browserWSEndpoint: 'ws://browser:9222/devtools/browser/abc123',
+        wsOptions: { handshakeTimeout: 15_000 },
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
   it('fails honestly when the browser is unconfigured or rendering fails', async () => {
     const { env } = setup();

@@ -68,7 +68,9 @@ it('uses the installed SDK request/response contract across the runner lifecycle
     ['DELETE', '/apis/batch/v1/namespaces/scanners/jobs/scan-1'],
     ['DELETE', '/api/v1/namespaces/scanners/secrets/scan-1'],
   ]);
-  expect(JSON.parse(requests[0]!.body)).toMatchObject({ data: { TOKEN: 'YWJj' } });
+  // stringData lets the API server base64-encode arbitrary scan values (plain
+  // refs, URLs and tokens), so no caller-controlled value is treated as base64.
+  expect(JSON.parse(requests[0]!.body)).toMatchObject({ stringData: { TOKEN: 'YWJj' } });
   expect(requests[2]!.contentType).toBe('application/merge-patch+json');
   expect(JSON.parse(requests[2]!.body)).toEqual({ metadata: { labels: { scan: 'scan-1' } } });
 });
