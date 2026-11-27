@@ -1,5 +1,6 @@
 import type { Organization, Report, Repository, Scan } from '@prisma/client';
 import { toFindingView, type FindingWithRule } from '../findings/findings.service.js';
+import { buildCoverageBanners } from '../scoring/coverage-banners.js';
 
 export const REPORT_DISCLAIMER =
   'The mapping is a technical aid. It is not legal advice, not a legal opinion, and not a ' +
@@ -78,6 +79,20 @@ export function buildReportViewModel(source: ReportSource) {
       rulePackVersion: scan.rulePackVersion,
       summary: REPORT_METHODOLOGY,
     },
+    coverageBanners: buildCoverageBanners(
+      Object.fromEntries(
+        Object.entries(scan.coverage ?? {}).map(([name, value]) => [
+          name,
+          typeof value === 'string' &&
+          ['completed', 'failed', 'timed_out', 'skipped'].includes(value)
+            ? (value as 'completed' | 'failed' | 'timed_out' | 'skipped')
+            : 'skipped',
+        ]),
+      ),
+      Array.isArray(scan.unknownControls)
+        ? scan.unknownControls.filter((code): code is string => typeof code === 'string')
+        : [],
+    ),
     disclaimer: REPORT_DISCLAIMER,
     generatedAt: source.now ?? new Date(),
   };
