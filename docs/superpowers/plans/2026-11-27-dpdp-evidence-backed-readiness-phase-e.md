@@ -1596,7 +1596,7 @@ git commit -m "feat(readiness): rescore v2 scans after attestation writes"
 - Consumes: `AttestationsService.set/list`; `InternalHmacGuard`; Nitro `requireRole`, `callOrchestrator`, `fixturesAnswer`, and BFF session identity.
 - Produces: internal `GET/PUT /internal/v1/repos/:repositoryId/attestations[/:key]`, BFF `GET/PUT /api/v1/repos/:repoId/attestations*`, and guarded fixture answers for local/CI only.
 
-- [ ] **Step 1: Write the failing controller and fixture tests**
+- [x] **Step 1: Write the failing controller and fixture tests**
 
 ```ts
 // apps/orchestrator/test/internal-attestations.controller.test.ts
@@ -1669,7 +1669,7 @@ describe('attestation fixtures', () => {
 });
 ```
 
-- [ ] **Step 2: Run the focused route tests and confirm RED**
+- [x] **Step 2: Run the focused route tests and confirm RED**
 
 ```bash
 pnpm --filter @dpdpa/orchestrator exec vitest run test/internal-attestations.controller.test.ts && pnpm --filter @dpdpa/web exec vitest run test/attestation-fixtures.test.ts
@@ -1681,7 +1681,7 @@ Expected RED output:
 Error: Cannot find module '../src/modules/attestations/internal-attestations.controller.js'
 ```
 
-- [ ] **Step 3: Add the internal controller and module**
+- [x] **Step 3: Add the internal controller and module**
 
 ```ts
 // apps/orchestrator/src/modules/attestations/internal-attestations.controller.ts
@@ -1763,7 +1763,7 @@ export class AttestationsModule {}
 
 Add `AttestationsModule` to `apps/orchestrator/src/app.module.ts` imports beside `ScansModule`.
 
-- [ ] **Step 4: Add the BFF routes and guarded fixtures**
+- [x] **Step 4: Add the BFF routes and guarded fixtures**
 
 ```ts
 // apps/web/server/api/v1/repos/[repoId]/attestations/index.get.ts
@@ -1839,7 +1839,7 @@ export function fixtureAttestations(repositoryId = '0f000000-0000-4000-8000-0000
 }
 ```
 
-- [ ] **Step 5: Run the focused route tests and confirm GREEN**
+- [x] **Step 5: Run the focused route tests and confirm GREEN**
 
 ```bash
 pnpm --filter @dpdpa/orchestrator exec vitest run test/internal-attestations.controller.test.ts && pnpm --filter @dpdpa/web exec vitest run test/attestation-fixtures.test.ts
@@ -1857,7 +1857,7 @@ Test Files  1 passed (1)
 Tests  1 passed (1)
 ```
 
-- [ ] **Step 6: Run full gates and commit**
+- [x] **Step 6: Run full gates and commit**
 
 ```bash
 pnpm lint && pnpm typecheck && pnpm test
