@@ -61,7 +61,8 @@ async function listFiles(dir: string, base = dir): Promise<string[]> {
       paths.push(...(await listFiles(full, base)));
     } else if (entry.isFile()) {
       const path = relative(base, full).split(sep).join('/');
-      if (path !== 'manifest.yaml') paths.push(path);
+      // CHANGELOG.md is Phase F documentation, not checksum-bearing pack content.
+      if (path !== 'manifest.yaml' && path !== 'CHANGELOG.md') paths.push(path);
     }
   }
   return paths.sort();
