@@ -32,7 +32,7 @@ async function readPack(packDir) {
     const bytes = await readFile(join(packDir, ...path.split('/')));
     files.push({
       path,
-      value: YAML.parse(bytes.toString('utf8')),
+      value: path.endsWith('.md') ? bytes.toString('utf8') : YAML.parse(bytes.toString('utf8')),
       sha256: createHash('sha256').update(bytes).digest('hex'),
     });
   }

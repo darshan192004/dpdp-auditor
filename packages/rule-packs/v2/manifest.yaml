@@ -1,6 +1,6 @@
 version: 1
 pack: dpdpa-2026.11.0
-generatedAt: '2026-11-27T11:27:00.485Z'
+generatedAt: '2026-11-27T11:27:12.650Z'
 files:
   - path: cmp_catalog.yaml
     sha256: 0e8b9137b9b161e30099b71067f450e2bfcfcfafededa2079c84569cf8b6b3fc
@@ -30,3 +30,5 @@ files:
     sha256: 4d45c5a76f17abeccfcaa16e79f951c6c5710dc2be3519ece8ef803ab50b0235
   - path: templates/README.md
     sha256: f988a7237d91e46e341b0b00d14f44a725602ea4d555e98a72ef1145090e459b
+  - path: templates/remediation.md
+    sha256: 0e310def48a7b0457931e536e907207b76e6b00f39e4dccc7ec14696ffdf56b6
