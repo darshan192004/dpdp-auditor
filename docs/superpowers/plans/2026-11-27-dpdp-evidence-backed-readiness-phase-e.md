@@ -512,7 +512,7 @@ git commit -m "feat(readiness): load v2 attestation key mappings"
 - Consumes: `Control`, `ControlEvaluatorInput`, `ControlResultLike`, and `evaluateControls` from `apps/orchestrator/src/modules/scoring/control-evaluator.ts`; B's `attestationSchema` answer convention.
 - Produces: `ControlEvaluatorInput.attestationsByControl?: ReadonlyMap<string, readonly AttestationForEvaluator[]>`, verdicts `ATTESTED_PASS`/`ATTESTED_FAIL`, reason codes `attested_pass`/`attested_fail`, and an empty `evidence` array for attested verdicts.
 
-- [ ] **Step 1: Write the failing evaluator tests**
+- [x] **Step 1: Write the failing evaluator tests**
 
 ```ts
 // apps/orchestrator/test/attestation-control-evaluator.test.ts
@@ -628,7 +628,7 @@ describe('attestation evaluator semantics', () => {
 });
 ```
 
-- [ ] **Step 2: Run the focused evaluator test and confirm RED**
+- [x] **Step 2: Run the focused evaluator test and confirm RED**
 
 ```bash
 pnpm --filter @dpdpa/orchestrator exec vitest run test/attestation-control-evaluator.test.ts
@@ -641,7 +641,7 @@ FAIL  test/attestation-control-evaluator.test.ts > attestation evaluator semanti
 AssertionError: expected 'UNKNOWN' to be 'ATTESTED_PASS'
 ```
 
-- [ ] **Step 3: Add the attestation input and fallback**
+- [x] **Step 3: Add the attestation input and fallback**
 
 ```ts
 // apps/orchestrator/src/modules/scoring/control-evaluator.ts
@@ -716,7 +716,7 @@ Keep the existing `FAIL`, `PARTIAL`, and `PASS` branches exactly as they are. Re
   };
 ```
 
-- [ ] **Step 4: Run the focused evaluator test and confirm GREEN**
+- [x] **Step 4: Run the focused evaluator test and confirm GREEN**
 
 ```bash
 pnpm --filter @dpdpa/orchestrator exec vitest run test/attestation-control-evaluator.test.ts
@@ -733,7 +733,7 @@ Test Files  1 passed (1)
 Tests  4 passed (4)
 ```
 
-- [ ] **Step 5: Run full gates and commit**
+- [x] **Step 5: Run full gates and commit**
 
 ```bash
 pnpm lint && pnpm typecheck && pnpm test
