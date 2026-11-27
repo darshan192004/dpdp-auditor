@@ -7,7 +7,7 @@ import { sessionCookieSettings } from './shared/session-cookie';
 const sessionCookie = sessionCookieSettings();
 
 export default defineNuxtConfig({
-  modules: ['nuxt-security', '@nuxt/ui', 'nuxt-auth-utils'],
+  modules: ['nuxt-security', '@nuxt/ui', 'nuxt-auth-utils', 'motion-v/nuxt'],
 
   css: ['~/assets/css/main.css'],
 

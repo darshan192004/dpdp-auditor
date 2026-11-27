@@ -2112,7 +2112,7 @@ git commit -m "feat(api): expose assessment summary and readiness labels"
 
 **Interfaces:**
 - Consumes: Motion Vue docs — install `motion-v`, add `motion-v/nuxt`, use `useReducedMotion` from `motion-v`.
-- Produces: `useReadinessMotion(): { reduceMotion: Ref<boolean>; enter: Record<string, unknown>; subtle: Record<string, unknown> }`.
+- Produces: `useReadinessMotion(): { reduceMotion: Ref<boolean>; enter: ComputedRef<Record<string, unknown>>; subtle: ComputedRef<Record<string, unknown>> }`.
 
 **Verified sources:**
 - https://motion.dev/docs/vue — `npm install motion-v`; Nuxt module `motion-v/nuxt`.
@@ -2121,7 +2121,7 @@ git commit -m "feat(api): expose assessment summary and readiness labels"
 - https://motion.dev/docs/vue-use-reduced-motion — `useReducedMotion()` returns a reactive boolean and responds to changes.
 - https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-reduced-motion — OS-level reduced-motion preference.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // apps/web/test/readiness-motion.test.ts
@@ -2139,12 +2139,12 @@ describe('readiness motion vocabulary', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `pnpm --filter @dpdpa/web test -- readiness-motion.test.ts`  
 Expected: FAIL — module missing.
 
-- [ ] **Step 3: Install and configure Motion**
+- [x] **Step 3: Install and configure Motion**
 
 Run from repository root:
 
@@ -2182,35 +2182,42 @@ Extend the existing reduced-motion block so it also covers `scroll-behavior` (al
   }
 ```
 
-- [ ] **Step 4: Implement the composable**
+- [x] **Step 4: Implement the composable**
 
 ```ts
 // apps/web/app/composables/useReadinessMotion.ts
 import { useReducedMotion } from 'motion-v';
+import { computed, type ComputedRef, type Ref } from 'vue';
 
 export const ENTER_MOTION = { opacity: 1, y: 0 } as const;
 export const SUBTLE_MOTION = { type: 'spring', stiffness: 320, damping: 30, mass: 0.8 } as const;
 
-export function useReadinessMotion() {
+export function useReadinessMotion(): {
+  reduceMotion: Ref<boolean>;
+  enter: ComputedRef<Record<string, unknown>>;
+  subtle: ComputedRef<Record<string, unknown>>;
+} {
   const reduceMotion = useReducedMotion();
-  const enter = {
+  const enter = computed<Record<string, unknown>>(() => ({
     initial: reduceMotion.value ? false : { opacity: 0, y: 10 },
     animate: reduceMotion.value ? false : ENTER_MOTION,
     transition: reduceMotion.value ? { duration: 0 } : SUBTLE_MOTION,
-  };
-  const subtle = reduceMotion.value ? { duration: 0 } : SUBTLE_MOTION;
+  }));
+  const subtle = computed<Record<string, unknown>>(() =>
+    reduceMotion.value ? { duration: 0 } : SUBTLE_MOTION,
+  );
   return { reduceMotion, enter, subtle };
 }
 ```
 
 Import the composable explicitly in components; do not rely on Nuxt auto-import in tests.
 
-- [ ] **Step 5: Run focused tests and typecheck**
+- [x] **Step 5: Run focused tests and typecheck**
 
 Run: `pnpm --filter @dpdpa/web test -- readiness-motion.test.ts && pnpm --filter @dpdpa/web typecheck`  
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/web/package.json pnpm-lock.yaml apps/web/nuxt.config.ts apps/web/app/assets/css/main.css apps/web/app/composables/useReadinessMotion.ts apps/web/test/readiness-motion.test.ts
