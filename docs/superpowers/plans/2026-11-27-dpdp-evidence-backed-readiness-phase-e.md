@@ -4343,7 +4343,7 @@ git commit -m "feat(readiness): render v2 report HTML and PDF"
 - Consumes: persisted `control_result` rows from Phase A/B; `InternalHmacGuard`; BFF `requireIdentity`, `callOrchestrator`, and `fixturesAnswer`.
 - Produces: `buildSarif(input)` conforming to SARIF 2.1.0, `buildIssueMarkdown(input)`, internal `GET /internal/v1/scans/:scanId/export/{sarif,markdown}`, BFF `GET /api/v1/scan/:scanId/export/{sarif,markdown}`. No export opens an issue or PR on the target repository.
 
-- [ ] **Step 1: Write the failing export tests**
+- [x] **Step 1: Write the failing export tests**
 
 ```ts
 // apps/orchestrator/test/export-services.test.ts
@@ -4445,7 +4445,7 @@ describe('export routes', () => {
 });
 ```
 
-- [ ] **Step 2: Run the focused export tests and confirm RED**
+- [x] **Step 2: Run the focused export tests and confirm RED**
 
 ```bash
 pnpm --filter @dpdpa/orchestrator exec vitest run test/export-services.test.ts && pnpm --filter @dpdpa/web exec vitest run test/export-fixtures.test.ts
@@ -4457,7 +4457,7 @@ Expected RED output:
 Error: Cannot find module '../src/modules/exports/sarif.service.js'
 ```
 
-- [ ] **Step 3: Add the pure export builders**
+- [x] **Step 3: Add the pure export builders**
 
 ```ts
 // apps/orchestrator/src/modules/exports/export.schemas.ts
@@ -4607,7 +4607,7 @@ export function buildIssueMarkdown(input: ExportInput): string {
 }
 ```
 
-- [ ] **Step 4: Add the internal controller and BFF routes**
+- [x] **Step 4: Add the internal controller and BFF routes**
 
 ```ts
 // apps/orchestrator/src/modules/exports/internal-exports.controller.ts
@@ -4740,7 +4740,7 @@ export default defineEventHandler(async (event) => {
 });
 ```
 
-- [ ] **Step 5: Run the focused export tests and confirm GREEN**
+- [x] **Step 5: Run the focused export tests and confirm GREEN**
 
 ```bash
 pnpm --filter @dpdpa/orchestrator exec vitest run test/export-services.test.ts && pnpm --filter @dpdpa/web exec vitest run test/export-fixtures.test.ts
@@ -4758,7 +4758,7 @@ Test Files  1 passed (1)
 Tests  1 passed (1)
 ```
 
-- [ ] **Step 6: Run full gates and commit**
+- [x] **Step 6: Run full gates and commit**
 
 ```bash
 pnpm lint && pnpm typecheck && pnpm test
