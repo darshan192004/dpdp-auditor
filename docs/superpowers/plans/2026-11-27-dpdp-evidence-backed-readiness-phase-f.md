@@ -868,7 +868,7 @@ Expected: all gates exit 0; existing callback tests remain green.
 - Consumes: `analyze_repo(root: Path, *, deadline_s: int = 120) -> dict` from `scan_runner.dpdp_inventory.analyzer` (delivered by Phase C). The returned dict has keys `inventoryVersion`, `facts`, `signals`, `detectorStatuses`.
 - Produces: `INVENTORY_BUDGET_SECONDS: Final = 120`, `SCAN_DEADLINE_SECONDS: Final = 900`, and `enforce_inventory_budget(inventory_elapsed_s: float, scan_elapsed_s: float) -> str` returning `'within_budget'`, `'inventory_over_budget'`, or `'scan_over_budget'`. Task 8 reads the constants from this file.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # apps/scan-runner/tests/test_inventory_performance.py
@@ -929,7 +929,7 @@ def test_inventory_analyzer_finishes_100mb_repo_inside_budget(tmp_path: Path) ->
     assert enforce_inventory_budget(elapsed, elapsed + 30.0) == "within_budget"
 ```
 
-- [ ] **Step 2: Run the test to verify RED**
+- [x] **Step 2: Run the test to verify RED**
 
 Run: `cd apps/scan-runner && python -m pytest tests/test_inventory_performance.py -v`  
 Expected RED:
@@ -941,7 +941,7 @@ cannot import name 'INVENTORY_BUDGET_SECONDS' from 'scan_runner.budgets'
 
 If the error instead names `scan_runner.dpdp_inventory.analyzer`, stop and land Phase C first; that is a prerequisite, not a Phase F change. Record the exact RED line in the progress ledger.
 
-- [ ] **Step 3: Write the minimal implementation**
+- [x] **Step 3: Write the minimal implementation**
 
 ```python
 # apps/scan-runner/src/scan_runner/budgets.py
@@ -983,7 +983,7 @@ Then replace the Phase C analyzer call in `run_scan` — the line that reads `in
 
 `scan_started` is the `time.monotonic()` value already recorded at the top of `run_scan` by Phase C; if the Phase C code names it differently, rename the local variable to `scan_started` in that same block so the snippet above compiles unchanged.
 
-- [ ] **Step 4: Run the test to verify GREEN**
+- [x] **Step 4: Run the test to verify GREEN**
 
 Run: `cd apps/scan-runner && python -m pytest tests/test_inventory_performance.py -v`  
 Expected GREEN:
@@ -996,7 +996,7 @@ tests/test_inventory_performance.py::test_inventory_analyzer_finishes_100mb_repo
 
 The measured duration is environment-dependent but must be ≤120 s; the assertion, not the example timing, is the gate.
 
-- [ ] **Step 5: Run full gates and commit**
+- [x] **Step 5: Run full gates and commit**
 
 ```bash
 cd apps/scan-runner && python -m pytest -v && ruff check . && mypy src tests
@@ -1850,16 +1850,16 @@ Report the branch, commit list, exact gate output, and the fact that no manual W
 
 ## Definition of Done
 
-- [ ] All Tasks 1–8 are GREEN with exact RED/GREEN excerpts recorded in the progress ledger.
+- [x] All Tasks 1–8 are GREEN with exact RED/GREEN excerpts recorded in the progress ledger.
 - [x] 21 golden fixtures have manifests, exactly one source canary each, no live URLs, and no canary in manifests.
 - [x] Every fixture runs twice with byte-identical canonical `control_results`; versioned scoring is recorded on every result; no timestamps or generated UUIDs appear in serialized results.
 - [x] Canary markers are absent from DB rows, object-storage reports, logs, callbacks, and API fields; the signed callback allowlist is enforced in the runner.
-- [ ] The 100 MB synthetic-repo inventory run completes within 120 s, with a 900 s total scan deadline constant and `enforce_inventory_budget`.
+- [x] The 100 MB synthetic-repo inventory run completes within 120 s, with a 900 s total scan deadline constant and `enforce_inventory_budget`.
 - [x] Detector crash/timeout yields `UNKNOWN` with `detector_unavailable`, a named coverage banner, and no reused PASS; a direct finding from a completed detector still yields `FAIL`.
 - [x] Report v2 view model carries the named banners and the UI names the timed-out detector beside the unknown count.
 - [x] Legal reviewer, review date, and re-verified official URLs are in `packages/rule-packs/v2/CHANGELOG.md`.
 - [x] Beta default display is blocked unless an approved record covers 5–10 repositories and ≤10% direct-confidence false positives; shipped record is pending with no repositories.
-- [ ] `pnpm lint && pnpm typecheck && pnpm test`, rule-packs tests, web language/banner tests, and runner pytest/ruff/mypy are all green.
+- [x] `pnpm lint && pnpm typecheck && pnpm test`, rule-packs tests, web language/banner tests, and runner pytest/ruff/mypy are all green.
 - [x] No forbidden wording outside quoted disclaimers, no source/canary retention, no pilot data used as evidence.
 - [x] No real pilot sign-off claim; Phase G live verification remains deferred; no push, PR, merge, deploy, image-pin change, or `infra/` change without explicit approval.
 - [x] Fresh-context review has no Required defects.
