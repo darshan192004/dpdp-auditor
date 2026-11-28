@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 
 import PageHeader from '~/components/shell/PageHeader.vue';
 import ErrorState from '~/components/ui/ErrorState.vue';
@@ -41,6 +41,13 @@ const createdKey = ref<ApiKeyCreated | null>(null);
 const showCreateDialog = ref(false);
 const confirmingRevocation = ref<string | null>(null);
 const copiedNotice = ref(false);
+
+const panel = ref<HTMLElement | null>(null);
+const heading = ref<HTMLElement | null>(null);
+let previouslyFocused: HTMLElement | null = null;
+
+const FOCUSABLE =
+  'a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
 const createForm = reactive({
   name: '',
@@ -105,6 +112,63 @@ function closeCreateDialog(): void {
   actionError.value = null;
 }
 
+/** Dismissing mid-request would hide the one-time key once the POST resolves. */
+function dismissCreateDialog(): void {
+  if (pending.value) return;
+  closeCreateDialog();
+}
+
+watch(showCreateDialog, async (open) => {
+  if (!import.meta.client) return;
+  if (open) {
+    previouslyFocused = document.activeElement as HTMLElement | null;
+    await nextTick();
+    heading.value?.focus();
+  } else {
+    previouslyFocused?.focus();
+    previouslyFocused = null;
+  }
+});
+
+function onKeydown(event: KeyboardEvent): void {
+  if (!showCreateDialog.value) return;
+  if (event.key === 'Escape') {
+    dismissCreateDialog();
+    return;
+  }
+  if (event.key !== 'Tab' || !panel.value) return;
+
+  if (!panel.value.contains(document.activeElement)) {
+    event.preventDefault();
+    heading.value?.focus();
+    return;
+  }
+
+  const controls = [...panel.value.querySelectorAll<HTMLElement>(FOCUSABLE)];
+  const focusOrder = heading.value ? [heading.value, ...controls] : controls;
+  if (focusOrder.length === 0) {
+    event.preventDefault();
+    return;
+  }
+
+  const first = focusOrder[0]!;
+  const firstControl = controls[0];
+  const last = focusOrder[focusOrder.length - 1]!;
+  const atBackwardBoundary =
+    document.activeElement === first ||
+    (firstControl !== undefined && document.activeElement === firstControl);
+  if (event.shiftKey && atBackwardBoundary) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+onMounted(() => window.addEventListener('keydown', onKeydown));
+onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
+
 async function createApiKey(): Promise<void> {
   const body = input(() =>
     parseCreateApiKey({
@@ -114,6 +178,9 @@ async function createApiKey(): Promise<void> {
     }),
   );
   if (body === null) return;
+
+  // The submit button becomes disabled while the POST is in flight.
+  if (panel.value?.contains(document.activeElement)) heading.value?.focus();
 
   await run(async () => {
     const response = await $fetch<{ data: ApiKeyCreated }>('/api/v1/api-keys', {
@@ -322,15 +389,29 @@ function scopeList(scopes: string[]): string {
       aria-labelledby="create-key-heading"
       aria-modal="true"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      @click.self="closeCreateDialog"
+      @click.self="dismissCreateDialog"
     >
       <div
+        ref="panel"
         class="bg-surface max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-[var(--radius-card)] shadow-[var(--shadow-modal)]"
       >
-        <div class="border-ink-200 border-b px-4 py-3">
-          <h2 id="create-key-heading" class="text-ink-900 text-base font-semibold">
+        <div class="border-ink-200 flex items-center justify-between gap-3 border-b px-4 py-3">
+          <h2
+            id="create-key-heading"
+            ref="heading"
+            tabindex="-1"
+            class="text-ink-900 text-base font-semibold focus:outline-none"
+          >
             {{ createdKey ? 'API key created' : 'Create API key' }}
           </h2>
+          <button
+            type="button"
+            aria-label="Close dialog"
+            class="text-ink-600 hover:text-ink-900 focus-visible:ring-brand-500 rounded-[var(--radius-control)] px-2 py-1 text-sm focus-visible:ring-2 focus-visible:outline-none"
+            @click="dismissCreateDialog"
+          >
+            ×
+          </button>
         </div>
 
         <template v-if="createdKey">
@@ -389,7 +470,7 @@ function scopeList(scopes: string[]): string {
             <button
               type="button"
               class="bg-brand-500 hover:bg-brand-600 focus-visible:ring-brand-500 text-ink-50 w-full rounded-[var(--radius-control)] px-3 py-2 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-              @click="closeCreateDialog"
+              @click="dismissCreateDialog"
             >
               Done
             </button>
@@ -477,7 +558,7 @@ function scopeList(scopes: string[]): string {
               type="button"
               :disabled="pending"
               class="text-ink-600 hover:text-ink-900 focus-visible:ring-brand-500 border-ink-200 flex-1 rounded-[var(--radius-control)] border px-3 py-2 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-40"
-              @click="closeCreateDialog"
+              @click="dismissCreateDialog"
             >
               Cancel
             </button>

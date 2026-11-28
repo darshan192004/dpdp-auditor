@@ -18,12 +18,15 @@ const emit = defineEmits<{
 }>();
 
 const LABELS: Record<FindingStatus, string> = {
-  open: 'Reopen',
+  open: 'Mark open',
   false_positive: 'Mark false positive',
   accepted_risk: 'Accept risk',
   fixed: 'Mark fixed',
   reopened: 'Reopen',
 };
+
+const optionLabel = (option: FindingStatus): string =>
+  option === 'open' && props.currentStatus === 'open' ? 'Leave open' : LABELS[option];
 
 const status = ref<FindingStatus>(props.currentStatus);
 const note = ref('');
@@ -76,7 +79,7 @@ function onSubmit(): void {
         :disabled="!canTriage || submitting"
       >
         <option v-for="option in FINDING_STATUSES" :key="option" :value="option">
-          {{ LABELS[option] }}
+          {{ optionLabel(option) }}
         </option>
       </select>
     </div>
