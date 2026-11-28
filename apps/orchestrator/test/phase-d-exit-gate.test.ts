@@ -18,7 +18,9 @@ function listV2Files(dir = v2, base = v2): string[] {
       const full = join(dir, entry.name);
       if (entry.isDirectory()) return listV2Files(full, base);
       const rel = relative(base, full).split('\\').join('/');
-      return rel === 'manifest.yaml' ? [] : [rel];
+      // Manifest and legal-review documentation are not checksum-bearing pack content.
+      // The manifest generator and pack validator use the same exclusions.
+      return rel === 'manifest.yaml' || rel === 'CHANGELOG.md' ? [] : [rel];
     })
     .sort();
 }

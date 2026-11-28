@@ -33,11 +33,11 @@ export interface FixtureRun {
 }
 
 /**
- * Phase F's 21 canary-bearing fixtures. Phase C added two separate
- * golden-verdict fixtures without canaries; they stay in Phase C's exit gate.
- * `fx-silent-app` belongs to both corpora and keeps its Phase F canary.
+ * Phase F's 21 canary-bearing fixtures. Phases C and D added separate
+ * golden-verdict fixtures without canaries; they stay in their phase gates.
+ * `fx-silent-app` belongs to multiple corpora and keeps its Phase F canary.
  */
-const PHASE_C_ONLY_FIXTURES = new Set(['fx-bad-app', 'fx-good-app']);
+const NON_PHASE_F_FIXTURES = new Set(['fx-bad-app', 'fx-good-app', 'fx-cmp-header', 'fx-gtm-web']);
 
 export function fixtureDirs(): string[] {
   return readdirSync(FIXTURE_ROOT, { withFileTypes: true })
@@ -45,7 +45,7 @@ export function fixtureDirs(): string[] {
       (entry) =>
         entry.isDirectory() &&
         entry.name !== 'node_modules' &&
-        !PHASE_C_ONLY_FIXTURES.has(entry.name),
+        !NON_PHASE_F_FIXTURES.has(entry.name),
     )
     .map((entry) => join(FIXTURE_ROOT, entry.name))
     .sort();

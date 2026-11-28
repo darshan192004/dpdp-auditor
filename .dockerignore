@@ -12,7 +12,13 @@
 **/playwright-report
 **/test-results
 **/.turbo
-docs
+# Exclude docs, but keep the shipped beta-gate record the runtime image loads.
+# Docker applies last-match-wins and cannot re-include a file whose parent
+# directory is excluded, so re-include the directory before the single file.
+docs/*
+!docs/records/
+docs/records/*
+!docs/records/phase-f-beta-false-positive-review.json
 monitoring
 tests
 *.log

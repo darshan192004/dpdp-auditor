@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative, resolve, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { fileURLToPath } from 'node:url';
 import {
@@ -148,5 +148,36 @@ describe('Phase F beta false-positive gate', () => {
     expect(shipped.defaultDisplayEnabled).toBe(false);
     expect(shipped.repositories).toEqual([]);
     expect(evaluateBetaGate(shipped).allowed).toBe(false);
+  });
+
+  it('ships the reviewed record at the path the compiled loader reads in the image', () => {
+    const loader = readFileSync(
+      join(root, 'apps/orchestrator/src/modules/scoring/beta-gate.ts'),
+      'utf8',
+    );
+    const loaderRelativePath =
+      '../../../../../docs/records/phase-f-beta-false-positive-review.json';
+    expect(loader).toContain(loaderRelativePath);
+
+    const compiledDir = join(root, 'apps/orchestrator/dist/modules/scoring');
+    const imagePath = relative(root, resolve(compiledDir, loaderRelativePath)).split(sep).join('/');
+    expect(imagePath).toBe('docs/records/phase-f-beta-false-positive-review.json');
+
+    const dockerfile = readFileSync(join(root, 'docker/orchestrator.Dockerfile'), 'utf8');
+    expect(dockerfile).toContain(
+      `COPY --from=build --chown=nonroot:nonroot /repo/${imagePath} ./${imagePath}`,
+    );
+
+    // The build context must actually contain the file: .dockerignore applies
+    // last-match-wins, so the directory re-include has to precede the file
+    // exclusion, which in turn has to precede the file re-include.
+    const ignoreLines = readFileSync(join(root, '.dockerignore'), 'utf8').split(/\r?\n/);
+    expect(ignoreLines).not.toContain('docs');
+    expect(ignoreLines.indexOf('!docs/records/')).toBeLessThan(
+      ignoreLines.indexOf('docs/records/*'),
+    );
+    expect(ignoreLines.indexOf('docs/records/*')).toBeLessThan(
+      ignoreLines.indexOf(`!${imagePath}`),
+    );
   });
 });

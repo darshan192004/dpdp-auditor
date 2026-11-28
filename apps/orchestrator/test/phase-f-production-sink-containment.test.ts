@@ -102,17 +102,23 @@ function reportModel(finding: FindingWithRule) {
   });
 }
 
+const FULL_CORPUS_TIMEOUT = 30_000;
+
 describe('Phase F production sink containment', () => {
-  it('uses the real DB-row serializer and never emits hostile evidence fields', async () => {
-    for (const dir of fixtureDirs()) {
-      const run = await runFixture(dir);
-      const hostile = hostileSinkInputs(dir, run);
-      expect(hostile.markerPresentInHostileFields).toBe(true);
-      expect(canonicalControlResultsBytes(hostile.input.controlResults)).not.toContain(
-        hostile.marker,
-      );
-    }
-  });
+  it(
+    'uses the real DB-row serializer and never emits hostile evidence fields',
+    async () => {
+      for (const dir of fixtureDirs()) {
+        const run = await runFixture(dir);
+        const hostile = hostileSinkInputs(dir, run);
+        expect(hostile.markerPresentInHostileFields).toBe(true);
+        expect(canonicalControlResultsBytes(hostile.input.controlResults)).not.toContain(
+          hostile.marker,
+        );
+      }
+    },
+    FULL_CORPUS_TIMEOUT,
+  );
 
   it('uses the real API, report and log serializers without the canary', async () => {
     const dir = fixtureDirs()[0]!;

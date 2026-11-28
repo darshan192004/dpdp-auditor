@@ -74,6 +74,8 @@ COPY --from=build --chown=nonroot:nonroot /repo/packages/observability/node_modu
 # The rule-pack loader reads and hash-verifies every YAML file in this
 # directory at startup; without it the API exits with RULE_PACK_MISSING.
 COPY --from=build --chown=nonroot:nonroot /repo/packages/rule-packs ./packages/rule-packs
+# The beta gate loads this record from /app/docs/records at runtime.
+COPY --from=build --chown=nonroot:nonroot /repo/docs/records/phase-f-beta-false-positive-review.json ./docs/records/phase-f-beta-false-positive-review.json
 # Anonymous `git ls-remote` is part of public-repo validation.
 COPY --from=build --chown=nonroot:nonroot /usr/bin/git /usr/bin/git
 COPY --from=build --chown=nonroot:nonroot /usr/lib/git-core /usr/lib/git-core

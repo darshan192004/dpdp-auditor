@@ -6,19 +6,24 @@ import { redactedSinks } from '../src/modules/scoring/redacted-sinks.js';
 import { fixtureDirs, hostileSinkInputs, runFixture } from './helpers/phase-f-fixture.js';
 
 const root = fileURLToPath(new URL('../../..', import.meta.url));
+const FULL_CORPUS_TIMEOUT = 30_000;
 
 describe('Phase F canary containment (offline allow-list projection)', () => {
-  it('never emits a fixture canary into the modeled sink projections', async () => {
-    for (const dir of fixtureDirs()) {
-      const run = await runFixture(dir);
-      const hostile = hostileSinkInputs(dir, run);
-      expect(hostile.markerPresentInHostileFields).toBe(true);
-      const sinks = redactedSinks(hostile.input);
-      for (const [name, text] of Object.entries(sinks)) {
-        expect(text.includes(hostile.marker), `${dir}: canary leaked into ${name}`).toBe(false);
+  it(
+    'never emits a fixture canary into the modeled sink projections',
+    async () => {
+      for (const dir of fixtureDirs()) {
+        const run = await runFixture(dir);
+        const hostile = hostileSinkInputs(dir, run);
+        expect(hostile.markerPresentInHostileFields).toBe(true);
+        const sinks = redactedSinks(hostile.input);
+        for (const [name, text] of Object.entries(sinks)) {
+          expect(text.includes(hostile.marker), `${dir}: canary leaked into ${name}`).toBe(false);
+        }
       }
-    }
-  });
+    },
+    FULL_CORPUS_TIMEOUT,
+  );
 
   it('keeps live WebGoat, Juice-Shop and API smoke steps out of CI', () => {
     const doc = readFileSync(join(root, 'docs/records/phase-f-manual-smoke-gate.md'), 'utf8');

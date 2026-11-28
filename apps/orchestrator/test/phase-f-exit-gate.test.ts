@@ -9,26 +9,31 @@ import { redactedSinks } from '../src/modules/scoring/redacted-sinks.js';
 import { fixtureDirs, hostileSinkInputs, runFixture } from './helpers/phase-f-fixture.js';
 
 const root = fileURLToPath(new URL('../../..', import.meta.url));
+const FULL_CORPUS_TIMEOUT = 30_000;
 
 describe('Phase F exit gate (all Definition of Done items except Phase G)', () => {
-  it('covers the full fixture corpus with deterministic, canary-contained results', async () => {
-    expect(fixtureDirs()).toHaveLength(21);
-    for (const dir of fixtureDirs()) {
-      const first = await runFixture(dir);
-      const second = await runFixture(dir);
-      expect(canonicalControlResultsBytes(first.evaluation.results)).toBe(
-        canonicalControlResultsBytes(second.evaluation.results),
-      );
-      expect(
-        first.evaluation.results.every((result) => result.scoringVersion === 'scoring-2.0.0'),
-      ).toBe(true);
-      const hostile = hostileSinkInputs(dir, first);
-      expect(hostile.markerPresentInHostileFields).toBe(true);
-      const sinks = redactedSinks(hostile.input);
-      expect(Object.values(sinks).some((text) => text.includes(hostile.marker))).toBe(false);
-      expect(first.scored.counts.unmapped).toBe(first.name === 'unmapped-rule' ? 1 : 0);
-    }
-  });
+  it(
+    'covers the full fixture corpus with deterministic, canary-contained results',
+    async () => {
+      expect(fixtureDirs()).toHaveLength(21);
+      for (const dir of fixtureDirs()) {
+        const first = await runFixture(dir);
+        const second = await runFixture(dir);
+        expect(canonicalControlResultsBytes(first.evaluation.results)).toBe(
+          canonicalControlResultsBytes(second.evaluation.results),
+        );
+        expect(
+          first.evaluation.results.every((result) => result.scoringVersion === 'scoring-2.0.0'),
+        ).toBe(true);
+        const hostile = hostileSinkInputs(dir, first);
+        expect(hostile.markerPresentInHostileFields).toBe(true);
+        const sinks = redactedSinks(hostile.input);
+        expect(Object.values(sinks).some((text) => text.includes(hostile.marker))).toBe(false);
+        expect(first.scored.counts.unmapped).toBe(first.name === 'unmapped-rule' ? 1 : 0);
+      }
+    },
+    FULL_CORPUS_TIMEOUT,
+  );
 
   it('keeps detector errors UNKNOWN with a named banner', () => {
     expect(buildCoverageBanners({ gitleaks: 'timed_out' }, ['DPDPA-8.4-SECRET-01'])).toEqual([
