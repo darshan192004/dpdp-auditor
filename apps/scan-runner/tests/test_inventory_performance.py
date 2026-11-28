@@ -15,6 +15,7 @@ from scan_runner.budgets import (
     INVENTORY_BUDGET_SECONDS,
     SCAN_DEADLINE_SECONDS,
     enforce_inventory_budget,
+    remaining_inventory_budget_s,
 )
 from scan_runner.config import Config
 from scan_runner.dpdp_inventory.analyzer import analyze_repo
@@ -44,6 +45,14 @@ def test_budget_constants_and_enforcement() -> None:
     assert enforce_inventory_budget(119.9, 899.9) == "within_budget"
     assert enforce_inventory_budget(120.1, 899.9) == "inventory_over_budget"
     assert enforce_inventory_budget(119.9, 900.1) == "scan_over_budget"
+
+
+def test_remaining_inventory_budget_bounded_by_scan_deadline() -> None:
+    assert remaining_inventory_budget_s(0.0) == INVENTORY_BUDGET_SECONDS
+    assert remaining_inventory_budget_s(780.0) == INVENTORY_BUDGET_SECONDS
+    assert remaining_inventory_budget_s(890.0) == 10
+    assert remaining_inventory_budget_s(899.5) == 0
+    assert remaining_inventory_budget_s(920.0) == 0
 
 
 def test_inventory_analyzer_finishes_100mb_repo_inside_budget(tmp_path: Path) -> None:
@@ -98,6 +107,7 @@ def test_run_scan_applies_inventory_budget(
 
     statuses_seen: dict[str, str] = {}
     inventory_seen: dict[str, object] | None = None
+    completion_statuses: dict[str, object] | None = None
 
     def fake_send_completion(
         _cfg: Config,
@@ -105,11 +115,12 @@ def test_run_scan_applies_inventory_budget(
         _counts: dict[str, int],
         **kwargs: object,
     ) -> None:
-        nonlocal inventory_seen
+        nonlocal inventory_seen, completion_statuses
         statuses_seen.update(statuses)
         inventory = kwargs.get("inventory")
         if isinstance(inventory, dict):
             inventory_seen = inventory
+            completion_statuses = inventory.get("detectorStatuses")
 
     def noop(*_args: object, **_kwargs: object) -> None:
         return None
@@ -131,7 +142,7 @@ def test_run_scan_applies_inventory_budget(
     def fake_workspace_bytes(_workspace: Path) -> int:
         return 1
 
-    monotonic_values = iter([100.0, 100.0, 230.0, 230.0])
+    monotonic_values = iter([100.0, 100.0, 100.0, 230.0, 230.0])
     monkeypatch.setattr(
         cli, "time", SimpleNamespace(monotonic=lambda: next(monotonic_values))
     )
@@ -146,7 +157,68 @@ def test_run_scan_applies_inventory_budget(
     monkeypatch.setattr(cli, "total_workspace_bytes", fake_workspace_bytes)
     monkeypatch.setattr(cli, "send_completion", fake_send_completion)
 
-    assert cli.run_scan(config) == 0
+    assert cli.run_scan(config) == 1
     assert deadlines == [INVENTORY_BUDGET_SECONDS]
     assert inventory_seen is not None
     assert statuses_seen["dpdp_inventory"] == "timed_out"
+    assert isinstance(completion_statuses, dict)
+    assert completion_statuses["dpdp_inventory"] == "timed_out"
+
+
+def test_run_scan_bounds_inventory_by_remaining_scan_time(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config = Config(
+        scan_id="scan-phase-f-remaining-budget",
+        orchestrator_url="http://orchestrator:3001",
+        hmac_key=SecretStr("h" * 32),
+        internal_key=SecretStr("i" * 32),
+        org_id="org-1",
+        repo_url="https://example.invalid/repository.git",
+        repo_ref="main",
+        workspace=str(tmp_path / "workspace"),
+    )
+    deadlines: list[int] = []
+
+    def fake_analyze_repo(_root: Path, *, deadline_s: int) -> dict[str, object]:
+        deadlines.append(deadline_s)
+        return {
+            "inventoryVersion": "inventory-1.0.0",
+            "facts": [],
+            "signals": [],
+            "detectorStatuses": {"schema_scan": "completed"},
+        }
+
+    def noop(*_args: object, **_kwargs: object) -> None:
+        return None
+
+    def fake_run_scanner(
+        _name: str, _adapter: object, _workspace: Path, _timeout: int
+    ) -> tuple[list[dict[str, object]], str, int]:
+        return [], "completed", 1
+
+    def fake_normalise(*_args: object, **_kwargs: object) -> list[dict[str, object]]:
+        return []
+
+    def fake_facts(_workspace: Path) -> dict[str, list[str]]:
+        return {"languages": [], "frameworks": [], "resourceTypes": []}
+
+    # scan_started=0, remaining-budget check=890, inventory_started=890,
+    # inventory_elapsed=891, enforce check=891
+    monotonic_values = iter([0.0, 890.0, 890.0, 891.0, 891.0])
+    monkeypatch.setattr(
+        cli, "time", SimpleNamespace(monotonic=lambda: next(monotonic_values))
+    )
+    monkeypatch.setattr(cli, "clone_repository", noop)
+    monkeypatch.setattr(cli, "send_progress", noop)
+    monkeypatch.setattr(cli, "BatchClient", _FakeBatchClient)
+    monkeypatch.setattr(cli, "run_scanner", fake_run_scanner)
+    monkeypatch.setattr(cli, "normalize_findings", fake_normalise)
+    monkeypatch.setattr(cli, "collect_facts", fake_facts)
+    monkeypatch.setattr(cli, "analyze_repo", fake_analyze_repo)
+    monkeypatch.setattr(cli, "read_commit_sha", noop)
+    monkeypatch.setattr(cli, "total_workspace_bytes", lambda _workspace: 1)
+    monkeypatch.setattr(cli, "send_completion", noop)
+
+    assert cli.run_scan(config) == 0
+    assert deadlines == [10]

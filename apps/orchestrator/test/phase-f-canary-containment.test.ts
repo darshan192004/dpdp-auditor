@@ -7,8 +7,8 @@ import { fixtureDirs, hostileSinkInputs, runFixture } from './helpers/phase-f-fi
 
 const root = fileURLToPath(new URL('../../..', import.meta.url));
 
-describe('Phase F canary containment (offline sinks)', () => {
-  it('never emits a fixture canary into DB rows, reports, logs, callbacks, or API fields', async () => {
+describe('Phase F canary containment (offline allow-list projection)', () => {
+  it('never emits a fixture canary into the modeled sink projections', async () => {
     for (const dir of fixtureDirs()) {
       const run = await runFixture(dir);
       const hostile = hostileSinkInputs(dir, run);

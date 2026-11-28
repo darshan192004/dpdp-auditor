@@ -9,6 +9,7 @@ Fixtures under `tests/golden-repos/` are test inputs only and must never be pres
 1. Obtain explicit user approval for a live public-repository scan and for each destination URL.
 2. Use an ephemeral workspace under `/tmp/opencode/` and delete it after the run.
 3. Never log, persist, or callback raw scanner output; the signed callback allowlist in `apps/scan-runner/src/scan_runner/batches.py` is the only transport shape.
+4. Before passing `INTERNAL_KEY`, confirm the network path to `ORCHESTRATOR_URL` is protected. Where the orchestrator serves TLS, use an `https://` URL. The callback client sends `INTERNAL_KEY` in the `X-Internal-Key` header without enforcing TLS, so a plain-`http://` URL exposes it to any on-path observer on that network.
 
 ## Approved-run commands (do not execute without step 1)
 

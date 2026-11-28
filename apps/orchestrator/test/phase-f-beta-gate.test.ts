@@ -2,7 +2,15 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { fileURLToPath } from 'node:url';
-import { evaluateBetaGate, type BetaReviewRecord } from '../src/modules/scoring/beta-gate.js';
+import {
+  BETA_MAX_FALSE_POSITIVE_RATE,
+  BETA_MAX_REPOSITORIES,
+  BETA_MIN_REPOSITORIES,
+  defaultScoreDisplayAllowed,
+  evaluateBetaGate,
+  loadBetaReviewRecord,
+  type BetaReviewRecord,
+} from '../src/modules/scoring/beta-gate.js';
 
 const root = fileURLToPath(new URL('../../..', import.meta.url));
 
@@ -64,6 +72,72 @@ describe('Phase F beta false-positive gate', () => {
         record(reviewSet(5, 0).map((repo) => ({ ...repo, directConfidenceControls: [] }))),
       ).reason,
     ).toBe('no_direct_controls');
+  });
+
+  it('rejects repeated repository identities before counting reviews', () => {
+    const duplicated = reviewSet(4, 0).concat({
+      ...reviewSet(1, 0)[0]!,
+      repository: 'test-repo-0',
+    });
+    expect(evaluateBetaGate(record(duplicated))).toEqual({
+      allowed: false,
+      falsePositiveRate: null,
+      reason: 'duplicate_repositories',
+    });
+    expect(
+      evaluateBetaGate(
+        record(reviewSet(5, 0).map((repo, index) => ({ ...repo, repository: `REPO-${index}` }))),
+      ).allowed,
+    ).toBe(true);
+  });
+
+  it('enforces the fixed 5–10 repository and ≤10% policy regardless of review settings', () => {
+    expect(BETA_MIN_REPOSITORIES).toBe(5);
+    expect(BETA_MAX_REPOSITORIES).toBe(10);
+    expect(BETA_MAX_FALSE_POSITIVE_RATE).toBe(0.1);
+
+    expect(
+      evaluateBetaGate({
+        ...record(reviewSet(1, 0)),
+        minRepositories: 1,
+      }).reason,
+    ).toBe('repository_count_out_of_range');
+    expect(
+      evaluateBetaGate({
+        ...record(reviewSet(11, 0)),
+        maxRepositories: 20,
+      }).reason,
+    ).toBe('repository_count_out_of_range');
+    expect(
+      evaluateBetaGate({
+        ...record(reviewSet(5, 5)),
+        targetMaxFalsePositiveRate: 1,
+      }).reason,
+    ).toBe('false_positive_rate_too_high');
+  });
+
+  it('keeps default display disabled unless enabled and approved by the gate', () => {
+    const shipped = loadBetaReviewRecord();
+    expect(shipped.status).toBe('pending_explicit_approval');
+    expect(shipped.defaultDisplayEnabled).toBe(false);
+    expect(shipped.repositories).toEqual([]);
+    expect(evaluateBetaGate(shipped).allowed).toBe(false);
+    expect(defaultScoreDisplayAllowed()).toBe(false);
+
+    expect(defaultScoreDisplayAllowed(record(reviewSet(10, 2)))).toBe(false);
+    expect(
+      defaultScoreDisplayAllowed({
+        ...record(reviewSet(10, 2)),
+        defaultDisplayEnabled: true,
+      }),
+    ).toBe(true);
+    expect(
+      defaultScoreDisplayAllowed({
+        ...record(reviewSet(10, 2)),
+        defaultDisplayEnabled: true,
+        status: 'pending_explicit_approval',
+      }),
+    ).toBe(false);
   });
 
   it('ships with default display disabled and no pilot evidence', () => {

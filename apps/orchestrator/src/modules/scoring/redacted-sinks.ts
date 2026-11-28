@@ -21,8 +21,12 @@ export interface RedactedSinks {
 }
 
 /**
- * Allowlisted representations of every persistence/transport surface. Source
- * content, matched values, and raw scanner output never enter these strings.
+ * Explicit allow-list projection of the Phase F sink fields. This is a
+ * verification aid, not a production writer: the real serializers are
+ * exercised by `phase-f-production-sink-containment.test.ts` (DB rows, API
+ * views, report HTML, and log fields) and by the runner's signed-callback
+ * containment test. Source content, matched values, and raw scanner output
+ * never enter these strings.
  */
 export function redactedSinks(input: RedactedSinkInput): RedactedSinks {
   const evidence = input.findings.map((finding) => ({

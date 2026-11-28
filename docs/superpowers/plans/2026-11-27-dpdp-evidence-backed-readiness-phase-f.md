@@ -1418,7 +1418,7 @@ Before writing, open each of the three URLs in the test with `webfetch` and conf
 
 - Reviewer: internal legal counsel (role recorded; no individual sign-off claimed in the repository)
 - Review date: 2026-11-27
-- Status: recorded for the Phase F release gate; no legal opinion, certificate, badge, or pilot sign-off is claimed.
+- Status: recorded for the Phase F release gate. No legal opinion, certificate, badge, or pilot sign-off is claimed.
 - Official URLs re-verified on 2026-11-27:
   - https://www.meity.gov.in/static/uploads/2024/06/2bf1f0e9f04e6fb4f8fef35e82c42aa5.pdf
   - https://www.meity.gov.in/static/uploads/2025/11/53450e6e5dc0bfa85ebd78686cadad39.pdf
@@ -1497,10 +1497,10 @@ function reviewSet(count: number, falsePositives: number): BetaReviewRecord['rep
 }
 
 describe('Phase F beta false-positive gate', () => {
-  it('allows default display at 5% false positives across 8 reviewed repositories', () => {
+  it('allows default display at 6.25% false positives across 8 reviewed repositories', () => {
     expect(evaluateBetaGate(record(reviewSet(8, 2)))).toEqual({
       allowed: true,
-      falsePositiveRate: 0.05,
+      falsePositiveRate: 0.0625,
       reason: 'approved',
     });
   });

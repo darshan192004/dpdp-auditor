@@ -19,6 +19,7 @@ import { EmailService } from '../reports/email.service.js';
 import { RepoResolverService } from '../repos/repo-resolver.service.js';
 import { RepositoriesRepository } from '../repos/repositories.repository.js';
 import { inventoryStatusFor } from './inventory-status.js';
+import { defaultScoreDisplayAllowed } from '../scoring/beta-gate.js';
 import { factsFrom } from '../scoring/applicability.js';
 import { isScoringV2 } from '../scoring/scoring.engine.js';
 import { ScanScoringService } from '../scoring/scan-scoring.service.js';
@@ -676,9 +677,10 @@ function toAssessment(scan: ScanWithRepository): AssessmentSummary | null {
   const verdictCounts = jsonObject(scan.verdictCounts);
   const failCount = verdictCounts.FAIL;
   const reason = scan.gradeWithheldReason;
+  const displayAllowed = defaultScoreDisplayAllowed();
 
   return {
-    score: scan.score === null ? null : Number(scan.score),
+    score: displayAllowed && scan.score !== null ? Number(scan.score) : null,
     evidenceCoverage: scan.evidenceCoverage === null ? null : Number(scan.evidenceCoverage),
     openGaps: typeof failCount === 'number' && Number.isFinite(failCount) ? failCount : 0,
     verdictCounts: verdictCounts as AssessmentSummary['verdictCounts'],
@@ -714,6 +716,7 @@ function toSummary(scan: ScanWithRepository) {
 }
 
 function toDetail(scan: ScanWithRepository, previousScore: number | null) {
+  const displayAllowed = !isScoringV2(scan.scoringVersion) || defaultScoreDisplayAllowed();
   return {
     id: scan.id,
     repository: {
@@ -724,7 +727,7 @@ function toDetail(scan: ScanWithRepository, previousScore: number | null) {
     status: scan.status,
     ref: scan.ref,
     commitSha: scan.commitSha,
-    score: scan.score === null ? null : Number(scan.score),
+    score: displayAllowed && scan.score !== null ? Number(scan.score) : null,
     grade: scan.grade,
     previousScore,
     sectionScores: scan.sectionScores,

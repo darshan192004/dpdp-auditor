@@ -15,3 +15,9 @@ def enforce_inventory_budget(inventory_elapsed_s: float, scan_elapsed_s: float) 
     if inventory_elapsed_s > INVENTORY_BUDGET_SECONDS:
         return "inventory_over_budget"
     return "within_budget"
+
+
+def remaining_inventory_budget_s(scan_elapsed_s: float) -> int:
+    """Return the inventory allowance bounded by the remaining scan deadline."""
+    remaining_s = SCAN_DEADLINE_SECONDS - scan_elapsed_s
+    return max(0, min(INVENTORY_BUDGET_SECONDS, int(remaining_s)))

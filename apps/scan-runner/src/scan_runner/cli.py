@@ -25,7 +25,7 @@ import httpx
 
 from scan_runner.adapters import CheckovAdapter, GitleaksAdapter, SemgrepAdapter
 from scan_runner.batches import BatchClient
-from scan_runner.budgets import INVENTORY_BUDGET_SECONDS, enforce_inventory_budget
+from scan_runner.budgets import enforce_inventory_budget, remaining_inventory_budget_s
 from scan_runner.callbacks import post_signed
 from scan_runner.config import ALL_SCANNERS, SECRETS_ONLY_SCANNERS, Config
 from scan_runner.dpdp_inventory import analyze_repo
@@ -364,23 +364,35 @@ def run_scan(config: Config) -> int:
             facts["resourceTypes"],
         )
         inventory_report: dict[str, object] | None = None
-        try:
-            inventory_started = time.monotonic()
-            report = analyze_repo(workspace, deadline_s=INVENTORY_BUDGET_SECONDS)
-            inventory_elapsed_s = time.monotonic() - inventory_started
-            if (
-                enforce_inventory_budget(
+        # Bound inventory by the scan deadline remaining after earlier stages;
+        # a full allowance here could finish after the 900-second scan deadline.
+        inventory_budget_s = remaining_inventory_budget_s(time.monotonic() - scan_started)
+        if inventory_budget_s <= 0:
+            log.warning("no scan budget remains for inventory analysis")
+            statuses["dpdp_inventory"] = "timed_out"
+        else:
+            try:
+                inventory_started = time.monotonic()
+                report = analyze_repo(workspace, deadline_s=inventory_budget_s)
+                inventory_elapsed_s = time.monotonic() - inventory_started
+                budget_result = enforce_inventory_budget(
                     inventory_elapsed_s, time.monotonic() - scan_started
                 )
-                != "within_budget"
-            ):
-                log.warning("inventory analyzer exceeded its time budget")
-                statuses["dpdp_inventory"] = "timed_out"
-            log.info("inventory detector statuses: %s", report["detectorStatuses"])
-            inventory_report = report
-        except Exception as exc:  # pragma: no cover - defensive
-            log.warning("inventory analysis failed: %s", exc)
-            inventory_report = None
+                if budget_result != "within_budget":
+                    log.warning("inventory analyzer exceeded its time budget: %s", budget_result)
+                    statuses["dpdp_inventory"] = "timed_out"
+                    # The completion contract only serialises external scanner
+                    # names, so record the budget failure in the inventory
+                    # detector statuses that do reach the orchestrator.
+                    detector_statuses = dict(report["detectorStatuses"])
+                    detector_statuses["dpdp_inventory"] = "timed_out"
+                    report["detectorStatuses"] = detector_statuses
+                    exit_code = EXIT_FAILED
+                log.info("inventory detector statuses: %s", report["detectorStatuses"])
+                inventory_report = report
+            except Exception as exc:  # pragma: no cover - defensive
+                log.warning("inventory analysis failed: %s", exc)
+                inventory_report = None
         send_completion(
             config,
             statuses,
