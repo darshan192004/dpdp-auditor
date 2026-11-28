@@ -1,5 +1,33 @@
 import type { Organization, Report, Repository, Scan } from '@prisma/client';
 import { toFindingView, type FindingWithRule } from '../findings/findings.service.js';
+import { buildCoverageBanners } from '../scoring/coverage-banners.js';
+import type { DetectorStatus } from '../scoring/control-evaluator.js';
+
+const REPORT_DETECTOR_STATUSES: ReadonlySet<string> = new Set([
+  'completed',
+  'failed',
+  'timed_out',
+  'skipped',
+]);
+
+function normalizeDetectorStatuses(value: unknown): Record<string, DetectorStatus> {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(([name, status]) => [
+      name,
+      typeof status === 'string' && REPORT_DETECTOR_STATUSES.has(status)
+        ? (status as DetectorStatus)
+        : 'skipped',
+    ]),
+  );
+}
+
+function inventoryDetectorStatuses(facts: unknown): Record<string, DetectorStatus> {
+  if (facts === null || typeof facts !== 'object' || Array.isArray(facts)) return {};
+  const inventory = (facts as Record<string, unknown>).inventory;
+  if (inventory === null || typeof inventory !== 'object' || Array.isArray(inventory)) return {};
+  return normalizeDetectorStatuses((inventory as Record<string, unknown>).detectorStatuses);
+}
 
 export const REPORT_DISCLAIMER =
   'The mapping is a technical aid. It is not legal advice, not a legal opinion, and not a ' +
@@ -78,6 +106,15 @@ export function buildReportViewModel(source: ReportSource) {
       rulePackVersion: scan.rulePackVersion,
       summary: REPORT_METHODOLOGY,
     },
+    coverageBanners: buildCoverageBanners(
+      {
+        ...normalizeDetectorStatuses(scan.coverage ?? {}),
+        ...inventoryDetectorStatuses(scan.facts),
+      },
+      Array.isArray(scan.unknownControls)
+        ? scan.unknownControls.filter((code): code is string => typeof code === 'string')
+        : [],
+    ),
     disclaimer: REPORT_DISCLAIMER,
     generatedAt: source.now ?? new Date(),
   };

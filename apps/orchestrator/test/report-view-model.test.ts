@@ -212,6 +212,57 @@ describe('buildReportViewModel (P4-20)', () => {
     expect(view.scan.score).toBeNull();
     expect(view.scan.grade).toBeNull();
   });
+
+  it('emits banners for failed inventory detectors from persisted facts', () => {
+    const view = buildReportViewModel({
+      report: report(),
+      scan: scan({
+        coverage: { semgrep: 'completed' },
+        facts: {
+          languages: ['python'],
+          frameworks: [],
+          resourceTypes: [],
+          inventory: {
+            inventoryVersion: 'inventory-1.0.0',
+            facts: [],
+            signals: [],
+            detectorStatuses: {
+              schema_scan: 'failed',
+              consent_gate: 'timed_out',
+              healthy_detector: 'completed',
+              unknown_status: 'mystery',
+            },
+          },
+        },
+      }),
+      organization: organization(),
+      findings: [],
+    });
+
+    expect(view.coverageBanners).toEqual([
+      {
+        detector: 'consent_gate',
+        status: 'timed_out',
+        reasonCode: 'detector_unavailable',
+        controlCodes: [],
+        message: 'Could not determine from code: consent_gate timed_out.',
+      },
+      {
+        detector: 'schema_scan',
+        status: 'failed',
+        reasonCode: 'detector_unavailable',
+        controlCodes: [],
+        message: 'Could not determine from code: schema_scan failed.',
+      },
+      {
+        detector: 'unknown_status',
+        status: 'skipped',
+        reasonCode: 'detector_unavailable',
+        controlCodes: [],
+        message: 'Could not determine from code: unknown_status skipped.',
+      },
+    ]);
+  });
 });
 
 describe('brandingFor', () => {

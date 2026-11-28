@@ -457,10 +457,10 @@ describe('ScansService reads', () => {
     });
 
     await expect(service.detail(ORG_ID, SCAN_ID)).resolves.toMatchObject({
-      score: 0,
+      score: null,
       grade: null,
       assessment: {
-        score: 0,
+        score: null,
         evidenceCoverage: 0.25,
         openGaps: 0,
         verdictCounts: { UNKNOWN: 12 },

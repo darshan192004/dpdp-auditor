@@ -29,3 +29,5 @@ def export_data():
     # No rate limiting - vulnerable to data exfiltration
     data = get_all_data()
     return jsonify({'data': data})
+
+# CANARY_missing_rate_limits_20261127_never_emit

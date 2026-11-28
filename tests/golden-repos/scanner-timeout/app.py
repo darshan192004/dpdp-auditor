@@ -7,3 +7,5 @@ logger = logging.getLogger(__name__)
 
 def log_order(order):
     logger.info("order for %s", order.email)
+
+# CANARY_scanner_timeout_20261127_never_emit

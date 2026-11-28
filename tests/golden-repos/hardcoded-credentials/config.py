@@ -22,3 +22,5 @@ def get_db_connection():
         password=DATABASE_CONFIG['password']  # Using hardcoded password
     )
     return conn
+
+# CANARY_hardcoded_credentials_20261127_never_emit

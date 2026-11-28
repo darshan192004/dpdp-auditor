@@ -1,0 +1,8 @@
+{
+  "status": "pending_explicit_approval",
+  "defaultDisplayEnabled": false,
+  "targetMaxFalsePositiveRate": 0.1,
+  "minRepositories": 5,
+  "maxRepositories": 10,
+  "repositories": []
+}

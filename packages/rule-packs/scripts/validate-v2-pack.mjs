@@ -18,7 +18,8 @@ async function listFiles(dir, base = dir) {
       files.push(...(await listFiles(full, base)));
     } else if (entry.isFile()) {
       const rel = relative(base, full).split(sep).join('/');
-      if (rel !== 'manifest.yaml') files.push(rel);
+      // CHANGELOG.md is Phase F documentation, not checksum-bearing pack content.
+      if (rel !== 'manifest.yaml' && rel !== 'CHANGELOG.md') files.push(rel);
     }
   }
   return files.sort();
