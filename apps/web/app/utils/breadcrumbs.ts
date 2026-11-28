@@ -32,6 +32,22 @@ export function breadcrumbsFor(path: string): Crumb[] {
     return withoutTrailingLink(crumbs);
   }
 
+  if (section === 'readiness') {
+    crumbs.push({ label: 'Readiness', to: '/app/readiness/inventory' });
+    const labels: Record<string, string> = {
+      inventory: 'Data Inventory',
+      gaps: 'Compliance Gaps',
+      'fix-plan': 'Fix Plan',
+      attestations: 'Attestations',
+      exports: 'Exports',
+    };
+    const child = parts[2];
+    if (child !== undefined && labels[child] !== undefined) {
+      crumbs.push({ label: labels[child]! });
+    }
+    return withoutTrailingLink(crumbs);
+  }
+
   crumbs.push({ label: titleCase(section), to: `/app/${section}` });
   return withoutTrailingLink(crumbs);
 }

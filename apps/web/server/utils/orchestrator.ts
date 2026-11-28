@@ -7,7 +7,7 @@ import { apiError, type ErrorDetail } from './api-error';
 import { getRequestId } from './request-id';
 
 export interface OrchestratorCallOptions {
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
   path: string;
   body?: unknown;
   idempotencyKey?: string;

@@ -25,3 +25,32 @@ export const APP_NAV: AppNavItem[] = [
     hint: 'Organisation, plan, retention',
   },
 ];
+
+/** Sub-navigation under the Readiness sidebar group; APP_NAV is unchanged. */
+export const READINESS_NAV: AppNavItem[] = [
+  {
+    label: 'Data Inventory',
+    to: '/app/readiness/inventory',
+    icon: 'database',
+    hint: 'Detected fields and surfaces',
+  },
+  {
+    label: 'Compliance Gaps',
+    to: '/app/readiness/gaps',
+    icon: 'shield-alert',
+    hint: 'Non-passing controls',
+  },
+  {
+    label: 'Fix Plan',
+    to: '/app/readiness/fix-plan',
+    icon: 'wrench',
+    hint: 'Remediation steps',
+  },
+  {
+    label: 'Attestations',
+    to: '/app/readiness/attestations',
+    icon: 'badge-check',
+    hint: 'Owner-admin statements',
+  },
+  { label: 'Exports', to: '/app/readiness/exports', icon: 'download', hint: 'SARIF and Markdown' },
+];

@@ -29,6 +29,21 @@ const AUDITOR_ID = '0f000000-0000-4000-8000-000000000002';
 
 const FIXTURE_AUDIT_ENTRIES: AuditLogEntry[] = [
   {
+    id: 10,
+    actor: { type: 'user', id: OWNER_ID, name: 'Ada Owner' },
+    action: 'attestation.upserted',
+    resource: { type: 'attestation', id: 'att_v2_owner_01' },
+    ip: '203.0.113.4',
+    userAgent: 'Mozilla/5.0 (fixture)',
+    metadata: {
+      key: 'secrets.managed_store',
+      repositoryId: '0f000000-0000-4000-8000-0000000000a2',
+      answer: true,
+      expiresAt: '2027-02-01T00:00:00.000Z',
+    },
+    createdAt: '2026-11-20T10:00:00.000Z',
+  },
+  {
     id: 9,
     actor: { type: 'user', id: AUDITOR_ID, name: 'Fixture auditor' },
     action: 'finding.triaged',

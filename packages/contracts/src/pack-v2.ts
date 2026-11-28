@@ -9,6 +9,7 @@ export const SECTION_REF_PATTERN = /^\d+(?:\(\d+\))?$/;
 export const LEGAL_REF_PATTERN =
   /^(?:DPDPA Section \d+(?:\(\d+\))?(?:\([a-z]\))?|DPDP Rules \d+(?:\([a-z]\))?)$/;
 export const DETECTOR_ID_PATTERN = /^[a-z][a-z0-9_]{2,48}$/;
+export const ATTESTATION_KEY_PATTERN = /^[a-z][a-z0-9_.:-]{2,96}$/;
 export const TOKEN_PATTERN = /^[A-Za-z0-9_.:/-]{1,120}$/;
 export const RELATIVE_PATH_PATTERN = /^(?!\/)(?!.*\.\.)[^\0]{1,240}$/;
 
@@ -129,6 +130,7 @@ export const controlV2Schema = z
     severity: z.enum(['low', 'medium', 'high', 'critical']),
     weight: z.number().int().min(1).max(10),
     evidenceMode: evidenceModeSchema,
+    attestationKey: z.string().regex(ATTESTATION_KEY_PATTERN).optional(),
     appliesWhen: z
       .array(z.object({ language: token.optional(), stack: token.optional() }).strict())
       .max(32),
@@ -167,7 +169,7 @@ export const attestationSchema = z
   .object({
     orgId: uuid,
     repositoryId: uuid,
-    key: z.string().regex(/^[a-z][a-z0-9_.:-]{2,96}$/),
+    key: z.string().regex(ATTESTATION_KEY_PATTERN),
     answer: z.boolean(),
     note: z.string().max(2000).nullable().optional(),
     attestedBy: uuid,
@@ -415,7 +417,28 @@ export function validatePackV2(input: {
 
   const declaredDetectors = new Set(detectors.map((detector) => detector.id));
   const seenControls = new Set<string>();
+  const attestationKeys = new Map<string, string>();
   for (const control of controls) {
+    if (control.evidenceMode === 'attestation' && control.attestationKey === undefined) {
+      issues.push({
+        path: 'controls.yaml',
+        code: 'missing_attestation_key',
+        message: `control ${control.code} has no attestation key`,
+      });
+    }
+    if (control.attestationKey !== undefined) {
+      const previous = attestationKeys.get(control.attestationKey);
+      if (previous !== undefined) {
+        issues.push({
+          path: 'controls.yaml',
+          code: 'duplicate_attestation_key',
+          message: `attestation key is mapped more than once; first control ${previous}`,
+        });
+      } else {
+        attestationKeys.set(control.attestationKey, control.code);
+      }
+    }
+
     if (seenControls.has(control.code)) {
       issues.push({
         path: 'controls.yaml',

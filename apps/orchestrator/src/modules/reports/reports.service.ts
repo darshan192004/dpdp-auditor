@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { logger } from '../../common/logger.js';
 import { ApiError } from '../../common/api-error.js';
 import { monthStart, planLimits } from '../../common/plan-limits.js';
@@ -8,6 +8,8 @@ import { FindingsRepository } from '../findings/findings.repository.js';
 import { OrganizationsRepository } from '../identity/organizations.repository.js';
 import { QueueService } from '../../queue/queue.service.js';
 import { ScansRepository } from '../scans/scans.repository.js';
+import { isScoringV2 } from '../scoring/scoring.engine.js';
+import { ReportV2Service } from './report-v2.service.js';
 import { buildReportViewModel } from './report-view-model.js';
 import { EmailService } from './email.service.js';
 import { ReportStorageService } from './report-storage.service.js';
@@ -26,6 +28,7 @@ export class ReportsService {
     private readonly storage: ReportStorageService,
     private readonly organizations: OrganizationsRepository,
     private readonly email: EmailService,
+    @Optional() private readonly v2?: ReportV2Service,
   ) {}
 
   /** P5-20: Request a PDF report for a completed scan (api.md §6.1). */
@@ -313,6 +316,9 @@ export class ReportsService {
     if (!report) throw new ApiError('NOT_FOUND', 'The report does not exist.');
     if (report.status === 'expired') {
       throw new ApiError('REPORT_EXPIRED', 'The report has expired.');
+    }
+    if (isScoringV2(report.scan.scoringVersion) && this.v2 !== undefined) {
+      return this.v2.viewModel(orgId, reportId);
     }
 
     const findings = await this.findings.topForScan(report.scanId, orgId);

@@ -44,4 +44,16 @@ test.describe('PDF parity (P5-23)', () => {
     await expect(download).toHaveAttribute('href', /^\/api\/v1\/report\/pdf\/.+\/download$/);
     await expect(page.getByRole('link', { name: 'Preview' })).toBeVisible();
   });
+
+  test('v2 report view model keeps attested verdicts out of evidence coverage', async ({
+    request,
+  }) => {
+    const response = await request.get(`/api/v1/report/pdf/${FIXTURE_REPORT_ID}/view`);
+    expect(response.ok()).toBeTruthy();
+    const report = await response.json();
+    expect(report.data.scan.scoringVersion).toBe('scoring-2.0.0');
+    expect(report.data.sections.map((section: { id: string }) => section.id)).toContain(
+      'could_not_determine',
+    );
+  });
 });

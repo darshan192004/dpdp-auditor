@@ -16,6 +16,7 @@ import { inventoryEvidence, type InventoryReportLike } from './inventory-evidenc
 import {
   buildDetectorStatuses,
   evaluateControls,
+  type AttestationForEvaluator,
   type ControlEvidence,
   type ControlResultLike,
 } from './control-evaluator.js';
@@ -23,13 +24,15 @@ import { computeConsentGatingRatio } from './consent-gating.js';
 import {
   isScoringV2,
   LEGACY_SCORING_VERSION,
+  SCORING_V2_VERSION,
   scoreScanVersioned,
   scoringVersionForNewScan,
   type ScoreCounts,
   type VersionedScoreInput,
 } from './scoring.engine.js';
 import { isSuppressed } from './suppression.js';
-import type { RepoFacts } from './applicability.js';
+import { factsFrom, type RepoFacts } from './applicability.js';
+import { assessmentEventFields, scanAssessmentUpdate } from './assessment-fields.js';
 import { FeatureFlagsService } from '../feature-flags/feature-flags.service.js';
 
 export interface MapAndScoreResult {
@@ -333,7 +336,12 @@ export class ScanScoringService {
    * Recompute verdicts and score from persisted findings. Triage and rescore
    * both go through here so a status change cannot leave a stale FAIL behind.
    */
-  async scorePersisted(scan: Scan, facts: RepoFacts, tx: Prisma.TransactionClient) {
+  async scorePersisted(
+    scan: Scan,
+    facts: RepoFacts,
+    tx: Prisma.TransactionClient,
+    attestationsByControl?: ReadonlyMap<string, readonly AttestationForEvaluator[]>,
+  ) {
     const scoringVersion = scan.scoringVersion ?? LEGACY_SCORING_VERSION;
     const loaded = isScoringV2(scoringVersion) ? await this.pack.loadV2() : await this.pack.load();
     const inventory = inventoryFromFacts(scan.facts);
@@ -404,6 +412,7 @@ export class ScanScoringService {
         findings: [...evidence, ...inventoryFindings],
         rulePackVersion: loaded.pack,
         scoringVersion,
+        ...(attestationsByControl === undefined ? {} : { attestationsByControl }),
       }).results;
       const ruleIds = await this.ensureRules(loaded);
       await this.persistControlResults(scan, tx, loaded, ruleIds, results, scoringVersion);
@@ -421,6 +430,92 @@ export class ScanScoringService {
     };
     const result = scoreScanVersioned(input);
     return { loaded, result };
+  }
+
+  /**
+   * Attestation writes are repository-scoped and must refresh every completed
+   * v2 scan for that repository. Legacy scans remain untouched, and only the
+   * key/answer/expiry fields reach the scorer — never the human note.
+   */
+  async rescoreRepository(
+    orgId: string,
+    repositoryId: string,
+    tx: Prisma.TransactionClient,
+  ): Promise<void> {
+    const scans = await tx.scan.findMany({
+      where: {
+        orgId,
+        repositoryId,
+        status: 'completed',
+        scoringVersion: SCORING_V2_VERSION,
+      },
+      orderBy: { completedAt: 'desc' },
+    });
+    if (scans.length === 0) return;
+
+    const active = await tx.attestation.findMany({
+      where: {
+        orgId,
+        repositoryId,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+      },
+      orderBy: { key: 'asc' },
+    });
+    const loadedV2 = await this.pack.loadV2();
+    const attestationsByControl = new Map<string, AttestationForEvaluator[]>();
+    for (const row of active) {
+      const value: AttestationForEvaluator = {
+        key: row.key,
+        answer: row.answer,
+        attestedAt: row.attestedAt.toISOString(),
+        expiresAt: row.expiresAt?.toISOString() ?? null,
+      };
+      for (const control of loadedV2.attestationsByKey.get(row.key) ?? []) {
+        const items = attestationsByControl.get(control.code) ?? [];
+        items.push(value);
+        attestationsByControl.set(control.code, items);
+      }
+    }
+
+    for (const scan of scans) {
+      const { result } = await this.scorePersisted(
+        scan,
+        factsFrom(scan.facts),
+        tx,
+        attestationsByControl,
+      );
+      await tx.scan.update({
+        where: { id: scan.id },
+        data: {
+          score: result.score === null ? null : new Prisma.Decimal(result.score),
+          grade: result.grade,
+          sectionScores: result.sectionScores,
+          counts: {
+            critical: result.counts.critical,
+            high: result.counts.high,
+            medium: result.counts.medium,
+            low: result.counts.low,
+            info: result.counts.info,
+            total: result.counts.total,
+          },
+          coverageStatus: result.coverage,
+          ...scanAssessmentUpdate(result),
+        },
+      });
+      await tx.scanEvent.create({
+        data: {
+          scanId: scan.id,
+          orgId,
+          type: 'score_recomputed',
+          payload: {
+            score: result.score,
+            grade: result.grade,
+            coverage: result.coverage,
+            ...assessmentEventFields(result),
+          },
+        },
+      });
+    }
   }
 
   private async persistControlResults(

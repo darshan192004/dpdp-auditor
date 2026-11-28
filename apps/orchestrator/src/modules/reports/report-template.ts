@@ -39,6 +39,8 @@ export interface ReportTemplateModel {
     counts: Record<'critical' | 'high' | 'medium' | 'low' | 'info' | 'total', number>;
     coverage: Record<string, string>;
     coverageStatus: string;
+    evidenceCoverage?: number | null;
+    scannerVersions?: Record<string, string>;
     rulePackVersion: string | null;
     scoringVersion: string | null;
     timestamps: {

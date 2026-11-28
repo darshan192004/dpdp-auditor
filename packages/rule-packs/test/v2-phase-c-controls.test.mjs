@@ -65,6 +65,24 @@ test('Phase C v2 controls are valid and reference only declared detectors', () =
   }
 });
 
+test('Phase D secret evidence rule and Phase E attestation mapping coexist', () => {
+  const controls = controlsFileV2Schema.parse(readYamlResult('controls.yaml'));
+  const secret = controls.controls.find((control) => control.code === 'DPDPA-8.4-SECRET-01');
+
+  assert.ok(secret, 'Phase D secret control must remain in the catalogue');
+  assert.deepEqual(
+    secret.violationRules.map((rule) => rule.detector),
+    ['gitleaks_scan'],
+    'Phase D violation evidence must be preserved',
+  );
+  assert.equal(secret.violationRules[0]?.provenance.search, 'generic-api-key');
+  assert.equal(
+    secret.attestationKey,
+    'secrets.managed_store',
+    'Phase E must map the attestation key onto the existing control',
+  );
+});
+
 function readYamlResult(name) {
   // Read synchronously so every test gets a fresh object and node:test cannot
   // observe an uninitialised module-level cache.

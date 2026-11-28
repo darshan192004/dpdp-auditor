@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
+import RuleDetectorExplainer from '~/components/rules/RuleDetectorExplainer.vue';
 import RuleMappingTable from '~/components/rules/RuleMappingTable.vue';
 import PageHeader from '~/components/shell/PageHeader.vue';
 import ErrorState from '~/components/ui/ErrorState.vue';
 import AppIcon from '~/components/ui/AppIcon.vue';
 import ConfidenceBadge from '~/components/findings/ConfidenceBadge.vue';
 import SeverityBadge from '~/components/findings/SeverityBadge.vue';
+import type { DetectorExplanation } from '~~/shared/detectors';
 import { ruleSectionLabel, ruleWeightLabel, type RuleView } from '~~/shared/rules';
 
 const route = useRoute();
@@ -15,7 +17,11 @@ const code = computed(() => String(route.params.code));
 const { data, status, error, refresh } = await useFetch<{ data: RuleView }>(
   () => `/api/v1/rules/${encodeURIComponent(code.value)}`,
 );
+const { data: detectorData } = await useFetch<{ data: { detectors: DetectorExplanation[] } }>(
+  '/api/v1/rules/detectors',
+);
 
+const detectors = computed(() => detectorData.value?.data?.detectors ?? []);
 const rule = computed<RuleView | null>(() => data.value?.data ?? null);
 const loading = computed(() => status.value === 'pending');
 const isMissing = computed(
@@ -82,6 +88,8 @@ const loadError = computed(() => {
           </div>
           <RuleMappingTable :mappings="rule.mappings" />
         </section>
+
+        <RuleDetectorExplainer :detectors="detectors" />
 
         <section
           aria-labelledby="remediation-heading"

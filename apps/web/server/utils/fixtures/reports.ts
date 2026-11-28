@@ -49,7 +49,7 @@ export function fixtureReportViewModel(scan: ScanDetail) {
     report: {
       id: FIXTURE_REPORT_ID,
       format: 'standard',
-      templateVersion: '1.0.0',
+      templateVersion: '2.0.0',
       createdAt: '2026-11-04T10:05:00.000Z',
     },
     organization: {
@@ -71,19 +71,120 @@ export function fixtureReportViewModel(scan: ScanDetail) {
       counts: scan.counts,
       coverage: scan.coverage,
       coverageStatus: 'full',
+      evidenceCoverage: 0,
       scannerVersions: scan.scannerVersions,
       rulePackVersion: scan.rulePackVersion,
-      scoringVersion: scan.scoringVersion,
+      scoringVersion: 'scoring-2.0.0',
+      assessment: {
+        score: scan.score,
+        evidenceCoverage: 0,
+        openGaps: 1,
+        verdictCounts: { UNKNOWN: 1 },
+        unknownControls: ['DPDPA-9-CHILD-01'],
+        detectorStatuses: {
+          semgrep: 'completed',
+          checkov: 'completed',
+          gitleaks: 'completed',
+        },
+        gradeWithheldReason: 'insufficient_evidence',
+        consentGatingRatio: 0.75,
+      },
       timestamps: scan.timestamps,
     },
     topFindings: [],
     methodology: {
-      scoringVersion: scan.scoringVersion,
+      scoringVersion: 'scoring-2.0.0',
       rulePackVersion: scan.rulePackVersion,
       summary: METHODOLOGY,
     },
     disclaimer: DISCLAIMER,
     generatedAt: '2026-11-04T10:05:06.342Z',
+    scoringVersion: 'scoring-2.0.0',
+    sections: [
+      {
+        id: 'executive_summary',
+        title: 'Executive readiness summary',
+        rows: [
+          {
+            section: 'score',
+            remedy: scan.score === null ? 'Not assessed' : scan.score.toFixed(1),
+          },
+          { section: 'evidence coverage', remedy: '0' },
+          { section: 'open gaps', remedy: '1' },
+        ],
+        table: [
+          {
+            provision: 'DPDP Rules 4',
+            effectiveFrom: '2026-11-13',
+            sourceUrl: 'https://www.meity.gov.in/example.pdf',
+            verifiedOn: '2026-11-26',
+          },
+        ],
+      },
+      {
+        id: 'gaps_by_section',
+        title: 'Gaps grouped by section',
+        groups: [
+          {
+            section: '8(4)',
+            rows: [
+              {
+                controlCode: 'DPDPA-8.4-ENC-01',
+                verdict: 'FAIL',
+                reasonCode: 'gap_evidence',
+              },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'evidence_of_safeguards',
+        title: 'Evidence of safeguards',
+        rows: [],
+      },
+      {
+        id: 'could_not_determine',
+        title: 'Could not determine',
+        rows: [
+          {
+            controlCode: 'DPDPA-9-CHILD-01',
+            section: '9',
+            reasonCode: 'detector_unavailable',
+          },
+        ],
+      },
+      {
+        id: 'data_inventory_summary',
+        title: 'Data inventory summary',
+        text: '1 bounded signal at inventory-1.0.0; consent gating 0.75.',
+      },
+      {
+        id: 'fix_plan',
+        title: 'Fix plan',
+        rows: [
+          {
+            controlCode: 'DPDPA-8.4-ENC-01',
+            section: '8(4)',
+            remedy: 'Use a managed credential store.',
+          },
+        ],
+      },
+      {
+        id: 'methodology',
+        title: 'Methodology and provenance',
+        text: 'Detector versions: {"semgrep":"1.95.0"}. Searches: dpdp act section 8(4) safeguards.',
+      },
+      {
+        id: 'limitations',
+        title: 'Limitations',
+        text: 'Repository evidence cannot establish notices, consents, contracts, or processing purposes. Unavailable detectors remain unknown.',
+      },
+      {
+        id: 'disclaimer',
+        title: 'Disclaimer',
+        text: DISCLAIMER,
+      },
+    ],
   };
 }
 

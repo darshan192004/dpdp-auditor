@@ -24,5 +24,8 @@ expectedVerdicts:
   - controlCode: DPDPA-8.4-BACKUP-01
     verdict: PASS
     reasonCode: positive_evidence
+  - controlCode: DPDPA-8.4-SECRET-01
+    verdict: UNKNOWN
+    reasonCode: no_determinable_evidence
 tolerances:
   extraFindings: 0

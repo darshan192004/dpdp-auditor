@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ENV, type Env } from '../../config/env.js';
 import { loadRulePack, type LoadedRulePack } from './rule-pack.loader.js';
-import { loadRulePackV2 } from './rule-pack-v2.loader.js';
+import { loadRulePackV2, type LoadedRulePackV2 } from './rule-pack-v2.loader.js';
 
 /**
  * P4-02. The pack is loaded once and cached. `onModuleInit` awaits the load so
@@ -13,7 +13,7 @@ import { loadRulePackV2 } from './rule-pack-v2.loader.js';
 @Injectable()
 export class RulePackService implements OnModuleInit {
   private cached: Promise<LoadedRulePack> | undefined;
-  private cachedV2: Promise<LoadedRulePack> | undefined;
+  private cachedV2: Promise<LoadedRulePackV2> | undefined;
 
   constructor(@Inject(ENV) private readonly env: Env) {}
 
@@ -26,7 +26,7 @@ export class RulePackService implements OnModuleInit {
     return this.cached;
   }
 
-  loadV2(): Promise<LoadedRulePack> {
+  loadV2(): Promise<LoadedRulePackV2> {
     this.cachedV2 ??= loadRulePackV2(join(this.dir(), 'v2'));
     return this.cachedV2;
   }

@@ -56,6 +56,13 @@ export interface ControlResultLike {
   scoringVersion: string;
 }
 
+export interface AttestationForEvaluator {
+  key: string;
+  answer: boolean;
+  attestedAt: string | Date;
+  expiresAt?: string | Date | null;
+}
+
 export interface ControlEvaluatorInput {
   controls: readonly Control[];
   facts: RepoFacts;
@@ -64,6 +71,7 @@ export interface ControlEvaluatorInput {
   findings: readonly EvidenceLike[];
   rulePackVersion: string;
   scoringVersion: string;
+  attestationsByControl?: ReadonlyMap<string, readonly AttestationForEvaluator[]>;
 }
 
 export interface ControlEvaluation {
@@ -181,7 +189,23 @@ function evaluateOne(control: Control, input: ControlEvaluatorInput): ControlRes
     citedFromCompleted.some((finding) => finding.confidence === 'direct') ||
     completedScanners.size >= 2;
 
+  const attested = input.attestationsByControl?.get(control.code) ?? [];
+  const usableAttestation = attested.find((item) => {
+    if (item.expiresAt === null || item.expiresAt === undefined) return true;
+    const expires = new Date(item.expiresAt).getTime();
+    return Number.isFinite(expires) && expires > Date.now();
+  });
+
   if (unavailable.length > 0 && !determinativeFromCompleted) {
+    if (usableAttestation !== undefined) {
+      return {
+        ...base,
+        verdict: usableAttestation.answer ? 'ATTESTED_PASS' : 'ATTESTED_FAIL',
+        reasonCode: usableAttestation.answer ? 'attested_pass' : 'attested_fail',
+        confidence: null,
+        evidence: [],
+      };
+    }
     return {
       ...base,
       verdict: 'UNKNOWN',
@@ -221,6 +245,16 @@ function evaluateOne(control: Control, input: ControlEvaluatorInput): ControlRes
       reasonCode: direct ? 'positive_evidence' : 'weak_positive_evidence',
       confidence: grouped.corroborated ? 'direct' : (positives[0]?.confidence ?? 'inferred'),
       evidence: positives.map(toEvidenceReference),
+    };
+  }
+
+  if (usableAttestation !== undefined) {
+    return {
+      ...base,
+      verdict: usableAttestation.answer ? 'ATTESTED_PASS' : 'ATTESTED_FAIL',
+      reasonCode: usableAttestation.answer ? 'attested_pass' : 'attested_fail',
+      confidence: null,
+      evidence: [],
     };
   }
 

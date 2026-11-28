@@ -90,6 +90,8 @@ export function buildReportViewModel(source: ReportSource) {
       counts: scan.counts,
       coverage: scan.coverage,
       coverageStatus: scan.coverageStatus,
+      evidenceCoverage:
+        scan.evidenceCoverage === null ? null : Number(scan.evidenceCoverage?.toString() ?? 0),
       scannerVersions: scan.scannerVersions,
       rulePackVersion: scan.rulePackVersion,
       scoringVersion: scan.scoringVersion,

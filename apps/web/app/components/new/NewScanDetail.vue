@@ -45,6 +45,16 @@ const sections = computed(() =>
 const paletteOpen = ref(false);
 const legacy = computed(() => props.scan?.scoringVersion === '1.0.0');
 const assessment = computed(() => props.scan?.assessment ?? null);
+const attestedCount = computed(() => {
+  const counts = assessment.value?.verdictCounts;
+  if (counts === undefined || counts === null) return 0;
+  return (counts.ATTESTED_PASS ?? 0) + (counts.ATTESTED_FAIL ?? 0);
+});
+const unavailableDetectors = computed(() =>
+  Object.entries(assessment.value?.detectorStatuses ?? {})
+    .filter(([, status]) => status !== 'completed')
+    .map(([detector]) => detector),
+);
 const gradeReason = computed(() => assessment.value?.gradeWithheldReason ?? null);
 const gradeWithheld = computed(
   () => gradeReason.value === 'partial_coverage' || gradeReason.value === 'insufficient_evidence',
@@ -159,6 +169,36 @@ async function openReport(): Promise<void> {
             class="border-ink-300 rounded-[var(--radius-control)] border px-3 py-1.5 text-sm"
           >
             Remediation
+          </NuxtLink>
+          <NuxtLink
+            :to="`/app/readiness/attestations?repoId=${scan.repository.id}`"
+            class="border-ink-300 rounded-[var(--radius-control)] border px-3 py-1.5 text-sm"
+          >
+            Attestations
+          </NuxtLink>
+          <NuxtLink
+            :to="`/app/readiness/inventory?scanId=${scan.id}`"
+            class="border-ink-300 rounded-[var(--radius-control)] border px-3 py-1.5 text-sm"
+          >
+            Data Inventory
+          </NuxtLink>
+          <NuxtLink
+            :to="`/app/readiness/gaps?scanId=${scan.id}`"
+            class="border-ink-300 rounded-[var(--radius-control)] border px-3 py-1.5 text-sm"
+          >
+            Compliance Gaps
+          </NuxtLink>
+          <NuxtLink
+            :to="`/app/readiness/fix-plan?scanId=${scan.id}`"
+            class="border-ink-300 rounded-[var(--radius-control)] border px-3 py-1.5 text-sm"
+          >
+            Fix Plan
+          </NuxtLink>
+          <NuxtLink
+            :to="`/app/readiness/exports?scanId=${scan.id}`"
+            class="border-ink-300 rounded-[var(--radius-control)] border px-3 py-1.5 text-sm"
+          >
+            Exports
           </NuxtLink>
           <button
             type="button"
@@ -284,6 +324,21 @@ async function openReport(): Promise<void> {
           :caption="consentCaption"
           test-id="consent-gating-tile"
         />
+        <MetricTile
+          v-if="attestedCount > 0"
+          label="Attested statements"
+          :value="String(attestedCount)"
+          caption="Human statements; not code evidence"
+          test-id="attested-statements-tile"
+        />
+        <MetricTile
+          v-if="unavailableDetectors.length > 0"
+          label="Detectors unavailable"
+          :value="String(unavailableDetectors.length)"
+          :caption="`${unavailableDetectors.join(', ')} — outcome not determined`"
+          tone="warning"
+          test-id="detectors-unavailable-tile"
+        />
       </div>
 
       <ScrollReveal>
@@ -324,6 +379,31 @@ async function openReport(): Promise<void> {
           { id: 'findings', label: 'Findings', href: `/app/scans/${scan.id}/findings` },
           { id: 'coverage', label: 'Coverage', href: `/app/scans/${scan.id}/coverage` },
           { id: 'remediation', label: 'Remediation', href: `/app/scans/${scan.id}/remediation` },
+          {
+            id: 'attestations',
+            label: 'Attestations',
+            href: `/app/readiness/attestations?repoId=${scan.repository.id}`,
+          },
+          {
+            id: 'inventory',
+            label: 'Data Inventory',
+            href: `/app/readiness/inventory?scanId=${scan.id}`,
+          },
+          {
+            id: 'gaps',
+            label: 'Compliance Gaps',
+            href: `/app/readiness/gaps?scanId=${scan.id}`,
+          },
+          {
+            id: 'fix-plan',
+            label: 'Fix Plan',
+            href: `/app/readiness/fix-plan?scanId=${scan.id}`,
+          },
+          {
+            id: 'exports',
+            label: 'Exports',
+            href: `/app/readiness/exports?scanId=${scan.id}`,
+          },
           { id: 'rules', label: 'Rules', href: '/app/rules' },
         ]"
         @navigate="onPaletteNavigate"

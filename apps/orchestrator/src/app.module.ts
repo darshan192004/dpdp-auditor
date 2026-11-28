@@ -17,6 +17,9 @@ import { FeatureFlagsModule } from './modules/feature-flags/feature-flags.module
 import { FindingsModule } from './modules/findings/findings.module.js';
 import { RulesModule } from './modules/rules/rules.module.js';
 import { ReportsModule } from './modules/reports/reports.module.js';
+import { AttestationsModule } from './modules/attestations/attestations.module.js';
+import { ReadinessModule } from './modules/readiness/readiness.module.js';
+import { ExportsModule } from './modules/exports/exports.module.js';
 
 @Module({})
 export class AppModule {
@@ -37,6 +40,9 @@ export class AppModule {
         ReposModule,
         InvitesModule,
         ScansModule,
+        AttestationsModule,
+        ReadinessModule,
+        ExportsModule,
         RulePackModule,
         FindingsModule,
         RulesModule,

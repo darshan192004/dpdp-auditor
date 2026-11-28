@@ -19,4 +19,12 @@ describe('breadcrumbsFor', () => {
     expect(breadcrumbsFor('/app/scans/scan-1/coverage').at(-1)).toEqual({ label: 'Coverage' });
     expect(breadcrumbsFor('/app/remediation').at(-1)).toEqual({ label: 'Remediation' });
   });
+
+  it('maps readiness routes to labelled crumbs', () => {
+    expect(breadcrumbsFor('/app/readiness/gaps')).toEqual([
+      { label: 'Overview', to: '/app' },
+      { label: 'Readiness', to: '/app/readiness/inventory' },
+      { label: 'Compliance Gaps' },
+    ]);
+  });
 });
