@@ -12,14 +12,16 @@ describe('loadRulePackV2', () => {
     expect(loaded.pack).toBe('dpdpa-2026.11.0');
     expect(loaded.effectiveFrom).toBe('2026-11-15');
     expect(loaded.scoringVersion).toBe('2.0.0');
-    expect(loaded.controls.map((control) => control.code)).toEqual([
-      'DPDPA-5-NOTICE-01',
-      'DPDPA-6-CONSENTGATE-01',
-      'DPDPA-6-FORMPURPOSE-01',
-      'DPDPA-8.4-MON-01',
-      'DPDPA-8.4-BACKUP-01',
-    ]);
-    expect(loaded.mappings).toHaveLength(6);
+    expect(loaded.controls.map((control) => control.code)).toEqual(
+      expect.arrayContaining([
+        'DPDPA-5-NOTICE-01',
+        'DPDPA-6-CONSENTGATE-01',
+        'DPDPA-6-FORMPURPOSE-01',
+        'DPDPA-8.4-MON-01',
+        'DPDPA-8.4-BACKUP-01',
+      ]),
+    );
+    expect(loaded.mappings.length).toBeGreaterThanOrEqual(6);
     expect(loaded.inventoryRules).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

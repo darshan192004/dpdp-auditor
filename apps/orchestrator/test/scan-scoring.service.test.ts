@@ -713,6 +713,61 @@ describe('ScanScoringService (P4-06, P4-10, P4-11)', () => {
       ),
     ).toBe(true);
   });
+
+  it('computes the consent-gating ratio from Phase C inventory evidence', async () => {
+    const harness = make();
+    harness.flags.isEnabled.mockImplementation((flag: string) => flag === 'dpdpa_readiness_v2');
+    const inventory: InventoryReportLike = {
+      inventoryVersion: 'inventory-1.0.0',
+      facts: [
+        {
+          key: 'form_scan',
+          signals: [
+            {
+              detector: 'form_scan',
+              kind: 'field',
+              path: 'src/signup.ts',
+              line: 4,
+              token: 'email',
+            },
+            {
+              detector: 'form_scan',
+              kind: 'field',
+              path: 'src/contact.ts',
+              line: 8,
+              token: 'email',
+            },
+          ],
+          detectedAt: '2026-11-27T00:00:00Z',
+        },
+        {
+          key: 'cmp_scan',
+          signals: [
+            {
+              detector: 'cmp_scan',
+              kind: 'config',
+              path: 'src/signup.ts',
+              line: 2,
+              token: 'consent_gate',
+            },
+          ],
+          detectedAt: '2026-11-27T00:00:00Z',
+        },
+      ],
+      signals: [],
+      detectorStatuses: { form_scan: 'completed', cmp_scan: 'completed' },
+    };
+
+    const scored = await harness.service.mapAndScore(
+      scan({ coverage: {} }),
+      FACTS,
+      {},
+      harness.tx as unknown as Prisma.TransactionClient,
+      inventory,
+    );
+
+    expect(scored.consentGatingRatio).toBe(0.5);
+  });
 });
 
 describe('coverageFor', () => {

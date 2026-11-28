@@ -157,6 +157,7 @@ function make(options?: { scan?: Scan | null; repo?: Repository | null; org?: ty
       unknownControls: [],
       openGaps: 0,
       gradeWithheldReason: null,
+      consentGatingRatio: null,
       findings: {
         mapped: 0,
         unmapped: 0,
@@ -835,6 +836,7 @@ describe('ScansService.complete', () => {
       unknownControls: [],
       openGaps: 1,
       gradeWithheldReason: 'insufficient_evidence',
+      consentGatingRatio: null,
       findings: {
         mapped: 1,
         unmapped: 0,

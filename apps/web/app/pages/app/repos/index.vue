@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 
 import PageHeader from '~/components/shell/PageHeader.vue';
 import EmptyState from '~/components/ui/EmptyState.vue';
@@ -37,6 +37,11 @@ const resolved = ref<ResolvedRepoView | null>(null);
 const pending = ref(false);
 const actionError = ref<string | null>(null);
 const notice = ref<string | null>(null);
+const urlError = ref<string | null>(null);
+const urlInput = ref<HTMLInputElement | null>(null);
+const urlDescribedBy = computed(() =>
+  urlError.value ? 'repo-url-help repo-url-error' : 'repo-url-help',
+);
 
 function messageFrom(cause: unknown): string {
   const message = (cause as { data?: { error?: { message?: unknown } } }).data?.error?.message;
@@ -48,10 +53,27 @@ function resetForm(): void {
   form.url = '';
   resolved.value = null;
   actionError.value = null;
+  urlError.value = null;
 }
+
+function showUrlError(cause: unknown): void {
+  urlError.value =
+    cause instanceof RepoInputError ? cause.message : 'Enter a valid GitHub repository URL.';
+  urlInput.value?.focus();
+}
+
+watch(
+  () => form.url,
+  () => {
+    urlError.value = null;
+    resolved.value = null;
+    actionError.value = null;
+  },
+);
 
 async function resolveUrl(): Promise<void> {
   actionError.value = null;
+  urlError.value = null;
   notice.value = null;
   resolved.value = null;
 
@@ -59,8 +81,7 @@ async function resolveUrl(): Promise<void> {
   try {
     body = validateResolveInput({ githubUrl: form.url });
   } catch (cause) {
-    actionError.value =
-      cause instanceof RepoInputError ? cause.message : 'Enter a valid GitHub repository URL.';
+    showUrlError(cause);
     return;
   }
 
@@ -80,13 +101,13 @@ async function resolveUrl(): Promise<void> {
 
 async function saveRepo(): Promise<void> {
   actionError.value = null;
+  urlError.value = null;
 
   let body: { githubUrl: string };
   try {
     body = validateSaveInput({ githubUrl: form.url });
   } catch (cause) {
-    actionError.value =
-      cause instanceof RepoInputError ? cause.message : 'Enter a valid GitHub repository URL.';
+    showUrlError(cause);
     return;
   }
 
@@ -160,6 +181,7 @@ function formatSize(bytes: number): string {
           <div class="flex flex-col gap-2 sm:flex-row">
             <input
               id="repo-url"
+              ref="urlInput"
               v-model="form.url"
               name="githubUrl"
               type="url"
@@ -167,6 +189,8 @@ function formatSize(bytes: number): string {
               autocomplete="off"
               placeholder="https://github.com/acme/payments-service"
               :disabled="pending"
+              :aria-describedby="urlDescribedBy"
+              :aria-invalid="urlError ? 'true' : undefined"
               class="border-ink-200 text-ink-900 placeholder:text-ink-400 focus-visible:ring-brand-500 disabled:bg-ink-100 bg-surface w-full rounded-[var(--radius-control)] border px-3 py-2 font-mono text-sm focus-visible:ring-2 focus-visible:outline-none"
             />
             <button
@@ -177,6 +201,17 @@ function formatSize(bytes: number): string {
               {{ pending ? 'Checking…' : 'Preview' }}
             </button>
           </div>
+          <p id="repo-url-help" class="text-ink-500 mt-1 text-xs">
+            Public GitHub repositories only.
+          </p>
+          <p
+            v-if="urlError"
+            id="repo-url-error"
+            role="alert"
+            class="text-risk-critical-text mt-1 text-xs"
+          >
+            {{ urlError }}
+          </p>
         </div>
 
         <dl

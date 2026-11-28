@@ -6,12 +6,12 @@ import { createHash } from 'node:crypto';
  */
 export const FINGERPRINT_VERSION = 1;
 
-/** Control catalogue code format: `DPDPA-<section>-<domain>-<sequence>` (rules.md §4). */
-export const CONTROL_CODE_PATTERN = /^DPDPA-[0-9]+(?:\.[0-9]+)?-[A-Z0-9]+-[0-9]+$/;
+/** Control catalogue code format: `DPDPA-<section>-<domain segments>-<sequence>` (rules.md §4). */
+export const CONTROL_CODE_PATTERN = /^DPDPA-[0-9]+(?:\.[0-9]+)?(?:-[A-Z0-9]+)+-[0-9]+$/;
 
 /** A stored fingerprint: `fpt_<sha256 hex>` with an optional `:controlCode` fan-out suffix. */
 export const FINGERPRINT_PATTERN =
-  /^fpt_[0-9a-f]{64}(?::DPDPA-[0-9]+(?:\.[0-9]+)?-[A-Z0-9]+-[0-9]+)?$/;
+  /^fpt_[0-9a-f]{64}(?::DPDPA-[0-9]+(?:\.[0-9]+)?(?:-[A-Z0-9]+)+-[0-9]+)?$/;
 
 export interface FingerprintInput {
   scanner: string;

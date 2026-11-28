@@ -1,3 +1,11 @@
 version: 1
 pack: dpdpa-2026.11.0
-entries: []
+entries:
+  - key: strict-transport-security
+    label: HTTP Strict Transport Security response header
+  - key: content-security-policy
+    label: Content Security Policy response header
+  - key: x-content-type-options
+    label: X-Content-Type-Options response header
+  - key: x-frame-options
+    label: X-Frame-Options response header

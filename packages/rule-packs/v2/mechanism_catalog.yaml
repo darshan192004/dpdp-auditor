@@ -1,3 +1,11 @@
 version: 1
 pack: dpdpa-2026.11.0
-entries: []
+entries:
+  - key: consent_gate
+    label: Recorded consent gate
+  - key: erase_endpoint
+    label: Erasure or correction endpoint
+  - key: grievance_form
+    label: Grievance submission mechanism
+  - key: audit_log
+    label: Access and audit logging

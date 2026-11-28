@@ -8,6 +8,7 @@
     "test": "node --test test/*.test.mjs",
     "manifest": "node scripts/generate-manifest.mjs",
     "manifest:v2": "node scripts/generate-manifest-v2.mjs",
+    "remediation:v2": "node scripts/generate-remediation-v2.mjs",
     "validate": "node scripts/validate-v2-pack.mjs"
   },
   "dependencies": {

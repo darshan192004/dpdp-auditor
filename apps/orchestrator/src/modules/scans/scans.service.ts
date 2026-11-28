@@ -392,6 +392,10 @@ export class ScansService {
           verdictCounts: scored.verdictCounts,
           unknownControls: scored.unknownControls,
           gradeWithheldReason: scored.gradeWithheldReason,
+          consentGatingRatio:
+            scored.consentGatingRatio === null
+              ? null
+              : new Prisma.Decimal(scored.consentGatingRatio),
           completedAt,
           durationMs: completedAt.getTime() - (scan.startedAt ?? completedAt).getTime(),
         },
@@ -697,7 +701,7 @@ function toAssessment(scan: ScanWithRepository): AssessmentSummary | null {
     ) as AssessmentSummary['detectorStatuses'],
     gradeWithheldReason:
       reason === 'partial_coverage' || reason === 'insufficient_evidence' ? reason : null,
-    consentGatingRatio: null,
+    consentGatingRatio: scan.consentGatingRatio === null ? null : Number(scan.consentGatingRatio),
   };
 }
 

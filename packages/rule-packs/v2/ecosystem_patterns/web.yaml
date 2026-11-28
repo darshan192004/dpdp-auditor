@@ -1,3 +1,9 @@
 version: 1
 pack: dpdpa-2026.11.0
-entries: []
+entries:
+  - key: express.helmet
+    label: Express Helmet security-header middleware
+  - key: next.middleware
+    label: Next.js middleware safeguards
+  - key: vue.composition
+    label: Vue composition API form safeguards

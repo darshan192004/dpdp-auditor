@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, nextTick, reactive, ref, watch } from 'vue';
 
 import type { SavedRepoView } from '~~/shared/repo';
 import {
   createIdempotencyKey,
   quotaExhausted,
   validateScanSubmit,
+  ScanInputError,
   type ScanProfile,
   type ScanSubmitInput,
   type ScanQuota,
@@ -49,7 +50,14 @@ const form = reactive({
   ref: '',
   profile: 'standard' as ScanProfile,
 });
-const error = ref<string | null>(null);
+const errors = reactive<{
+  source?: string | undefined;
+  githubUrl?: string | undefined;
+  ref?: string | undefined;
+  page?: string | undefined;
+}>({});
+const urlInput = ref<HTMLInputElement | null>(null);
+const refInput = ref<HTMLInputElement | null>(null);
 const idempotencyKey = createIdempotencyKey();
 
 const exhausted = computed(() => quotaExhausted(props.quota));
@@ -66,6 +74,18 @@ const selectedRepo = computed(
   () => props.repos.find((repo) => repo.id === form.repositoryId) ?? null,
 );
 
+const urlDescribedBy = computed(() =>
+  [
+    'scan-url-help',
+    errors.githubUrl ? 'scan-url-error' : null,
+    errors.source ? 'scan-source-error' : null,
+  ]
+    .filter((id): id is string => id !== null)
+    .join(' '),
+);
+const repoDescribedBy = computed(() => (errors.source ? 'scan-source-error' : undefined));
+const refDescribedBy = computed(() => (errors.ref ? 'scan-ref-error' : undefined));
+
 watch(selectedRepo, (repo) => {
   form.ref = repo?.defaultBranch ?? '';
   if (repo !== null) form.githubUrl = '';
@@ -73,14 +93,37 @@ watch(selectedRepo, (repo) => {
 
 watch(
   () => form.githubUrl,
-  (url) => {
-    if (url.trim() !== '') form.repositoryId = '';
+  (value) => {
+    errors.githubUrl = undefined;
+    if (value.trim() !== '' || form.repositoryId !== '') errors.source = undefined;
+    if (value.trim() !== '') form.repositoryId = '';
   },
 );
 
+watch(
+  () => form.repositoryId,
+  (value) => {
+    if (value !== '' || form.githubUrl.trim() !== '') errors.source = undefined;
+  },
+);
+
+watch(
+  () => form.ref,
+  () => {
+    errors.ref = undefined;
+  },
+);
+
+function clearErrors(): void {
+  errors.source = undefined;
+  errors.githubUrl = undefined;
+  errors.ref = undefined;
+  errors.page = undefined;
+}
+
 async function submit(): Promise<void> {
   if (disabled.value) return;
-  error.value = null;
+  clearErrors();
   submitting.value = true;
   const raw =
     form.repositoryId === ''
@@ -93,7 +136,24 @@ async function submit(): Promise<void> {
     if (props.submitRequest) await props.submitRequest(payload);
     else emit('submit', payload);
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : 'The scan could not be started.';
+    if (cause instanceof ScanInputError) {
+      if (cause.message === 'Provide exactly one of repositoryId or githubUrl.') {
+        errors.source = 'Choose a saved repository or paste a GitHub URL to start a scan.';
+      } else if (cause.path === 'githubUrl') {
+        errors.githubUrl =
+          'Enter a full GitHub repository URL, such as https://github.com/acme/payments-service.';
+      } else if (cause.path === 'ref') {
+        errors.ref = cause.message;
+      } else {
+        errors.page = cause.message;
+      }
+    } else {
+      errors.page = cause instanceof Error ? cause.message : 'The scan could not be started.';
+    }
+
+    await nextTick();
+    if (errors.source || errors.githubUrl) urlInput.value?.focus();
+    else if (errors.ref) refInput.value?.focus();
   } finally {
     submitting.value = false;
   }
@@ -130,15 +190,26 @@ async function submit(): Promise<void> {
         </label>
         <input
           id="scan-url"
+          ref="urlInput"
           v-model="form.githubUrl"
           name="githubUrl"
           type="url"
           inputmode="url"
           autocomplete="off"
           placeholder="https://github.com/acme/payments-service"
+          :aria-describedby="urlDescribedBy"
+          :aria-invalid="errors.source || errors.githubUrl ? 'true' : undefined"
           class="border-ink-200 text-ink-900 placeholder:text-ink-400 focus-visible:ring-brand-500 bg-surface w-full rounded-[var(--radius-control)] border px-3 py-2 font-mono text-sm focus-visible:ring-2 focus-visible:outline-none"
         />
-        <p class="text-ink-500 mt-1 text-xs">Public GitHub repositories only.</p>
+        <p id="scan-url-help" class="text-ink-500 mt-1 text-xs">Public GitHub repositories only.</p>
+        <p
+          v-if="errors.githubUrl"
+          id="scan-url-error"
+          role="alert"
+          class="text-risk-critical-text mt-1 text-xs"
+        >
+          {{ errors.githubUrl }}
+        </p>
       </div>
 
       <div>
@@ -149,6 +220,8 @@ async function submit(): Promise<void> {
           id="scan-repo"
           v-model="form.repositoryId"
           name="repositoryId"
+          :aria-describedby="repoDescribedBy"
+          :aria-invalid="errors.source ? 'true' : undefined"
           class="border-ink-200 text-ink-900 focus-visible:ring-brand-500 bg-surface w-full rounded-[var(--radius-control)] border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
         >
           <option value="">Paste a URL instead</option>
@@ -156,6 +229,14 @@ async function submit(): Promise<void> {
             {{ repo.fullName }}
           </option>
         </select>
+        <p
+          v-if="errors.source"
+          id="scan-source-error"
+          role="alert"
+          class="text-risk-critical-text mt-1 text-xs"
+        >
+          {{ errors.source }}
+        </p>
       </div>
 
       <div>
@@ -164,13 +245,24 @@ async function submit(): Promise<void> {
         </label>
         <input
           id="scan-ref"
+          ref="refInput"
           v-model="form.ref"
           name="ref"
           type="text"
           autocomplete="off"
           :placeholder="selectedRepo?.defaultBranch ?? 'Default branch'"
+          :aria-describedby="refDescribedBy"
+          :aria-invalid="errors.ref ? 'true' : undefined"
           class="border-ink-200 text-ink-900 placeholder:text-ink-400 focus-visible:ring-brand-500 bg-surface w-full rounded-[var(--radius-control)] border px-3 py-2 font-mono text-sm focus-visible:ring-2 focus-visible:outline-none"
         />
+        <p
+          v-if="errors.ref"
+          id="scan-ref-error"
+          role="alert"
+          class="text-risk-critical-text mt-1 text-xs"
+        >
+          {{ errors.ref }}
+        </p>
       </div>
 
       <fieldset>
@@ -195,11 +287,11 @@ async function submit(): Promise<void> {
       </fieldset>
 
       <p
-        v-if="error"
+        v-if="errors.page"
         role="alert"
         class="bg-risk-critical-bg text-risk-critical-text rounded-[var(--radius-control)] px-3 py-2 text-sm"
       >
-        {{ error }}
+        {{ errors.page }}
       </p>
 
       <button

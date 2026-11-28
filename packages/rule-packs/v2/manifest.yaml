@@ -1,32 +1,44 @@
 version: 1
 pack: dpdpa-2026.11.0
-generatedAt: '2026-11-27T10:46:41.440Z'
+generatedAt: '2026-11-27T11:37:29.302Z'
 files:
   - path: cmp_catalog.yaml
-    sha256: 2dd4d19c10bdbf79ddfaf7899a1e66cb029e18adb7284e88fd5c01e62ae375c7
+    sha256: 0e8b9137b9b161e30099b71067f450e2bfcfcfafededa2079c84569cf8b6b3fc
   - path: commencement.yaml
     sha256: d206ff77653341d8ffc49eaf2d3b8a20aed71f308a871b8eb9587b2501efa162
   - path: controls.yaml
-    sha256: bf08148e4937c55f16b6cf550fcfc50bcddc9d6ddf47f124ae2d4a5cf5e49512
+    sha256: d90d98ea8f69f6acb616fe75443cb0ba5db65c161132c6365190379a6a7d4132
   - path: cookie_catalog.yaml
-    sha256: 2dd4d19c10bdbf79ddfaf7899a1e66cb029e18adb7284e88fd5c01e62ae375c7
+    sha256: 75e9388399117b72968d4736c6ebb40b118dd00b3081217c7659e3b23d54c5dc
   - path: detectors.yaml
-    sha256: 2647403a45b3757bc585593f2d562ba6083cabe91970ea911b977c4701a4710c
+    sha256: e0789bf73f90fbbe549066cd901be3d025247ae9c57567f4e627b0794cb07787
   - path: ecosystem_patterns/web.yaml
-    sha256: 2dd4d19c10bdbf79ddfaf7899a1e66cb029e18adb7284e88fd5c01e62ae375c7
+    sha256: ff1e11fbfe29becb58b8e5f75f25f241ed8bd67c71c2356a545adc542fbfbc29
   - path: field_dictionary.yaml
-    sha256: 198fc22188ef65ea606cfe418408a9b2a49ca63e29dfbc47ad3f0ac079d00a41
+    sha256: aa5777b373a1a8f7c95d6c89bfee362cad0f1f74fa6015b0a835303488d5c0d6
   - path: india-regions.yaml
-    sha256: 2dd4d19c10bdbf79ddfaf7899a1e66cb029e18adb7284e88fd5c01e62ae375c7
+    sha256: a2989dd8691e301ca40ccb9985805e5c49a44237ae3e09ac0a0b20e5d9edbcc2
   - path: mappings/inventory.yaml
-    sha256: 3fde52e0f52fe3855f78858f42406a4558a69270d1e3d58ef692d4a3c4b22803
+    sha256: eae86f1af72d3d0ae90317660c6e7a0020393736b88753febf801b391f16bd2e
   - path: mechanism_catalog.yaml
-    sha256: 2dd4d19c10bdbf79ddfaf7899a1e66cb029e18adb7284e88fd5c01e62ae375c7
+    sha256: 6fa22525a9405e4012195ca462fd4892491f3caef6514632279783d3afc04244
   - path: penalties.yaml
     sha256: 2dd4d19c10bdbf79ddfaf7899a1e66cb029e18adb7284e88fd5c01e62ae375c7
   - path: sdk_catalog.yaml
-    sha256: 2dd4d19c10bdbf79ddfaf7899a1e66cb029e18adb7284e88fd5c01e62ae375c7
+    sha256: 75ada9a70bc8d998927887670bcbeb37a53dd55c93a889f1d13abe5a7146a904
   - path: security_headers.yaml
-    sha256: 2dd4d19c10bdbf79ddfaf7899a1e66cb029e18adb7284e88fd5c01e62ae375c7
+    sha256: 4d45c5a76f17abeccfcaa16e79f951c6c5710dc2be3519ece8ef803ab50b0235
   - path: templates/README.md
     sha256: f988a7237d91e46e341b0b00d14f44a725602ea4d555e98a72ef1145090e459b
+  - path: templates/breach-runbook.md
+    sha256: f688a80df341608db39121dbe25c49e67efeef44e574144da5f8bfcf93767440
+  - path: templates/dsr-sop.md
+    sha256: e5aa19765ed2a251ad1891768b80c8b9aa75f96b72354e6076a3c19f7bf402ae
+  - path: templates/privacy-notice.md
+    sha256: b65479f8b018bf3fc108b477fc8fec078a53675d8a69d8baa7cbe89af9decc67
+  - path: templates/processor-list.md
+    sha256: 36732ff1472ee7f84dc2795de7d275fc8adecc1ad6582ac373060e8136ac41d5
+  - path: templates/remediation.md
+    sha256: 988c5a0d6d55c0fcb09ee2fad96da50c67094ab1f7b0eef7e9364bbe83860267
+  - path: templates/retention-schedule.md
+    sha256: 8ffa9d93b48e220c0c1e6ea8f322cceff9f295152fdcff27812819d5b861fb55

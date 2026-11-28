@@ -19,6 +19,7 @@ import {
   type ControlEvidence,
   type ControlResultLike,
 } from './control-evaluator.js';
+import { computeConsentGatingRatio } from './consent-gating.js';
 import {
   isScoringV2,
   LEGACY_SCORING_VERSION,
@@ -44,6 +45,7 @@ export interface MapAndScoreResult {
   unknownControls: string[];
   openGaps: number;
   gradeWithheldReason: 'partial_coverage' | 'insufficient_evidence' | null;
+  consentGatingRatio: number | null;
   findings: {
     mapped: number;
     unmapped: number;
@@ -245,12 +247,18 @@ export class ScanScoringService {
 
     const coverageMode = coverageFor(coverage);
     const scoringVersion = scoringVersionForNewScan(v2Enabled);
+    const detectorStatuses = {
+      ...buildDetectorStatuses(coverage),
+      ...(inventory?.detectorStatuses ?? {}),
+    };
+    const consentGatingRatio = isScoringV2(scoringVersion)
+      ? computeConsentGatingRatio({
+          facts: { ...facts, inventory: inventory?.facts ?? [] },
+          detectorStatuses,
+        })
+      : null;
     let evaluation: ReturnType<typeof evaluateControls>;
     if (isScoringV2(scoringVersion)) {
-      const detectorStatuses = {
-        ...buildDetectorStatuses(coverage),
-        ...(inventory?.detectorStatuses ?? {}),
-      };
       const inventoryFindings = inventoryEvidence({
         report: inventory,
         rules: loaded.inventoryRules,
@@ -316,6 +324,7 @@ export class ScanScoringService {
       unknownControls: v2?.unknownControls ?? [],
       openGaps: v2?.openGaps ?? 0,
       gradeWithheldReason: v2?.gradeWithheldReason ?? null,
+      consentGatingRatio,
       findings: { ...tally, resolved },
     };
   }
